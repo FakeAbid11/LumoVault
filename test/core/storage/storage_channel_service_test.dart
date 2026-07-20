@@ -48,7 +48,7 @@ class MockTdLibClientForStorage implements TdLibClient {
       );
     }
 
-    if (throwOnCreate && method == 'createNewChannel') {
+    if (throwOnCreate && method == 'createNewSupergroupChat') {
       throw const TdLibException(
         message: 'Channel creation failed',
         code: 'CHANNEL_CREATION_FAILED',
@@ -69,9 +69,9 @@ class MockTdLibClientForStorage implements TdLibClient {
           'is_channel': true,
         },
       },
-      'createNewChannel' => {
-        'chat': {'id': 999, 'title': params?['title']},
-      },
+      // createNewSupergroupChat returns the new chat directly, so its id is
+      // at the top level of the response (not nested under a 'chat' key).
+      'createNewSupergroupChat' => {'id': 999, 'title': params?['title']},
       _ => {'@type': 'ok'},
     };
   }
@@ -184,12 +184,11 @@ void main() {
         await service.findOrCreateChannel();
 
         final createRequest = mockClient.sentRequests.firstWhere(
-          (r) => r['method'] == 'createNewChannel',
+          (r) => r['method'] == 'createNewSupergroupChat',
         );
 
         expect(createRequest['params']['title'], 'LumoVault Backup');
         expect(createRequest['params']['is_channel'], true);
-        expect(createRequest['params']['can_add_members'], false);
       });
 
       test('archives channel after creation', () async {

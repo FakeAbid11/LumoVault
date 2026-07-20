@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 
 import '../tdlib/tdlib_client.dart';
 import '../tdlib/tdlib_config.dart';
@@ -119,10 +120,31 @@ class StorageChannelService {
   /// Returns the channel ID if found, null otherwise.
   Future<int?> _searchExistingChannel() async {
     try {
-      // Get list of user's chats/channels.
+      // TDLib only returns chats that are already loaded into memory, so ask
+      // it to load the main list first. Without this, a freshly-started
+      // client reports an empty chat list and we'd wrongly conclude no
+      // storage channel exists and create a duplicate.
+      try {
+        await _client.sendRequest(
+          method: 'loadChats',
+          params: {
+            'chat_list': {'@type': 'chatListMain'},
+            'limit': 100,
+          },
+        );
+      } catch (_) {
+        // 404 here just means "all chats already loaded" — safe to ignore.
+      }
+
+      // Get list of user's chats/channels. `getChats` takes a chat_list and a
+      // limit (the old 'chat_filter_id' param isn't valid and made TDLib
+      // reject the request, so the search silently found nothing).
       final result = await _client.sendRequest(
         method: 'getChats',
-        params: {'chat_filter_id': 0, 'limit': 100},
+        params: {
+          'chat_list': {'@type': 'chatListMain'},
+          'limit': 100,
+        },
       );
 
       final chatIds = (result['chat_ids'] as List<dynamic>?) ?? [];
@@ -164,30 +186,32 @@ class StorageChannelService {
   /// - Channel type: Private (no invite links)
   /// - Description: Contains app manifest JSON
   Future<int> _createStorageChannel() async {
+    // The correct TDLib method is `createNewSupergroupChat` with
+    // `is_channel: true` — there is NO `createNewChannel` method, so the old
+    // call errored out on every attempt and no channel was ever created.
+    // TDLib also rejects requests carrying unknown params, so only the
+    // documented fields are sent here.
     final result = await _client.sendRequest(
-      method: 'createNewChannel',
+      method: 'createNewSupergroupChat',
       params: {
         'title': TdLibConfig.storageChannelName,
-        'description': TdLibConfig.storageChannelDescription,
         'is_channel': true,
-        'is_broadcast_group': false,
-        'is_forbidden': false,
-        'is_megagroup': false,
-        'can_add_members': false,
-        'can_invite_users': false,
-        'can_pin_messages': false,
-        'can_publish_messages': false,
-        'can_update_stories': false,
-        'is_statistics_visible': false,
+        'description': TdLibConfig.storageChannelDescription,
+        'message_auto_delete_time': 0,
+        'for_import': false,
       },
     );
 
-    // Extract channel ID from the response.
-    // TDLib returns the new chat in the response.
-    final chat = result['chat'] as Map<String, dynamic>?;
-    final chatId = chat?['id'] as int?;
+    // `createNewSupergroupChat` returns a `chat` object directly, so the id
+    // is on the top-level response — not nested under a 'chat' key as the
+    // old code assumed (which would have thrown even on success).
+    final chatId = result['id'] as int?;
 
     if (chatId == null) {
+      debugPrint(
+        '[StorageChannelService] createNewSupergroupChat returned no chat '
+        'id. Response @type=${result['@type']}',
+      );
       throw const TdLibException(
         message: 'Failed to extract channel ID from creation response',
         code: 'CHANNEL_CREATION_FAILED',

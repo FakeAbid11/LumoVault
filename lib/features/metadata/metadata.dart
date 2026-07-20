@@ -1,0 +1,9 @@
+export 'data/models/metadata_models.dart';
+export 'data/repositories/metadata_repository.dart';
+export 'data/repositories/manifest_service.dart';
+export 'data/repositories/partition_service.dart';
+export 'data/repositories/search_index_service.dart';
+export 'data/repositories/sync_service.dart';
+export 'data/repositories/conflict_resolver.dart';
+export 'data/repositories/migration_service.dart';
+export 'presentation/providers/metadata_providers.dart';

@@ -85,7 +85,10 @@ class TelegramUploadService implements UploadService {
         fileSize: task.fileSize,
       );
 
-      // Send file to TDLib.
+      // Send file to TDLib. The returned message is a *provisional* one with
+      // a temporary id (`sending_state` is still pending); the real upload
+      // happens asynchronously and is reported via updates. So we start
+      // listening BEFORE we act on the send result.
       final result = await _client.sendRequest(
         method: 'sendMessage',
         params: {
@@ -102,18 +105,29 @@ class TelegramUploadService implements UploadService {
         },
       );
 
-      // Monitor upload progress via TDLib updates.
-      await _monitorUploadProgress(task.id, task.fileSize, cancelCompleter);
+      // The temporary message id we need to correlate the async
+      // send-succeeded/send-failed updates back to this upload.
+      final temporaryMessageId = result['id'] as int? ?? 0;
+      final document = result['content']?['document'] as Map<String, dynamic>?;
+      final sentFileId = document?['document']?['id'] as int?;
 
-      // Extract message ID and file ID from response.
-      final messageId = result['id'] as int? ?? 0;
-      final document = result['document'] as Map<String, dynamic>?;
-      final fileId = document?['document']?['id'] as int? ?? 0;
+      // Wait for TDLib to actually finish (or fail) the upload, emitting
+      // real progress along the way. This replaces the old code, which
+      // awaited a completer nothing ever completed on success (so it hung
+      // forever) and listened for a non-existent 'updateFileProgress' type
+      // (so progress never moved off 0%).
+      final finalMessageId = await _awaitUploadCompletion(
+        taskId: task.id,
+        temporaryMessageId: temporaryMessageId,
+        fileId: sentFileId,
+        totalBytes: task.fileSize,
+        cancelCompleter: cancelCompleter,
+      );
 
       return UploadResult(
         taskId: task.id,
-        messageId: messageId,
-        fileId: fileId,
+        messageId: finalMessageId,
+        fileId: sentFileId ?? 0,
       );
     } on TdLibException catch (e) {
       throw TransferError.fromTdLibError(e.code, e.message);
@@ -131,21 +145,38 @@ class TelegramUploadService implements UploadService {
     _activeUploads.remove(taskId);
   }
 
-  /// Monitor upload progress by listening to TDLib updates.
-  Future<void> _monitorUploadProgress(
-    String taskId,
-    int totalBytes,
-    Completer<void> cancelCompleter,
-  ) async {
-    final subscription = _client.updates.listen((update) {
-      final updateType = update['@type'] as String?;
-      if (updateType == 'updateFileProgress') {
-        final file = update['file'] as Map<String, dynamic>?;
-        final fileId = file?['id'] as int?;
-        final remote = file?['remote'] as Map<String, dynamic>?;
-        final uploadedSize = remote?['uploaded_size'] as int? ?? 0;
+  /// Overall ceiling for a single upload. A transfer that reports no
+  /// terminal update within this window is treated as stalled and failed,
+  /// so the queue can retry it instead of hanging indefinitely.
+  static const _uploadTimeout = Duration(minutes: 30);
 
-        if (fileId != null) {
+  /// Listen to TDLib updates until the send for [temporaryMessageId]
+  /// succeeds or fails, emitting [UploadProgress] from `updateFile` events
+  /// for [fileId] along the way. Resolves to the *permanent* message id on
+  /// success. Honors cancellation via [cancelCompleter] and an overall
+  /// [_uploadTimeout].
+  Future<int> _awaitUploadCompletion({
+    required String taskId,
+    required int temporaryMessageId,
+    required int? fileId,
+    required int totalBytes,
+    required Completer<void> cancelCompleter,
+  }) async {
+    final completer = Completer<int>();
+
+    late final StreamSubscription<Map<String, dynamic>> subscription;
+    subscription = _client.updates.listen((update) {
+      if (completer.isCompleted) return;
+      final type = update['@type'] as String?;
+
+      switch (type) {
+        // Progress for the file being uploaded.
+        case 'updateFile':
+          final file = update['file'] as Map<String, dynamic>?;
+          if (file == null) return;
+          if (fileId != null && file['id'] != fileId) return;
+          final remote = file['remote'] as Map<String, dynamic>?;
+          final uploadedSize = remote?['uploaded_size'] as int? ?? 0;
           final progress = totalBytes > 0 ? uploadedSize / totalBytes : 0.0;
           _progressController.add(
             UploadProgress(
@@ -155,12 +186,67 @@ class TelegramUploadService implements UploadService {
               totalBytes: totalBytes,
             ),
           );
-        }
+
+        // The upload finished and the message was persisted server-side.
+        case 'updateMessageSendSucceeded':
+          final oldId = update['old_message_id'] as int?;
+          if (oldId != temporaryMessageId) return;
+          final message = update['message'] as Map<String, dynamic>?;
+          final newId = message?['id'] as int? ?? temporaryMessageId;
+          // Emit a final 100% so the UI settles on complete.
+          _progressController.add(
+            UploadProgress(
+              taskId: taskId,
+              progress: 1.0,
+              bytesUploaded: totalBytes,
+              totalBytes: totalBytes,
+            ),
+          );
+          if (!completer.isCompleted) completer.complete(newId);
+
+        // The send failed; surface it as a retryable transfer error.
+        case 'updateMessageSendFailed':
+          final oldId = update['old_message_id'] as int?;
+          if (oldId != temporaryMessageId) return;
+          final error = update['error'] as Map<String, dynamic>?;
+          final code = error?['code']?.toString() ?? 'UNKNOWN';
+          final messageText = error?['message'] as String? ?? 'Upload failed';
+          if (!completer.isCompleted) {
+            completer.completeError(
+              TransferError.fromTdLibError(code, messageText),
+            );
+          }
       }
     });
 
-    // Wait for cancellation or completion.
-    await cancelCompleter.future;
-    await subscription.cancel();
+    // Cancellation from cancelUpload() -> treat as a cancelled transfer.
+    unawaited(
+      cancelCompleter.future.then((_) {
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TransferError(
+              category: TransferErrorCategory.unknown,
+              message: 'Upload cancelled',
+              occurredAt: DateTime.now(),
+            ),
+          );
+        }
+      }),
+    );
+
+    try {
+      return await completer.future.timeout(
+        _uploadTimeout,
+        onTimeout: () => throw TransferError(
+          category: TransferErrorCategory.network,
+          message: 'Upload timed out after ${_uploadTimeout.inMinutes} min',
+          detail: 'TIMEOUT',
+          retryable: true,
+          occurredAt: DateTime.now(),
+        ),
+      );
+    } finally {
+      await subscription.cancel();
+    }
   }
 }

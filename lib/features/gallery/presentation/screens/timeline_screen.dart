@@ -352,7 +352,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       if (item != null) backupNotifier.enqueueSelectedItem(item);
     }
 
-
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${ids.length} selected for backup')),

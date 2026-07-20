@@ -255,7 +255,6 @@ class BackupEngine {
     _updateStats();
   }
 
-
   /// Clear finished tasks from the queue.
   void clearFinished() {
     _queue.clearFinished();

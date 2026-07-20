@@ -7,7 +7,6 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 
-
 /// Full-screen photo/video viewer.
 ///
 /// Was a stub before — no image, no swiping, every action a no-op. This

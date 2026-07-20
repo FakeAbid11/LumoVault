@@ -200,7 +200,6 @@ class UploadQueue {
     }
   }
 
-
   /// Clear completed and failed tasks.
   void clearFinished() {
     final toRemove = _queue

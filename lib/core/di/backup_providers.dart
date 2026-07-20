@@ -283,7 +283,6 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
     _engine.dequeueSelectedItem(mediaItemId);
   }
 
-
   void clearFinished() {
     _engine.clearFinished();
   }

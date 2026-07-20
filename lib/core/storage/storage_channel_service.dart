@@ -9,7 +9,6 @@ import '../tdlib/tdlib_client.dart';
 import '../tdlib/tdlib_config.dart';
 import '../tdlib/tdlib_exception.dart';
 
-
 /// Result of storage channel detection or creation.
 sealed class StorageChannelResult {
   const StorageChannelResult();
@@ -119,7 +118,6 @@ class StorageChannelService {
   /// Per PRD Section 10.2, search user's channels for "LumoVault Backup".
   /// Returns the channel ID if found, null otherwise.
   Future<int?> _searchExistingChannel() async {
-
     try {
       // Get list of user's chats/channels.
       final result = await _client.sendRequest(
@@ -294,7 +292,6 @@ class StorageChannelService {
     final digest = sha256.convert(utf8.encode('lumovault:$rawId'));
     return digest.toString();
   }
-
 
   /// Set the cached channel ID (e.g., from local storage).
   void setCachedChannelId(int channelId) {

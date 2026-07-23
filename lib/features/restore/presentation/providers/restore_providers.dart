@@ -130,6 +130,6 @@ final shouldShowRestoreProvider = FutureProvider<bool>((ref) async {
 
 /// Download service provider (from transfer_providers).
 final downloadServiceProvider = Provider<DownloadService>((ref) {
-  final client = ref.watch(tdLibClientProvider);
-  return TelegramDownloadService(client: client);
+  final manager = ref.watch(tdLibConnectionManagerProvider);
+  return TelegramDownloadService(manager: manager);
 });

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../../../../core/tdlib/tdlib_client.dart';
+import '../../../../core/tdlib/tdlib_connection_manager.dart';
 import '../../../../core/tdlib/tdlib_exception.dart';
 import '../models/caption_metadata.dart';
 import '../models/transfer_error.dart';
@@ -52,9 +52,13 @@ abstract class DownloadService {
 /// Handles file downloads from the storage channel with progress tracking,
 /// cancellation support, and thumbnail/original mode selection.
 class TelegramDownloadService implements DownloadService {
-  TelegramDownloadService({required this._client});
+  TelegramDownloadService({required this._manager});
 
-  final TdLibClient _client;
+  // Requests go through the connection manager (not the raw TdLibClient) so
+  // a dropped connection mid-download triggers the same backoff/reconnect
+  // logic the rest of the app already relies on, instead of just failing
+  // the transfer outright.
+  final TdLibConnectionManager _manager;
   final _progressController = StreamController<DownloadProgress>.broadcast();
   final _activeDownloads = <String, Completer<void>>{};
 
@@ -73,7 +77,7 @@ class TelegramDownloadService implements DownloadService {
 
     try {
       // Get message to extract file info.
-      final message = await _client.sendRequest(
+      final message = await _manager.sendRequest(
         method: 'getMessage',
         params: {'chat_id': channelId, 'message_id': messageId},
       );
@@ -113,7 +117,7 @@ class TelegramDownloadService implements DownloadService {
         );
       }
 
-      await _client.sendRequest(
+      await _manager.sendRequest(
         method: 'downloadFile',
         params: {
           'file_id': fileId,
@@ -124,16 +128,13 @@ class TelegramDownloadService implements DownloadService {
         },
       );
 
-      // Monitor download progress.
-      await _monitorDownloadProgress(taskId, fileId, cancelCompleter);
-
-      // Get updated file info after download.
-      final updatedFile = await _client.sendRequest(
-        method: 'getFile',
-        params: {'file_id': fileId},
+      // Wait for TDLib to actually finish the download, emitting real
+      // progress along the way, and resolve with the final local path.
+      final updatedPath = await _awaitDownloadCompletion(
+        taskId: taskId,
+        fileId: fileId,
+        cancelCompleter: cancelCompleter,
       );
-
-      final updatedPath = updatedFile['local']?['path'] as String? ?? '';
       final captionText =
           (content?['caption'] as Map<String, dynamic>?)?['text'] as String?;
       final metadata = captionText != null
@@ -161,39 +162,88 @@ class TelegramDownloadService implements DownloadService {
     _activeDownloads.remove(taskId);
   }
 
-  /// Monitor download progress by listening to TDLib updates.
-  Future<void> _monitorDownloadProgress(
-    String taskId,
-    int fileId,
-    Completer<void> cancelCompleter,
-  ) async {
-    final subscription = _client.updates.listen((update) {
-      final updateType = update['@type'] as String?;
-      if (updateType == 'updateFileProgress') {
-        final file = update['file'] as Map<String, dynamic>?;
-        final updateFileId = file?['id'] as int?;
-        if (updateFileId == fileId) {
-          final local = file?['local'] as Map<String, dynamic>?;
-          final downloadedSize = local?['downloaded_size'] as int? ?? 0;
-          final expectedSize = file?['expected_size'] as int? ?? 0;
+  /// Overall ceiling for a single download. A transfer that reports no
+  /// terminal update within this window is treated as stalled and failed,
+  /// so the queue can retry it instead of hanging indefinitely.
+  static const _downloadTimeout = Duration(minutes: 30);
 
-          final progress = expectedSize > 0
-              ? downloadedSize / expectedSize
-              : 0.0;
-          _progressController.add(
-            DownloadProgress(
-              taskId: taskId,
-              progress: progress.clamp(0.0, 1.0),
-              bytesDownloaded: downloadedSize,
-              totalBytes: expectedSize,
-            ),
-          );
-        }
+  /// Listen to TDLib updates until the download for [fileId] finishes,
+  /// emitting [DownloadProgress] along the way. Resolves to the final local
+  /// file path on success. Honors cancellation via [cancelCompleter] and an
+  /// overall [_downloadTimeout].
+  ///
+  /// Replaces the old `_monitorDownloadProgress`, which listened for a
+  /// non-existent `updateFileProgress` type (TDLib actually sends
+  /// `updateFile`) and only ever resolved on cancellation — so a real
+  /// download never had a signal telling it to stop waiting and just hung
+  /// forever.
+  Future<String> _awaitDownloadCompletion({
+    required String taskId,
+    required int fileId,
+    required Completer<void> cancelCompleter,
+  }) async {
+    final completer = Completer<String>();
+
+    late final StreamSubscription<Map<String, dynamic>> subscription;
+    subscription = _manager.client.updates.listen((update) {
+      if (completer.isCompleted) return;
+      final updateType = update['@type'] as String?;
+      if (updateType != 'updateFile') return;
+
+      final file = update['file'] as Map<String, dynamic>?;
+      if (file == null || file['id'] != fileId) return;
+
+      final local = file['local'] as Map<String, dynamic>?;
+      final downloadedSize = local?['downloaded_size'] as int? ?? 0;
+      final expectedSize = file['expected_size'] as int? ?? 0;
+      final isCompleted = local?['is_downloading_completed'] as bool? ?? false;
+
+      final progress = expectedSize > 0
+          ? downloadedSize / expectedSize
+          : 0.0;
+      _progressController.add(
+        DownloadProgress(
+          taskId: taskId,
+          progress: progress.clamp(0.0, 1.0),
+          bytesDownloaded: downloadedSize,
+          totalBytes: expectedSize,
+        ),
+      );
+
+      if (isCompleted && !completer.isCompleted) {
+        final path = local?['path'] as String? ?? '';
+        completer.complete(path);
       }
     });
 
-    // Wait for cancellation or completion.
-    await cancelCompleter.future;
-    await subscription.cancel();
+    // Cancellation from cancelDownload() -> treat as a cancelled transfer.
+    unawaited(
+      cancelCompleter.future.then((_) {
+        if (!completer.isCompleted) {
+          completer.completeError(
+            TransferError(
+              category: TransferErrorCategory.unknown,
+              message: 'Download cancelled',
+              occurredAt: DateTime.now(),
+            ),
+          );
+        }
+      }),
+    );
+
+    try {
+      return await completer.future.timeout(
+        _downloadTimeout,
+        onTimeout: () => throw TransferError(
+          category: TransferErrorCategory.network,
+          message: 'Download timed out after ${_downloadTimeout.inMinutes} min',
+          detail: 'TIMEOUT',
+          retryable: true,
+          occurredAt: DateTime.now(),
+        ),
+      );
+    } finally {
+      await subscription.cancel();
+    }
   }
 }

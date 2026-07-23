@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import '../../../../core/tdlib/tdlib_client.dart';
+import '../../../../core/tdlib/tdlib_connection_manager.dart';
 import '../../../../core/tdlib/tdlib_exception.dart';
 import '../models/caption_metadata.dart';
 import '../models/transfer_error.dart';
@@ -48,9 +48,13 @@ abstract class UploadService {
 /// Handles file uploads to the storage channel with progress tracking,
 /// cancellation support, and error recovery per PRD Section 5.
 class TelegramUploadService implements UploadService {
-  TelegramUploadService({required this._client});
+  TelegramUploadService({required this._manager});
 
-  final TdLibClient _client;
+  // Requests go through the connection manager (not the raw TdLibClient) so
+  // a dropped connection mid-upload triggers the same backoff/reconnect
+  // logic the rest of the app already relies on, instead of just failing
+  // the transfer outright.
+  final TdLibConnectionManager _manager;
   final _progressController = StreamController<UploadProgress>.broadcast();
   final _activeUploads = <String, Completer<void>>{};
 
@@ -89,7 +93,7 @@ class TelegramUploadService implements UploadService {
       // a temporary id (`sending_state` is still pending); the real upload
       // happens asynchronously and is reported via updates. So we start
       // listening BEFORE we act on the send result.
-      final result = await _client.sendRequest(
+      final result = await _manager.sendRequest(
         method: 'sendMessage',
         params: {
           'chat_id': channelId,
@@ -165,7 +169,7 @@ class TelegramUploadService implements UploadService {
     final completer = Completer<int>();
 
     late final StreamSubscription<Map<String, dynamic>> subscription;
-    subscription = _client.updates.listen((update) {
+    subscription = _manager.client.updates.listen((update) {
       if (completer.isCompleted) return;
       final type = update['@type'] as String?;
 

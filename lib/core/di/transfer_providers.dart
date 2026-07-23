@@ -268,14 +268,14 @@ class TransferQueueNotifier extends StateNotifier<TransferQueueState> {
 
 /// Provider for upload service.
 final uploadServiceProvider = Provider<UploadService>((ref) {
-  final client = ref.watch(tdLibClientProvider);
-  return TelegramUploadService(client: client);
+  final manager = ref.watch(tdLibConnectionManagerProvider);
+  return TelegramUploadService(manager: manager);
 });
 
 /// Provider for download service.
 final downloadServiceProvider = Provider<DownloadService>((ref) {
-  final client = ref.watch(tdLibClientProvider);
-  return TelegramDownloadService(client: client);
+  final manager = ref.watch(tdLibConnectionManagerProvider);
+  return TelegramDownloadService(manager: manager);
 });
 
 /// Provider for the transfer queue notifier.

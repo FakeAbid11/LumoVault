@@ -459,13 +459,28 @@ class GalleryRepository {
   /// UPDATE against a localId that isn't in the table affects zero rows and
   /// silently does nothing — the item then lived in memory only, and
   /// vanished (along with its backup status) the next time [hydrate] ran on
-  /// a cold start. `localId` has a unique constraint on the table, so
-  /// upsert correctly falls back to an UPDATE when the row does already
-  /// exist, even though the in-memory item's numeric `id` is null.
+  /// a cold start.
+  ///
+  /// Items scanned via [scanDevice]/[scanDeviceIncremental] never get their
+  /// database-assigned `id` merged back into memory, so a later mutation
+  /// (favorite/trash/upload status/etc.) usually has `item.id == null` even
+  /// though a row already exists. Upsert's ON CONFLICT target is the `id`
+  /// column, not the `localId` unique constraint — with `id` absent, that
+  /// silently collided with the real unique constraint instead of updating
+  /// it. Looking the row up by localId first and carrying its id forward
+  /// makes the upsert target the correct primary key either way.
   Future<void> _persistItem(MediaItem item) async {
     final dao = _mediaDao;
     if (dao == null) return;
-    await dao.upsert(item.toCompanion());
+
+    var toPersist = item;
+    if (toPersist.id == null) {
+      final existing = await dao.byLocalId(toPersist.localId);
+      if (existing != null) {
+        toPersist = toPersist.copyWith(id: existing.id);
+      }
+    }
+    await dao.upsert(toPersist.toCompanion());
   }
 
   void _notifyMetadataChange({

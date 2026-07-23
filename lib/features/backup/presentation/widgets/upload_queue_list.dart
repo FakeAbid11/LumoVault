@@ -40,18 +40,26 @@ class UploadQueueList extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: displayTasks.length,
-            itemBuilder: (context, index) {
-              final task = displayTasks[index];
-              return _UploadQueueItem(
-                task: task,
-                onRetry: () => onRetry(task.id),
-                onCancel: () => onCancel(task.id),
-              );
-            },
-          ),
+        // shrinkWrap + NeverScrollableScrollPhysics, not Expanded: this
+        // widget is embedded inside backup_dashboard_screen's own
+        // ListView, which gives unbounded height to its children. An
+        // Expanded here threw "RenderFlex children have non-zero flex but
+        // incoming height constraints are unbounded" the moment the list
+        // went from empty (which took the Center-widget branch above and
+        // never hit this) to non-empty — crashing the whole screen blank
+        // as soon as anything was actually queued for backup.
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: displayTasks.length,
+          itemBuilder: (context, index) {
+            final task = displayTasks[index];
+            return _UploadQueueItem(
+              task: task,
+              onRetry: () => onRetry(task.id),
+              onCancel: () => onCancel(task.id),
+            );
+          },
         ),
       ],
     );

@@ -200,8 +200,31 @@ final backupEngineProvider =
         notifier.updateEnvironment(next);
       });
 
+      // backupEngineProvider's own state is the coarse BackupEngineState
+      // enum (idle/scanning/uploading/paused/error), which only changes a
+      // handful of times per backup run — it flips to `uploading` once and
+      // then sits there for the whole batch. backupStatsProvider and
+      // uploadQueueTasksProvider used to piggyback on THIS provider's
+      // watch to know when to re-read stats/tasks, so they were frozen on
+      // whatever the snapshot looked like the instant uploading started —
+      // 0%, 0 B, "Pending" never moving to "Uploading" — even while the
+      // engine was actively uploading in the background. Mirroring
+      // statsStream into its own provider gives them a signal that fires
+      // on every real progress/status change instead.
+      final statsSubscription = notifier.engine.statsStream.listen((stats) {
+        ref.read(_backupStatsStreamProvider.notifier).state = stats;
+      });
+      ref.onDispose(() => statsSubscription.cancel());
+
       return notifier;
     });
+
+/// Internal: latest [BackupStats] pushed from [BackupEngine.statsStream].
+/// Don't read this directly — go through [backupStatsProvider], which is
+/// just a thin watch over this.
+final _backupStatsStreamProvider = StateProvider<BackupStats>((ref) {
+  return const BackupStats();
+});
 
 class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
   BackupEngineNotifier({
@@ -297,13 +320,12 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
 
 /// Backup stats provider (reactive).
 final backupStatsProvider = Provider<BackupStats>((ref) {
-  ref.watch(backupEngineProvider);
-  return ref.read(backupEngineProvider.notifier).stats;
+  return ref.watch(_backupStatsStreamProvider);
 });
 
 /// Upload queue tasks provider.
 final uploadQueueTasksProvider = Provider<List<UploadTask>>((ref) {
-  ref.watch(backupEngineProvider);
+  ref.watch(_backupStatsStreamProvider);
   return ref.read(backupEngineProvider.notifier).engine.queue.allTasks;
 });
 

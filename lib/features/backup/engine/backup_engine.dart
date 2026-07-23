@@ -89,6 +89,13 @@ class BackupEngine {
     if (persistedChannelId != null) {
       storageChannelService.setCachedChannelId(persistedChannelId);
     }
+    // Previously declared but never assigned, so per-file progress from
+    // TDLib never reached the queue: the dashboard showed 0% / 0 B for the
+    // entire duration of an upload no matter how much had actually
+    // transferred, only jumping to 100% once the task fully completed.
+    _progressSubscription = uploadService.progressStream.listen(
+      _onUploadProgress,
+    );
   }
 
   final GalleryRepository galleryRepository;
@@ -308,6 +315,16 @@ class BackupEngine {
     _updateStats();
   }
 
+  /// Forward a progress event from [uploadService] into the matching queue
+  /// task, so the dashboard's progress bar and byte counter actually move
+  /// during an upload instead of sitting at 0% until it finishes.
+  void _onUploadProgress(UploadProgress progress) {
+    final task = _queue.getTaskById(progress.taskId);
+    if (task == null || task.status != UploadStatus.uploading) return;
+    _queue.updateTask(task.copyWith(progress: progress.progress));
+    _updateStats();
+  }
+
   /// Upload a single task.
   Future<void> _uploadTask(UploadTask task) async {
     // Duplicate check before upload.
@@ -325,6 +342,7 @@ class BackupEngine {
     _queue.updateTask(
       task.copyWith(status: UploadStatus.uploading, startedAt: DateTime.now()),
     );
+    _updateStats();
 
     try {
       final channelId = await _resolveChannelId();
@@ -409,10 +427,13 @@ class BackupEngine {
       progress: _queue.overallProgress,
       lastBackupAt: settings.lastBackupAt,
       totalBytes: _queue.allTasks.fold(0, (sum, t) => sum + t.fileSize),
-      backedUpBytes: _queue.completedTasks.fold(
-        0,
-        (sum, t) => sum + t.fileSize,
-      ),
+      backedUpBytes: _queue.allTasks.fold(0, (sum, t) {
+        if (t.status == UploadStatus.completed) return sum + t.fileSize;
+        if (t.status == UploadStatus.uploading) {
+          return sum + (t.fileSize * t.progress).round();
+        }
+        return sum;
+      }),
     );
     _statsController.add(_stats);
   }

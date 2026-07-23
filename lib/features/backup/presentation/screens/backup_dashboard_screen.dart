@@ -20,7 +20,7 @@ class BackupDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final engineState = ref.watch(backupEngineProvider);
-    final stats = ref.read(backupEngineProvider.notifier).stats;
+    final stats = ref.watch(backupStatsProvider);
     final tasks = ref.watch(uploadQueueTasksProvider);
 
     return Scaffold(

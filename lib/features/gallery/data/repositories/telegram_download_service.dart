@@ -198,9 +198,7 @@ class TelegramDownloadService implements DownloadService {
       final expectedSize = file['expected_size'] as int? ?? 0;
       final isCompleted = local?['is_downloading_completed'] as bool? ?? false;
 
-      final progress = expectedSize > 0
-          ? downloadedSize / expectedSize
-          : 0.0;
+      final progress = expectedSize > 0 ? downloadedSize / expectedSize : 0.0;
       _progressController.add(
         DownloadProgress(
           taskId: taskId,

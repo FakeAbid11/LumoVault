@@ -336,6 +336,7 @@ class BackupEngine {
           completedAt: DateTime.now(),
         ),
       );
+      await galleryRepository.markUploaded(localId: task.mediaItemId);
       return;
     }
 
@@ -360,6 +361,11 @@ class BackupEngine {
           telegramFileId: result.fileId.toString(),
           completedAt: DateTime.now(),
         ),
+      );
+      await galleryRepository.markUploaded(
+        localId: task.mediaItemId,
+        telegramMessageId: result.messageId.toString(),
+        telegramFileId: result.fileId.toString(),
       );
     } on TransferError catch (e) {
       final shouldRetry =

@@ -330,6 +330,34 @@ class GalleryRepository {
     );
   }
 
+  /// Record that [localId] has finished uploading, so the timeline can
+  /// show its "backed up" badge. Called by [BackupEngine] once a transfer
+  /// completes — nothing previously wrote this back, so the badge that
+  /// already existed in [AssetTile] had no way to ever turn green.
+  Future<void> markUploaded({
+    required String localId,
+    String? telegramMessageId,
+    String? telegramFileId,
+  }) async {
+    final index = _mediaItems.indexWhere((item) => item.localId == localId);
+    if (index == -1) return;
+
+    final updated = _mediaItems[index].copyWith(
+      status: MediaStatus.uploaded,
+      uploadedAt: DateTime.now(),
+      backedUpAt: DateTime.now(),
+      telegramMessageId: telegramMessageId,
+      telegramFileId: telegramFileId,
+    );
+    _mediaItems[index] = updated;
+    await _persistItem(updated);
+    _notifyMetadataChange(
+      localId: localId,
+      operation: 'uploaded',
+      item: updated,
+    );
+  }
+
   Future<void> toggleFavorite(String localId) async {
     final index = _mediaItems.indexWhere((item) => item.localId == localId);
     if (index != -1) {

@@ -450,12 +450,22 @@ class GalleryRepository {
 
   int get totalSize => _mediaItems.fold(0, (sum, item) => sum + item.fileSize);
 
-  /// Write a single mutated item through to the database, keyed by localId so
-  /// the persisted row is updated in place. No-op without a database.
+  /// Write a single mutated item through to the database, keyed by localId.
+  /// No-op without a database.
+  ///
+  /// Uses upsert, not a plain UPDATE: an item reached via [setBackupExcluded]
+  /// or [markUploaded] for an asset that was never through a full
+  /// [scanDevice]/[scanDeviceIncremental] pass has no existing row yet. An
+  /// UPDATE against a localId that isn't in the table affects zero rows and
+  /// silently does nothing — the item then lived in memory only, and
+  /// vanished (along with its backup status) the next time [hydrate] ran on
+  /// a cold start. `localId` has a unique constraint on the table, so
+  /// upsert correctly falls back to an UPDATE when the row does already
+  /// exist, even though the in-memory item's numeric `id` is null.
   Future<void> _persistItem(MediaItem item) async {
     final dao = _mediaDao;
     if (dao == null) return;
-    await dao.updateByLocalId(item.localId, item.toCompanion());
+    await dao.upsert(item.toCompanion());
   }
 
   void _notifyMetadataChange({

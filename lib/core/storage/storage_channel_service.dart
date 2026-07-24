@@ -118,19 +118,34 @@ class StorageChannelService {
   ///
   /// Per PRD Section 10.2, search user's channels for "LumoVault Backup".
   /// Returns the channel ID if found, null otherwise.
+  ///
+  /// Checks both chatListMain and chatListArchive: [_createStorageChannel]
+  /// moves the channel to the archive list right after creating it (so it
+  /// stays out of the user's normal chat list), so a search that only
+  /// checked chatListMain would never find a channel from a previous
+  /// session — and would create a fresh duplicate channel every time
+  /// [cachedChannelId]/the persisted channel id isn't available yet.
   Future<int?> _searchExistingChannel() async {
+    for (final chatList in const [
+      {'@type': 'chatListMain'},
+      {'@type': 'chatListArchive'},
+    ]) {
+      final found = await _searchChannelInList(chatList);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  Future<int?> _searchChannelInList(Map<String, dynamic> chatList) async {
     try {
       // TDLib only returns chats that are already loaded into memory, so ask
-      // it to load the main list first. Without this, a freshly-started
-      // client reports an empty chat list and we'd wrongly conclude no
-      // storage channel exists and create a duplicate.
+      // it to load the list first. Without this, a freshly-started client
+      // reports an empty chat list and we'd wrongly conclude no storage
+      // channel exists and create a duplicate.
       try {
         await _client.sendRequest(
           method: 'loadChats',
-          params: {
-            'chat_list': {'@type': 'chatListMain'},
-            'limit': 100,
-          },
+          params: {'chat_list': chatList, 'limit': 100},
         );
       } catch (_) {
         // 404 here just means "all chats already loaded" — safe to ignore.
@@ -141,10 +156,7 @@ class StorageChannelService {
       // reject the request, so the search silently found nothing).
       final result = await _client.sendRequest(
         method: 'getChats',
-        params: {
-          'chat_list': {'@type': 'chatListMain'},
-          'limit': 100,
-        },
+        params: {'chat_list': chatList, 'limit': 100},
       );
 
       final chatIds = (result['chat_ids'] as List<dynamic>?) ?? [];

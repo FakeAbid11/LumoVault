@@ -179,6 +179,71 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 }
 
+class _FolderTiles extends StatelessWidget {
+  const _FolderTiles({
+    required this.folders,
+    required this.settings,
+    required this.ref,
+  });
+
+  final List<DeviceFolder> folders;
+  final AppSettings settings;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    if (folders.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No folders found on this device.'),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: folders
+          .map((folder) => _buildFolderTile(context, folder))
+          .toList(),
+    );
+  }
+
+  Widget _buildFolderTile(BuildContext context, DeviceFolder folder) {
+    final isExcluded = settings.excludedFolders.contains(folder.path);
+
+    return SwitchListTile(
+      title: Text(folder.name),
+      subtitle: Text(
+        '${folder.totalItems} items (${_formatBytes(folder.totalSize)})',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      value: !isExcluded,
+      onChanged: (_) => _toggleFolder(folder.path),
+    );
+  }
+
+  void _toggleFolder(String folderPath) {
+    final excludedFolders = [...settings.excludedFolders];
+    if (excludedFolders.contains(folderPath)) {
+      excludedFolders.remove(folderPath);
+    } else {
+      excludedFolders.add(folderPath);
+    }
+    ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(excludedFolders: excludedFolders));
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 

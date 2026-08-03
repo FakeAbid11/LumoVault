@@ -439,7 +439,11 @@ void main() {
       addTearDown(() => tempDir.delete(recursive: true));
       final file = File('${tempDir.path}/video.mp4');
       await file.writeAsBytes(kTransparentImage);
-      final item = makeItem(localId: 'fallback_video_1', filePath: file.path, isVideo: true);
+      final item = makeItem(
+        localId: 'fallback_video_1',
+        filePath: file.path,
+        isVideo: true,
+      );
 
       final bytes = await MediaTile.defaultThumbnailLoader(item);
 

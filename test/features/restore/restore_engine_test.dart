@@ -172,45 +172,51 @@ void main() {
       expect(engine.currentProgress.phase, RestorePhase.failed);
     });
 
-    test('startRestore writes downloaded thumbnails into the shared cache', () async {
-      // Real file on disk so the engine's thumbnail cache write can read it.
-      final tempDir = await Directory.systemTemp.createTemp(
-        'lumovault_restore_test',
-      );
-      addTearDown(() => tempDir.delete(recursive: true));
-      final thumbFile = File('${tempDir.path}/thumb.jpg');
-      await thumbFile.writeAsBytes(kTransparentPng);
+    test(
+      'startRestore writes downloaded thumbnails into the shared cache',
+      () async {
+        // Real file on disk so the engine's thumbnail cache write can read it.
+        final tempDir = await Directory.systemTemp.createTemp(
+          'lumovault_restore_test',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final thumbFile = File('${tempDir.path}/thumb.jpg');
+        await thumbFile.writeAsBytes(kTransparentPng);
 
-      final repo = engine.restoreRepository as MockRestoreRepository;
-      repo.detectionResult = const ChannelDetectionResult(channelId: 42);
-      repo.manifest = Manifest.create(deviceHash: 'test_device');
-      final metadata = CaptionMetadata(
-        mediaItemId: 'restored_local_1',
-        fileHash: 'abc123',
-        createdAt: DateTime(2026, 1, 15),
-        modifiedAt: DateTime(2026, 1, 15),
-        backedUpAt: DateTime(2026, 1, 15),
-      );
-      repo.messages = [
-        ChannelMessage(
-          messageId: 1,
-          fileId: 10,
+        final repo = engine.restoreRepository as MockRestoreRepository;
+        repo.detectionResult = const ChannelDetectionResult(channelId: 42);
+        repo.manifest = Manifest.create(deviceHash: 'test_device');
+        final metadata = CaptionMetadata(
+          mediaItemId: 'restored_local_1',
+          fileHash: 'abc123',
+          createdAt: DateTime(2026, 1, 15),
+          modifiedAt: DateTime(2026, 1, 15),
+          backedUpAt: DateTime(2026, 1, 15),
+        );
+        repo.messages = [
+          ChannelMessage(
+            messageId: 1,
+            fileId: 10,
+            fileName: 'photo.jpg',
+            caption: metadata.toCaptionString(),
+          ),
+        ];
+        repo.thumbnailFile = DownloadedFile(
+          filePath: thumbFile.path,
           fileName: 'photo.jpg',
-          caption: metadata.toCaptionString(),
-        ),
-      ];
-      repo.thumbnailFile = DownloadedFile(
-        filePath: thumbFile.path,
-        fileName: 'photo.jpg',
-      );
+        );
 
-      final result = await engine.startRestore();
-      expect(result, isTrue);
-      expect(engine.currentProgress.phase, RestorePhase.completed);
-      // The restored item's tile must find its thumbnail in the cache instead
-      // of staying on the placeholder.
-      expect(await ThumbnailCache.instance.contains('restored_local_1'), isTrue);
-    });
+        final result = await engine.startRestore();
+        expect(result, isTrue);
+        expect(engine.currentProgress.phase, RestorePhase.completed);
+        // The restored item's tile must find its thumbnail in the cache instead
+        // of staying on the placeholder.
+        expect(
+          await ThumbnailCache.instance.contains('restored_local_1'),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('ManifestService restore operations', () {

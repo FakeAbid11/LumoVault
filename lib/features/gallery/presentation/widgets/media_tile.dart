@@ -89,9 +89,9 @@ class MediaTile extends StatefulWidget {
       return null;
     }
     try {
-      final bytes = await File(item.filePath).readAsBytes().timeout(
-        const Duration(seconds: 5),
-      );
+      final bytes = await File(
+        item.filePath,
+      ).readAsBytes().timeout(const Duration(seconds: 5));
       if (bytes.isEmpty) return null;
       try {
         await ThumbnailCache.instance.put(item.localId, bytes);

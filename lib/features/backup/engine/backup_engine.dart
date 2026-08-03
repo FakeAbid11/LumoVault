@@ -176,7 +176,8 @@ class BackupEngine {
   bool _isPaused = false;
   BackupEnvironment _environment = const BackupEnvironment();
 
-  StreamSubscription<UploadProgress>? _progressSubscription;  final _stateController = StreamController<BackupEngineState>.broadcast();
+  StreamSubscription<UploadProgress>? _progressSubscription;
+  final _stateController = StreamController<BackupEngineState>.broadcast();
   final _statsController = StreamController<BackupStats>.broadcast();
 
   UploadQueue get queue => _queue;

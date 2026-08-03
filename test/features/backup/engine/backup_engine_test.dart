@@ -38,14 +38,18 @@ void main() {
 
   group('BackupEngine batch sizing', () {
     test('uses the configured uploadBatchSize, not the queue default', () {
-      final engine = _engine(settings: const BackupSettings(uploadBatchSize: 3));
+      final engine = _engine(
+        settings: const BackupSettings(uploadBatchSize: 3),
+      );
       addTearDown(engine.dispose);
 
       expect(engine.queue.batchSize, 3);
     });
 
     test('updateSettings propagates a changed uploadBatchSize', () {
-      final engine = _engine(settings: const BackupSettings(uploadBatchSize: 3));
+      final engine = _engine(
+        settings: const BackupSettings(uploadBatchSize: 3),
+      );
       addTearDown(engine.dispose);
 
       engine.updateSettings(const BackupSettings(uploadBatchSize: 25));
@@ -53,34 +57,42 @@ void main() {
       expect(engine.queue.batchSize, 25);
     });
 
-    test('a non-positive uploadBatchSize is floored to 1, not left to stall', () {
-      // A batch size of 0 makes getNextBatch return nothing, which would stop
-      // the backup dead rather than just slowing it down.
-      final engine = _engine(settings: const BackupSettings(uploadBatchSize: 0));
-      addTearDown(engine.dispose);
+    test(
+      'a non-positive uploadBatchSize is floored to 1, not left to stall',
+      () {
+        // A batch size of 0 makes getNextBatch return nothing, which would stop
+        // the backup dead rather than just slowing it down.
+        final engine = _engine(
+          settings: const BackupSettings(uploadBatchSize: 0),
+        );
+        addTearDown(engine.dispose);
 
-      expect(engine.queue.batchSize, 1);
+        expect(engine.queue.batchSize, 1);
 
-      engine.updateSettings(const BackupSettings(uploadBatchSize: -5));
-      expect(engine.queue.batchSize, 1);
-    });
+        engine.updateSettings(const BackupSettings(uploadBatchSize: -5));
+        expect(engine.queue.batchSize, 1);
+      },
+    );
   });
 
   group('BackupEngine upload path', () {
-    test('a successful upload marks the item uploaded and completes the task', () async {
-      final repo = _repo([_item('a')]);
-      final uploads = _FakeUploadService();
-      final engine = _engine(repo: repo, uploads: uploads);
-      addTearDown(engine.dispose);
+    test(
+      'a successful upload marks the item uploaded and completes the task',
+      () async {
+        final repo = _repo([_item('a')]);
+        final uploads = _FakeUploadService();
+        final engine = _engine(repo: repo, uploads: uploads);
+        addTearDown(engine.dispose);
 
-      engine.addToQueue(repo.mediaItems.single);
-      await engine.startBackup();
+        engine.addToQueue(repo.mediaItems.single);
+        await engine.startBackup();
 
-      expect(engine.queue.completedCount, 1);
-      expect(engine.queue.failedCount, 0);
-      expect(repo.mediaItems.single.status, MediaStatus.uploaded);
-      expect(repo.mediaItems.single.telegramMessageId, isNotNull);
-    });
+        expect(engine.queue.completedCount, 1);
+        expect(engine.queue.failedCount, 0);
+        expect(repo.mediaItems.single.status, MediaStatus.uploaded);
+        expect(repo.mediaItems.single.telegramMessageId, isNotNull);
+      },
+    );
 
     test('the local record is written before the task is completed', () async {
       // Completed tasks are dropped from the persisted queue, so completing
@@ -104,19 +116,22 @@ void main() {
       expect(engine.queue.completedCount, 1);
     });
 
-    test('an upload that succeeds but fails to persist locally stays failed', () async {
-      final repo = _repo([_item('a')])..markUploadedThrows = true;
-      final engine = _engine(repo: repo, uploads: _FakeUploadService());
-      addTearDown(engine.dispose);
+    test(
+      'an upload that succeeds but fails to persist locally stays failed',
+      () async {
+        final repo = _repo([_item('a')])..markUploadedThrows = true;
+        final engine = _engine(repo: repo, uploads: _FakeUploadService());
+        addTearDown(engine.dispose);
 
-      engine.addToQueue(repo.mediaItems.single);
-      await engine.startBackup();
+        engine.addToQueue(repo.mediaItems.single);
+        await engine.startBackup();
 
-      // The bytes reached Telegram, but the mapping was lost — surfacing this
-      // as failed keeps it user-retryable instead of silently orphaning it.
-      expect(engine.queue.failedCount, 1);
-      expect(engine.queue.completedCount, 0);
-    });
+        // The bytes reached Telegram, but the mapping was lost — surfacing this
+        // as failed keeps it user-retryable instead of silently orphaning it.
+        expect(engine.queue.failedCount, 1);
+        expect(engine.queue.completedCount, 0);
+      },
+    );
 
     test('a non-retryable TransferError fails the task immediately', () async {
       final repo = _repo([_item('a')]);
@@ -137,24 +152,27 @@ void main() {
       expect(uploads.attempts, 1);
     });
 
-    test('an unexpected non-TransferError failure fails the task, not the run', () async {
-      // A plugin crash used to propagate out of _processQueue and leave the
-      // engine stuck in `uploading` with every remaining task frozen.
-      final repo = _repo([_item('a'), _item('b')]);
-      final uploads = _FakeUploadService()
-        ..throwOnFirstCall = StateError('plugin exploded');
-      final engine = _engine(repo: repo, uploads: uploads);
-      addTearDown(engine.dispose);
+    test(
+      'an unexpected non-TransferError failure fails the task, not the run',
+      () async {
+        // A plugin crash used to propagate out of _processQueue and leave the
+        // engine stuck in `uploading` with every remaining task frozen.
+        final repo = _repo([_item('a'), _item('b')]);
+        final uploads = _FakeUploadService()
+          ..throwOnFirstCall = StateError('plugin exploded');
+        final engine = _engine(repo: repo, uploads: uploads);
+        addTearDown(engine.dispose);
 
-      for (final item in repo.mediaItems) {
-        engine.addToQueue(item);
-      }
-      await engine.startBackup();
+        for (final item in repo.mediaItems) {
+          engine.addToQueue(item);
+        }
+        await engine.startBackup();
 
-      expect(engine.queue.failedCount, 1);
-      expect(engine.queue.completedCount, 1);
-      expect(engine.state, BackupEngineState.idle);
-    });
+        expect(engine.queue.failedCount, 1);
+        expect(engine.queue.completedCount, 1);
+        expect(engine.state, BackupEngineState.idle);
+      },
+    );
 
     test('a channel-resolution failure is classified retryable', () async {
       final repo = _repo([_item('a')]);
@@ -205,23 +223,26 @@ void main() {
       expect(engine.queue.pendingCount, 0);
     });
 
-    test('progress events from the upload service reach the queued task', () async {
-      final repo = _repo([_item('a')]);
-      final uploads = _FakeUploadService()..emitProgress = 0.5;
-      final engine = _engine(repo: repo, uploads: uploads);
-      addTearDown(engine.dispose);
+    test(
+      'progress events from the upload service reach the queued task',
+      () async {
+        final repo = _repo([_item('a')]);
+        final uploads = _FakeUploadService()..emitProgress = 0.5;
+        final engine = _engine(repo: repo, uploads: uploads);
+        addTearDown(engine.dispose);
 
-      final seen = <double>[];
-      final sub = engine.statsStream.listen((s) => seen.add(s.progress));
-      addTearDown(sub.cancel);
+        final seen = <double>[];
+        final sub = engine.statsStream.listen((s) => seen.add(s.progress));
+        addTearDown(sub.cancel);
 
-      engine.addToQueue(repo.mediaItems.single);
-      await engine.startBackup();
-      await pumpEventQueue();
+        engine.addToQueue(repo.mediaItems.single);
+        await engine.startBackup();
+        await pumpEventQueue();
 
-      expect(seen, isNotEmpty);
-      expect(engine.queue.completedCount, 1);
-    });
+        expect(seen, isNotEmpty);
+        expect(engine.queue.completedCount, 1);
+      },
+    );
   });
 
   group('BackupEngine queue mutation', () {

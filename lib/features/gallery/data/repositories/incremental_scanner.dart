@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/storage/thumbnail_warmup.dart';
 import '../models/media_item.dart';
 
 /// Result of an incremental scan.
@@ -273,6 +274,11 @@ class IncrementalScanner {
         file.path,
       ).timeout(const Duration(seconds: 60), onTimeout: () => '');
       if (hash.isEmpty) return null;
+
+      // Pre-warm the thumbnail cache (fire-and-forget, capped concurrency) so
+      // timeline tiles find bytes on first paint instead of each generating
+      // one after the scan completes.
+      ThumbnailWarmup.schedule(asset);
 
       return MediaItem(
         localId: asset.id,

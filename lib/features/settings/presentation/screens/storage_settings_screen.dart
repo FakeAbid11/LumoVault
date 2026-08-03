@@ -141,6 +141,9 @@ class StorageSettingsScreen extends ConsumerWidget {
       onConfirm: () async {
         final messenger = ScaffoldMessenger.of(context);
         await ThumbnailCache.instance.clear();
+        // Force timeline tiles to reload instead of staying on the stale
+        // placeholder after the cache is wiped.
+        ref.read(thumbnailGenerationProvider.notifier).state++;
         ref.invalidate(storageUsageProvider);
         messenger.showSnackBar(const SnackBar(content: Text('Cache cleared')));
       },
@@ -158,6 +161,8 @@ class StorageSettingsScreen extends ConsumerWidget {
       onConfirm: () async {
         final messenger = ScaffoldMessenger.of(context);
         await ThumbnailCache.instance.clear();
+        // Force timeline tiles to regenerate on their next build.
+        ref.read(thumbnailGenerationProvider.notifier).state++;
         ref.invalidate(storageUsageProvider);
         messenger.showSnackBar(
           const SnackBar(

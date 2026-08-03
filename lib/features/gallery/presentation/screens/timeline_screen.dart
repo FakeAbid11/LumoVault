@@ -23,7 +23,6 @@ class TimelineScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch backup stats for live refresh on upload completion.
     ref.watch(backupStatsProvider);
-
     // Watch gallery changes (channel scan adds items here).
     final repository = ref.watch(galleryRepositoryProvider);
 
@@ -115,6 +114,22 @@ class TimelineScreen extends ConsumerWidget {
   ) {
     final dateKeys = groupedItems.keys.toList();
 
+    // Reload generation: bumps when a channel scan completes/progresses, a
+    // new upload lands, or the thumbnail cache is cleared — tiles that
+    // previously timed out re-run their loaders instead of staying on the
+    // placeholder for the whole session. Derived from *values* only, so
+    // high-frequency progress updates (byte-level upload stats) don't churn
+    // every tile's reload.
+    final scanState = ref.watch(channelScanStateProvider);
+    final backupStats = ref.watch(backupStatsProvider);
+    final thumbnailGeneration = ref.watch(thumbnailGenerationProvider);
+    final reloadGeneration = Object.hash(
+      scanState.status,
+      scanState.scannedItems,
+      backupStats.backedUpCount,
+      thumbnailGeneration,
+    );
+
     return CustomScrollView(
       slivers: [
         for (int i = 0; i < dateKeys.length; i++) ...[
@@ -137,6 +152,7 @@ class TimelineScreen extends ConsumerWidget {
               return MediaTile(
                 mediaItem: item,
                 showStatus: true,
+                reloadGeneration: reloadGeneration,
                 onTap: () => _onItemTap(context, ref, item, allItems),
               );
             }, childCount: groupedItems[dateKeys[i]]?.length ?? 0),

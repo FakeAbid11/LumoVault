@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/storage/thumbnail_warmup.dart';
 import '../models/media_item.dart';
 import '../models/device_folder.dart';
 
@@ -292,6 +293,11 @@ class PhotoManagerScannerService implements MediaScannerService {
       file.path,
     ).timeout(const Duration(seconds: 60), onTimeout: () => '');
     if (hash.isEmpty) return null;
+
+    // Pre-warm the thumbnail cache (fire-and-forget, capped concurrency) so
+    // timeline tiles find bytes on first paint instead of each generating
+    // one after the scan completes.
+    ThumbnailWarmup.schedule(asset);
 
     return MediaItem(
       localId: asset.id,

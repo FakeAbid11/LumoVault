@@ -44,6 +44,11 @@ final scanProgressProvider = StateProvider<ScanProgress>((ref) {
   return const ScanProgress(current: 0, total: 0, isScanning: false);
 });
 
+/// Bumped whenever the thumbnail cache is cleared or rebuilt, so the timeline
+/// can force its tiles to re-run their thumbnail loaders instead of showing
+/// the stale placeholder for the rest of the session.
+final thumbnailGenerationProvider = StateProvider<int>((ref) => 0);
+
 class ScanProgress {
   const ScanProgress({
     required this.current,

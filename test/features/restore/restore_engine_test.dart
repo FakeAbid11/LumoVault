@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lumovault/core/storage/thumbnail_cache.dart';
 import 'package:lumovault/features/restore/engine/restore_engine.dart';
 import 'package:lumovault/features/restore/data/repositories/restore_repository.dart';
 import 'package:lumovault/features/restore/data/models/restore_progress.dart';
@@ -9,6 +10,7 @@ import 'package:lumovault/features/gallery/data/repositories/gallery_repository.
 import 'package:lumovault/features/gallery/data/repositories/media_scanner_service.dart';
 import 'package:lumovault/features/gallery/data/repositories/telegram_download_service.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
+import 'package:lumovault/features/gallery/data/models/caption_metadata.dart';
 import 'package:lumovault/features/gallery/data/models/device_folder.dart';
 import 'package:lumovault/features/metadata/data/repositories/manifest_service.dart';
 import 'package:lumovault/features/metadata/data/repositories/metadata_repository.dart';
@@ -19,6 +21,16 @@ import 'package:lumovault/features/metadata/data/repositories/conflict_resolver.
 import 'package:lumovault/features/metadata/data/models/manifest.dart';
 import 'package:lumovault/features/metadata/data/models/metadata_partition.dart';
 import 'package:photo_manager/photo_manager.dart';
+
+/// 1x1 transparent PNG — valid image bytes for thumbnail cache round-trips.
+final Uint8List kTransparentPng = Uint8List.fromList(const [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, //
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, //
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, //
+  0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, //
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, //
+  0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82, //
+]);
 
 class MockMediaScannerService implements MediaScannerService {
   @override
@@ -158,6 +170,46 @@ void main() {
       final result = await engine.startRestore();
       expect(result, isFalse);
       expect(engine.currentProgress.phase, RestorePhase.failed);
+    });
+
+    test('startRestore writes downloaded thumbnails into the shared cache', () async {
+      // Real file on disk so the engine's thumbnail cache write can read it.
+      final tempDir = await Directory.systemTemp.createTemp(
+        'lumovault_restore_test',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+      final thumbFile = File('${tempDir.path}/thumb.jpg');
+      await thumbFile.writeAsBytes(kTransparentPng);
+
+      final repo = engine.restoreRepository as MockRestoreRepository;
+      repo.detectionResult = const ChannelDetectionResult(channelId: 42);
+      repo.manifest = Manifest.create(deviceHash: 'test_device');
+      final metadata = CaptionMetadata(
+        mediaItemId: 'restored_local_1',
+        fileHash: 'abc123',
+        createdAt: DateTime(2026, 1, 15),
+        modifiedAt: DateTime(2026, 1, 15),
+        backedUpAt: DateTime(2026, 1, 15),
+      );
+      repo.messages = [
+        ChannelMessage(
+          messageId: 1,
+          fileId: 10,
+          fileName: 'photo.jpg',
+          caption: metadata.toCaptionString(),
+        ),
+      ];
+      repo.thumbnailFile = DownloadedFile(
+        filePath: thumbFile.path,
+        fileName: 'photo.jpg',
+      );
+
+      final result = await engine.startRestore();
+      expect(result, isTrue);
+      expect(engine.currentProgress.phase, RestorePhase.completed);
+      // The restored item's tile must find its thumbnail in the cache instead
+      // of staying on the placeholder.
+      expect(await ThumbnailCache.instance.contains('restored_local_1'), isTrue);
     });
   });
 
@@ -314,16 +366,25 @@ void main() {
 
 /// Mock restore repository for testing.
 class MockRestoreRepository implements RestoreRepository {
-  @override
-  Future<ChannelDetectionResult> detectExistingBackup() async {
-    return const ChannelDetectionResult(error: 'No backup found');
-  }
+  /// Configurable happy-path results — defaults keep the pre-existing
+  /// "no backup found" behavior for other tests.
+  ChannelDetectionResult detectionResult = const ChannelDetectionResult(
+    error: 'No backup found',
+  );
+  Manifest? manifest;
+  List<ChannelMessage> messages = [];
+  DownloadedFile? thumbnailFile;
 
   @override
-  Future<Manifest?> fetchManifest(int channelId) async => null;
+  Future<ChannelDetectionResult> detectExistingBackup() async =>
+      detectionResult;
 
   @override
-  Future<List<ChannelMessage>> fetchChannelMessages(int channelId) async => [];
+  Future<Manifest?> fetchManifest(int channelId) async => manifest;
+
+  @override
+  Future<List<ChannelMessage>> fetchChannelMessages(int channelId) async =>
+      messages;
 
   @override
   Future<DownloadedFile?> downloadFile({
@@ -332,7 +393,7 @@ class MockRestoreRepository implements RestoreRepository {
     required String fileName,
     DownloadMode mode = DownloadMode.original,
     void Function(double progress)? onProgress,
-  }) async => null;
+  }) async => thumbnailFile;
 
   @override
   Future<String> saveRestoredFile({

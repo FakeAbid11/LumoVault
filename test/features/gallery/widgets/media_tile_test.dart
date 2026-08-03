@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lumovault/core/storage/thumbnail_cache.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/gallery/presentation/widgets/media_tile.dart';
 
@@ -17,13 +19,14 @@ final Uint8List kTransparentImage = Uint8List.fromList(const [
 
 void main() {
   MediaItem makeItem({
+    String localId = 'test_123',
     String? telegramMessageId,
     String filePath = '/storage/emulated/0/DCIM/photo.jpg',
     MediaStatus status = MediaStatus.pending,
     bool isVideo = false,
   }) {
     return MediaItem(
-      localId: 'test_123',
+      localId: localId,
       fileHash: 'abc123',
       telegramMessageId: telegramMessageId,
       filePath: filePath,
@@ -346,13 +349,112 @@ void main() {
       await tester.pumpWidget(wrapInApp(MediaTile(mediaItem: item)));
 
       await tester.pump();
-      // Advance fake time past the loader's 5s photo_manager timeout so the
-      // pending timer fires and the future completes with the placeholder.
+      // Advance fake time past the loader's 15s photo_manager timeout and the
+      // 5s on-disk file-read timeout so the pending timers fire and the
+      // future completes with the placeholder.
+      await tester.pump(const Duration(seconds: 16));
       await tester.pump(const Duration(seconds: 6));
       await tester.pump();
 
       expect(find.byIcon(Icons.image), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('reloads the thumbnail when reloadGeneration changes', (
+      tester,
+    ) async {
+      final item = makeItem();
+      var loaderCalls = 0;
+      Future<Uint8List?> countingLoader(MediaItem _) async {
+        loaderCalls++;
+        return null;
+      }
+
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(
+            mediaItem: item,
+            thumbnailLoader: countingLoader,
+            reloadGeneration: 0,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(loaderCalls, 1);
+
+      // Same generation, rebuilt widget — must NOT reload.
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(
+            mediaItem: item,
+            thumbnailLoader: countingLoader,
+            reloadGeneration: 0,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(loaderCalls, 1);
+
+      // Generation bump — must reload.
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(
+            mediaItem: item,
+            thumbnailLoader: countingLoader,
+            reloadGeneration: 1,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(loaderCalls, 2);
+    });
+  });
+
+  group('MediaTile.defaultThumbnailLoader file fallback', () {
+    // Plain tests (no FakeAsync) so the loader's real dart:io fallback can
+    // actually complete — a widget test's fake-async zone can't drive it.
+    setUp(() => ThumbnailCache.instance.clear());
+
+    test('reads the on-disk file when photo_manager is unavailable', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'lumovault_media_tile_loader_test',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+      final file = File('${tempDir.path}/photo.jpg');
+      await file.writeAsBytes(kTransparentImage);
+      final item = makeItem(localId: 'fallback_image_1', filePath: file.path);
+
+      final bytes = await MediaTile.defaultThumbnailLoader(item);
+
+      expect(bytes, isNotNull);
+      expect(bytes, kTransparentImage);
+    });
+
+    test('does not read the file for video items', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'lumovault_media_tile_loader_test',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+      final file = File('${tempDir.path}/video.mp4');
+      await file.writeAsBytes(kTransparentImage);
+      final item = makeItem(localId: 'fallback_video_1', filePath: file.path, isVideo: true);
+
+      final bytes = await MediaTile.defaultThumbnailLoader(item);
+
+      expect(bytes, isNull);
+    });
+
+    test('returns null when the on-disk file is missing', () async {
+      final item = makeItem(
+        localId: 'fallback_missing_1',
+        filePath: '/nonexistent/path/photo.jpg',
+      );
+
+      final bytes = await MediaTile.defaultThumbnailLoader(item);
+
+      expect(bytes, isNull);
     });
   });
 }

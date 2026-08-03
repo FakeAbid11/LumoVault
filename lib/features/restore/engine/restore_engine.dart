@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../core/storage/thumbnail_cache.dart';
 import '../../gallery/data/models/media_item.dart';
 import '../../gallery/data/repositories/gallery_repository.dart';
 import '../../gallery/data/repositories/telegram_download_service.dart';
@@ -389,6 +391,23 @@ class RestoreEngine {
             overallProgress: downloaded / total,
             currentFileName: message.fileName,
           );
+
+          // Write the thumbnail into the shared cache under the same key
+          // scheme as the channel scan (caption mediaItemId, or the
+          // msg_<messageId> fallback) so the timeline shows it immediately
+          // instead of re-downloading per tile. These bytes used to be
+          // discarded after download, which left every restored item's tile
+          // stuck on the placeholder.
+          final metadata = message.captionMetadata;
+          final localId = (metadata == null || metadata.mediaItemId.isEmpty)
+              ? 'msg_${message.messageId}'
+              : metadata.mediaItemId;
+          try {
+            final bytes = await File(result.filePath).readAsBytes();
+            await ThumbnailCache.instance.put(localId, bytes);
+          } catch (e) {
+            debugPrint('[RestoreEngine] Thumbnail cache write failed: $e');
+          }
         }
       } catch (e) {
         debugPrint('[RestoreEngine] Thumbnail download failed: $e');

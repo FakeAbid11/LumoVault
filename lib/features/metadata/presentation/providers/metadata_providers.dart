@@ -1,0 +1,200 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/tdlib_providers.dart';
+import '../../../../core/di/transfer_providers.dart';
+import '../../data/repositories/conflict_resolver.dart';
+import '../../data/repositories/manifest_persistence.dart';
+import '../../data/repositories/manifest_service.dart';
+import '../../data/repositories/metadata_integration.dart';
+import '../../data/repositories/metadata_repository.dart';
+import '../../data/repositories/metadata_sync_coordinator.dart';
+import '../../data/repositories/migration_service.dart';
+import '../../data/repositories/partition_persistence.dart';
+import '../../data/repositories/partition_service.dart';
+import '../../data/repositories/search_index_service.dart';
+import '../../data/repositories/sync_log_persistence.dart';
+import '../../data/repositories/sync_service.dart';
+import '../../data/repositories/telegram_metadata_uploader.dart';
+
+/// Manifest persistence provider (JSON file in app documents).
+final manifestStoreProvider = Provider<ManifestStore>((ref) {
+  return FileManifestStore();
+});
+
+/// Partition persistence provider (JSON file in app documents).
+final partitionStoreProvider = Provider<PartitionStore>((ref) {
+  return FilePartitionStore();
+});
+
+/// Manifest service provider.
+final manifestServiceProvider = Provider<ManifestService>((ref) {
+  final service = ManifestService(store: ref.watch(manifestStoreProvider));
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Partition service provider.
+final partitionServiceProvider = Provider<PartitionService>((ref) {
+  final service = PartitionService(store: ref.watch(partitionStoreProvider));
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Search index service provider.
+final searchIndexServiceProvider = Provider<SearchIndexService>((ref) {
+  final service = SearchIndexService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Sync service provider.
+///
+/// Wired with the on-disk log store so the sync log survives restarts; unit
+/// tests construct [SyncService] bare and stay memory-only.
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final service = SyncService(logStore: FileSyncLogStore());
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Conflict resolver provider.
+final conflictResolverProvider = Provider<ConflictResolver>((ref) {
+  return ConflictResolver();
+});
+
+/// Migration service provider.
+final migrationServiceProvider = Provider<MigrationService>((ref) {
+  final service = MigrationService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
+/// Core metadata repository provider.
+final metadataRepositoryProvider = Provider<MetadataRepository>((ref) {
+  final repo = MetadataRepository(
+    manifestService: ref.watch(manifestServiceProvider),
+    partitionService: ref.watch(partitionServiceProvider),
+    searchIndexService: ref.watch(searchIndexServiceProvider),
+    syncService: ref.watch(syncServiceProvider),
+    conflictResolver: ref.watch(conflictResolverProvider),
+  );
+  ref.onDispose(() => repo.dispose());
+  return repo;
+});
+
+/// Installs the metadata write callback on GalleryRepository.
+///
+/// Must be read once during app bootstrap — constructing this provider is what
+/// wires gallery mutations (scan, favorite, trash, delete, ...) through to the
+/// metadata layer. Without it, GalleryRepository's change callback stays null
+/// and nothing reaches MetadataRepository.
+final metadataIntegrationProvider = Provider<MetadataIntegration>((ref) {
+  final integration = MetadataIntegration(
+    metadataRepository: ref.watch(metadataRepositoryProvider),
+  );
+  integration.connectGalleryRepository(ref.watch(galleryRepositoryProvider));
+  return integration;
+});
+
+/// Uploads manifest/partition JSON to the storage channel as documents.
+final telegramMetadataUploaderProvider = Provider<TelegramMetadataUploader>((
+  ref,
+) {
+  return TelegramMetadataUploader(
+    uploadService: ref.watch(uploadServiceProvider),
+    storageChannelService: ref.watch(storageChannelServiceProvider),
+  );
+});
+
+/// Drives the metadata sync layer: makes sure a manifest exists, then uploads
+/// dirty partitions and the manifest to Telegram.
+///
+/// Must be read once during app bootstrap so the 'sync_pending' listener is
+/// attached in the UI isolate — that is what makes ordinary gallery mutations
+/// reach Telegram automatically after the debounced flush.
+final metadataSyncCoordinatorProvider = Provider<MetadataSyncCoordinator>((
+  ref,
+) {
+  final coordinator = MetadataSyncCoordinator(
+    metadataRepository: ref.watch(metadataRepositoryProvider),
+    uploader: ref.watch(telegramMetadataUploaderProvider),
+  );
+  ref.onDispose(() => coordinator.dispose());
+  return coordinator;
+});
+
+/// Metadata sync status provider (reactive).
+final metadataSyncStatusProvider =
+    StateNotifierProvider<MetadataSyncStatusNotifier, MetadataSyncStatus>((
+      ref,
+    ) {
+      return MetadataSyncStatusNotifier(ref);
+    });
+
+/// Metadata sync status notifier.
+class MetadataSyncStatusNotifier extends StateNotifier<MetadataSyncStatus> {
+  MetadataSyncStatusNotifier(this._ref) : super(const MetadataSyncStatus()) {
+    _listenToChanges();
+  }
+
+  final Ref _ref;
+  StreamSubscription? _changeSubscription;
+
+  void _listenToChanges() {
+    final repo = _ref.read(metadataRepositoryProvider);
+    _changeSubscription = repo.changeStream.listen((_) {
+      _updateStatus();
+    });
+  }
+
+  void _updateStatus() {
+    final repo = _ref.read(metadataRepositoryProvider);
+    state = repo.getSyncStatus();
+  }
+
+  Future<void> syncToTelegram({
+    required Future<void> Function(String partitionId, String data)
+    uploadPartition,
+    required Future<void> Function(String manifestJson) uploadManifest,
+  }) async {
+    state = state.copyWith(syncInProgress: true);
+
+    final repo = _ref.read(metadataRepositoryProvider);
+    await repo.syncToTelegram(
+      uploadPartition: uploadPartition,
+      uploadManifest: uploadManifest,
+    );
+
+    _updateStatus();
+  }
+
+  @override
+  void dispose() {
+    _changeSubscription?.cancel();
+    super.dispose();
+  }
+}
+
+/// Total metadata items count provider.
+final metadataItemCountProvider = Provider<int>((ref) {
+  final repo = ref.watch(metadataRepositoryProvider);
+  return repo.totalItems;
+});
+
+/// Dirty partitions count provider.
+final dirtyPartitionsCountProvider = Provider<int>((ref) {
+  final repo = ref.watch(metadataRepositoryProvider);
+  return repo.getDirtyPartitions().length;
+});
+
+/// Search results provider.
+final searchMetadataProvider = Provider.family<Set<String>, String>((
+  ref,
+  query,
+) {
+  final searchIndex = ref.watch(searchIndexServiceProvider);
+  return searchIndex.search(query);
+});

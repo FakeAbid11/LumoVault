@@ -123,6 +123,7 @@ class TimelineScreen extends ConsumerWidget {
     final scanState = ref.watch(channelScanStateProvider);
     final backupStats = ref.watch(backupStatsProvider);
     final thumbnailGeneration = ref.watch(thumbnailGenerationProvider);
+    final telegramFetcher = ref.watch(telegramThumbnailFetcherProvider);
     final reloadGeneration = Object.hash(
       scanState.status,
       scanState.scannedItems,
@@ -153,6 +154,7 @@ class TimelineScreen extends ConsumerWidget {
                 mediaItem: item,
                 showStatus: true,
                 reloadGeneration: reloadGeneration,
+                telegramThumbnailFetcher: telegramFetcher.fetch,
                 onTap: () => _onItemTap(context, ref, item, allItems),
               );
             }, childCount: groupedItems[dateKeys[i]]?.length ?? 0),
@@ -170,7 +172,14 @@ class TimelineScreen extends ConsumerWidget {
     List<MediaItem> allItems,
   ) {
     if (item.isTelegram) {
-      _showTelegramItemDetail(context, item);
+      // Telegram-only items have no local asset to open — show them in the
+      // Telegram viewer, swiping through every Telegram item in the timeline.
+      final telegramItems = allItems.where((i) => i.isTelegram).toList();
+      final index = telegramItems.indexWhere((i) => i.localId == item.localId);
+      context.push(
+        '/gallery/telegram-media/${item.localId}',
+        extra: (items: telegramItems, initialIndex: index < 0 ? 0 : index),
+      );
       return;
     }
 
@@ -185,110 +194,6 @@ class TimelineScreen extends ConsumerWidget {
         );
       }
     });
-  }
-
-  void _showTelegramItemDetail(BuildContext context, MediaItem item) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(
-                    Icons.cloud_done,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Backed up to Telegram',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _detailRow(context, 'File name', item.fileName),
-              _detailRow(context, 'Size', _formatFileSize(item.fileSize)),
-              _detailRow(
-                context,
-                'Created',
-                item.createdAt.toString().split('.').first,
-              ),
-              if (item.isVideo && item.durationMs != null)
-                _detailRow(
-                  context,
-                  'Duration',
-                  _formatDuration(item.durationMs),
-                ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-
-  String _formatDuration(int? durationMs) {
-    if (durationMs == null) return '0:00';
-    final seconds = (durationMs / 1000).floor();
-    final minutes = (seconds / 60).floor();
-    final remaining = seconds % 60;
-    return '$minutes:${remaining.toString().padLeft(2, '0')}';
   }
 
   Widget _buildScanningState(int scanned, int total) {

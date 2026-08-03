@@ -6,12 +6,14 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../features/archive/presentation/screens/archive_screen.dart';
 import '../../features/backup/presentation/screens/backup_dashboard_screen.dart';
 import '../../features/backup/presentation/screens/storage_stats_screen.dart';
+import '../../features/gallery/data/models/media_item.dart';
 import '../../features/gallery/presentation/screens/albums_screen.dart';
 import '../../features/gallery/presentation/screens/album_detail_screen.dart';
 import '../../features/gallery/presentation/screens/local_screen.dart';
 import '../../features/gallery/presentation/screens/timeline_screen.dart';
 import '../../features/gallery/presentation/screens/search_screen.dart';
 import '../../features/gallery/presentation/screens/media_viewer_screen.dart';
+import '../../features/gallery/presentation/screens/telegram_media_viewer_screen.dart';
 import '../../features/hidden/presentation/screens/hidden_album_screen.dart';
 import '../../features/onboarding/presentation/providers/onboarding_provider.dart';
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
@@ -226,6 +228,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Reached directly (e.g. a deep link) without the asset list a
           // normal tap-from-timeline navigation provides — nothing to
           // preview or swipe through in that case.
+          return _slideFromRight(const _MediaViewerUnavailable(), state);
+        },
+      ),
+
+      GoRoute(
+        path: '/gallery/telegram-media/:id',
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          if (extra is ({List<MediaItem> items, int initialIndex})) {
+            return _slideFromRight(
+              TelegramMediaViewerScreen(
+                items: extra.items,
+                initialIndex: extra.initialIndex,
+              ),
+              state,
+            );
+          }
+          // Reached directly without the item list a timeline tap provides.
           return _slideFromRight(const _MediaViewerUnavailable(), state);
         },
       ),

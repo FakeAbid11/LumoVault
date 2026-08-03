@@ -17,6 +17,7 @@ class MediaTile extends StatefulWidget {
     this.showStatus = false,
     this.size,
     this.thumbnailLoader,
+    this.telegramThumbnailFetcher,
     this.reloadGeneration = 0,
   });
   final MediaItem mediaItem;
@@ -29,6 +30,15 @@ class MediaTile extends StatefulWidget {
   /// Optional thumbnail source override. Defaults to [defaultThumbnailLoader].
   /// Injectable so tests can stub thumbnail bytes without photo_manager.
   final Future<Uint8List?> Function(MediaItem item)? thumbnailLoader;
+
+  /// Optional on-demand thumbnail fetcher for Telegram-only items.
+  ///
+  /// Telegram items have no local file, so the default loader can never
+  /// produce their thumbnail. The timeline passes a fetcher that downloads
+  /// the thumbnail via TDLib and caches it; subsequent renders hit the
+  /// cache. When null, [defaultThumbnailLoader] is used, which returns null
+  /// for Telegram items (placeholder).
+  final Future<Uint8List?> Function(MediaItem item)? telegramThumbnailFetcher;
 
   /// Version counter that forces the thumbnail to reload even when [mediaItem]
   /// is unchanged. The timeline bumps this when a channel scan completes, a
@@ -131,6 +141,12 @@ class _MediaTileState extends State<MediaTile> {
 
   Future<Uint8List?> _loadThumbnail() {
     final item = widget.mediaItem;
+    // Telegram items have no local file to derive a thumbnail from — route
+    // them to the on-demand fetcher when one is provided. The fetcher itself
+    // checks the cache first, so repeat renders never re-download.
+    if (item.isTelegram && widget.telegramThumbnailFetcher != null) {
+      return widget.telegramThumbnailFetcher!(item);
+    }
     final loader = widget.thumbnailLoader ?? MediaTile.defaultThumbnailLoader;
     return loader(item);
   }

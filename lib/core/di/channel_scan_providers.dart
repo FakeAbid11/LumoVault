@@ -1,7 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/gallery/data/models/media_item.dart';
+import '../../features/gallery/data/repositories/telegram_download_service.dart';
 import '../../features/restore/data/repositories/channel_scan_service.dart';
 import '../../features/restore/presentation/providers/restore_providers.dart';
+import '../storage/storage_channel_service.dart';
+import '../storage/thumbnail_cache.dart';
 import 'gallery_providers.dart';
 import 'tdlib_providers.dart';
 
@@ -25,6 +32,113 @@ final channelScanServiceProvider = Provider<ChannelScanService>((ref) {
 
 /// Possible states for the channel scan lifecycle.
 enum ChannelScanStatus { idle, scanning, completed, failed }
+
+/// Fetches thumbnails for Telegram-only items on demand and caches them.
+///
+/// Telegram items have no local file, so the timeline's default loader can
+/// never produce their thumbnail. This service fills the gap: it resolves
+/// the storage channel, downloads the thumbnail via TDLib, writes the bytes
+/// to [ThumbnailCache] under the item's [MediaItem.localId], and serves
+/// subsequent requests from the cache. Concurrent requests for the same
+/// item share one in-flight download, and failures enter a per-item cooldown
+/// so a broken transfer isn't retried in a tight loop on every tile rebuild.
+class TelegramThumbnailFetcher {
+  TelegramThumbnailFetcher({
+    required this.downloadService,
+    required this.storageChannelService,
+    ThumbnailCache? thumbnailCache,
+    this.failureCooldown = const Duration(seconds: 30),
+  }) : _thumbnailCache = thumbnailCache ?? ThumbnailCache.instance;
+
+  final DownloadService downloadService;
+  final StorageChannelService storageChannelService;
+  final ThumbnailCache _thumbnailCache;
+
+  /// How long a failed fetch is remembered before the item is retried.
+  final Duration failureCooldown;
+
+  final _inFlight = <String, Future<Uint8List?>>{};
+  final _failedAt = <String, DateTime>{};
+
+  /// Resolve thumbnail bytes for [item], or null when unavailable.
+  ///
+  /// Only Telegram items are handled — everything else returns null so the
+  /// caller's default loader takes over. Callers must not treat null as a
+  /// terminal failure: a later call (after the cooldown) retries.
+  Future<Uint8List?> fetch(MediaItem item) async {
+    if (!item.isTelegram) return null;
+
+    final cached = await _thumbnailCache.get(item.localId);
+    if (cached != null) return cached;
+
+    final messageId = int.tryParse(item.telegramMessageId ?? '');
+    if (messageId == null) return null;
+
+    final lastFailure = _failedAt[item.localId];
+    if (lastFailure != null &&
+        DateTime.now().difference(lastFailure) < failureCooldown) {
+      return null;
+    }
+
+    final inFlight = _inFlight[item.localId];
+    if (inFlight != null) return inFlight;
+
+    final future = _download(item, messageId);
+    _inFlight[item.localId] = future;
+    try {
+      final result = await future;
+      if (result != null) _failedAt.remove(item.localId);
+      return result;
+    } finally {
+      _inFlight.remove(item.localId);
+    }
+  }
+
+  Future<Uint8List?> _download(MediaItem item, int messageId) async {
+    try {
+      var channelId = storageChannelService.cachedChannelId;
+      if (channelId == null) {
+        final result = await storageChannelService.findExistingChannel();
+        if (result is! StorageChannelFound) return null;
+        channelId = result.channelId;
+        storageChannelService.setCachedChannelId(channelId);
+      }
+
+      final download = await downloadService.downloadFile(
+        taskId:
+            'thumb_${item.localId}_${DateTime.now().millisecondsSinceEpoch}',
+        messageId: messageId,
+        channelId: channelId,
+        mode: DownloadMode.thumbnail,
+      );
+
+      final bytes = await File(
+        download.filePath,
+      ).readAsBytes().timeout(const Duration(seconds: 15));
+      if (bytes.isEmpty) return null;
+
+      try {
+        await _thumbnailCache.put(item.localId, bytes);
+      } catch (_) {
+        // Cache write failure is non-fatal — the tile renders from [bytes].
+      }
+      return bytes;
+    } catch (_) {
+      _failedAt[item.localId] = DateTime.now();
+      return null;
+    }
+  }
+}
+
+/// Provider exposing the on-demand Telegram thumbnail fetcher for tiles.
+final telegramThumbnailFetcherProvider = Provider<TelegramThumbnailFetcher>((
+  ref,
+) {
+  return TelegramThumbnailFetcher(
+    downloadService: ref.watch(downloadServiceProvider),
+    storageChannelService: ref.watch(storageChannelServiceProvider),
+  );
+});
 
 /// State of the channel scan including progress information.
 class ChannelScanState {

@@ -412,6 +412,103 @@ void main() {
     });
   });
 
+  group('MediaTile telegram thumbnail fetcher', () {
+    testWidgets('uses the fetcher for telegram items and renders the bytes', (
+      tester,
+    ) async {
+      final item = makeItem(
+        localId: 'telegram_1',
+        telegramMessageId: '42',
+        filePath: 'telegram://42',
+      );
+      var fetcherCalls = 0;
+      Future<Uint8List?> fetcher(MediaItem _) async {
+        fetcherCalls++;
+        return kTransparentImage;
+      }
+
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(mediaItem: item, telegramThumbnailFetcher: fetcher),
+        ),
+      );
+      await tester.pump();
+
+      expect(fetcherCalls, 1);
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.byIcon(Icons.image), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('telegram items without a fetcher fall back to placeholder', (
+      tester,
+    ) async {
+      final item = makeItem(
+        localId: 'telegram_2',
+        telegramMessageId: '42',
+        filePath: 'telegram://42',
+      );
+
+      await tester.pumpWidget(wrapInApp(MediaTile(mediaItem: item)));
+
+      // The default loader returns null for telegram items immediately (no
+      // photo_manager/file path to resolve) — one extra pump settles it.
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('local items use the thumbnail loader, not the fetcher', (
+      tester,
+    ) async {
+      final item = makeItem();
+      var fetcherCalls = 0;
+      Future<Uint8List?> fetcher(MediaItem _) async {
+        fetcherCalls++;
+        return kTransparentImage;
+      }
+
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(
+            mediaItem: item,
+            thumbnailLoader: (_) async => kTransparentImage,
+            telegramThumbnailFetcher: fetcher,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(fetcherCalls, 0);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('telegram fetcher result of null leaves the placeholder', (
+      tester,
+    ) async {
+      final item = makeItem(
+        localId: 'telegram_3',
+        telegramMessageId: '42',
+        filePath: 'telegram://42',
+      );
+
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(
+            mediaItem: item,
+            telegramThumbnailFetcher: (_) async => null,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.image), findsOneWidget);
+    });
+  });
+
   group('MediaTile.defaultThumbnailLoader file fallback', () {
     // Plain tests (no FakeAsync) so the loader's real dart:io fallback can
     // actually complete — a widget test's fake-async zone can't drive it.

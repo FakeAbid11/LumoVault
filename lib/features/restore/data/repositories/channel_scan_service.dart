@@ -168,8 +168,28 @@ class ChannelScanService {
           continue;
         }
 
-        // Skip duplicates by file hash.
+        // Skip duplicates by file hash. The thumbnail is still fetched when
+        // missing: the gallery can hold an item whose thumbnail never made
+        // it into the cache (a download that failed during an earlier scan,
+        // or an item added by a restore run). The bytes land under the same
+        // [MediaItem.localId] the existing item uses, so the timeline tile
+        // heals in place.
         if (existingHashes.contains(mediaItem.fileHash)) {
+          if (!await ThumbnailCache.instance.contains(mediaItem.localId)) {
+            try {
+              await _downloadThumbnail(
+                messageId: message.messageId,
+                channelId: channelId,
+                mediaItem: mediaItem,
+              );
+            } catch (e) {
+              debugPrint(
+                '[ChannelScanService] Thumbnail download failed for '
+                '${message.fileName}: $e',
+              );
+              failedThumbnailCount++;
+            }
+          }
           debugPrint(
             '[ChannelScanService] Skipping msg ${message.messageId} '
             '${message.fileName}: duplicate hash',
@@ -179,19 +199,23 @@ class ChannelScanService {
         }
 
         // Download thumbnail (non-blocking — item appears with placeholder
-        // if thumbnail fails).
-        try {
-          await _downloadThumbnail(
-            messageId: message.messageId,
-            channelId: channelId,
-            mediaItem: mediaItem,
-          );
-        } catch (e) {
-          debugPrint(
-            '[ChannelScanService] Thumbnail download failed for '
-            '${message.fileName}: $e',
-          );
-          failedThumbnailCount++;
+        // if thumbnail fails). Skipped when already cached, so a force
+        // rescan refetches only what's missing instead of re-downloading
+        // the whole channel.
+        if (!await ThumbnailCache.instance.contains(mediaItem.localId)) {
+          try {
+            await _downloadThumbnail(
+              messageId: message.messageId,
+              channelId: channelId,
+              mediaItem: mediaItem,
+            );
+          } catch (e) {
+            debugPrint(
+              '[ChannelScanService] Thumbnail download failed for '
+              '${message.fileName}: $e',
+            );
+            failedThumbnailCount++;
+          }
         }
 
         newItems.add(mediaItem);

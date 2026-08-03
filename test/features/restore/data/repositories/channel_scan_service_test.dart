@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/storage/storage_channel_service.dart';
+import 'package:lumovault/core/storage/thumbnail_cache.dart';
 import 'package:lumovault/core/tdlib/tdlib_client.dart';
 import 'package:lumovault/core/tdlib/tdlib_exception.dart';
 import 'package:lumovault/features/gallery/data/models/device_folder.dart';
+import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/gallery/data/repositories/gallery_repository.dart';
 import 'package:lumovault/features/gallery/data/repositories/media_scanner_service.dart';
 import 'package:lumovault/features/gallery/data/repositories/telegram_download_service.dart';
@@ -45,6 +48,9 @@ void main() {
           const MethodChannel('plugins.flutter.io/path_provider'),
           (call) async => tempDir.path,
         );
+    // The singleton ThumbnailCache persists across tests in this file —
+    // clearing it keeps each test's thumbnail assertions hermetic.
+    ThumbnailCache.instance.clear();
   });
 
   tearDown(() {
@@ -330,6 +336,126 @@ void main() {
       },
     );
   });
+
+  group('ChannelScanService thumbnail self-healing', () {
+    test('duplicate-hash items still fetch a missing thumbnail', () async {
+      // Seed the gallery with an item whose hash matches the channel message
+      // (e.g. a restore that populated the gallery but never cached the
+      // thumbnail). The message is a duplicate from the start — but its
+      // thumbnail must still be downloaded and cached.
+      final repo = _repo();
+      final message1Hash = sha256.convert(utf8.encode('msg_1_901')).toString();
+      await repo.mergeTelegramItems([
+        MediaItem(
+          localId: 'msg_1',
+          fileHash: message1Hash,
+          telegramMessageId: '1',
+          filePath: 'telegram://1',
+          fileName: 'doc_1.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          createdAt: DateTime(2026, 1, 1),
+          modifiedAt: DateTime(2026, 1, 1),
+          scannedAt: DateTime(2026, 1, 1),
+          status: MediaStatus.uploaded,
+        ),
+      ]);
+      final downloads = _FakeDownloadService();
+      final client = _FakeTdRequests([
+        {
+          'messages': [_document(1)],
+        },
+        _page(const []),
+      ]);
+      final service = _service(client, repo: repo, downloads: downloads);
+
+      final result = await service.scanChannel();
+
+      expect(result.newItems, 0);
+      expect(result.skippedItems, 1);
+      expect(
+        downloads.calls.length,
+        1,
+        reason: 'duplicate items must still get their thumbnail',
+      );
+      expect(downloads.calls.single, DownloadMode.thumbnail);
+      expect(
+        await ThumbnailCache.instance.contains('msg_1'),
+        isTrue,
+        reason: 'the thumbnail must heal the existing tile in place',
+      );
+    });
+
+    test(
+      'a rescan refetches thumbnails that failed on the first pass',
+      () async {
+        final client = _FakeTdRequests([
+          {
+            'messages': [_document(1)],
+          },
+          _page(const []),
+        ]);
+        final downloads = _FakeDownloadService()..throwOnDownload = true;
+        final service = _service(client, downloads: downloads);
+
+        final first = await service.scanChannel();
+        expect(first.failedThumbnails, 1);
+        expect(await ThumbnailCache.instance.contains('msg_1'), isFalse);
+
+        // The item is in the gallery but its thumbnail never made it. A force
+        // rescan must refetch it — through the duplicate path.
+        downloads.throwOnDownload = false;
+        service.resetScanState();
+        client.nextPages = [
+          {
+            'messages': [_document(1)],
+          },
+          _page(const []),
+        ];
+
+        final rescan = await service.scanChannel();
+
+        expect(rescan.skippedItems, 1);
+        expect(downloads.calls.length, 2);
+        expect(await ThumbnailCache.instance.contains('msg_1'), isTrue);
+      },
+    );
+
+    test('a rescan does not re-download thumbnails that are cached', () async {
+      final client = _FakeTdRequests([
+        {
+          'messages': [_document(1)],
+        },
+        _page(const []),
+      ]);
+      final downloads = _FakeDownloadService();
+      final service = _service(client, downloads: downloads);
+
+      final first = await service.scanChannel();
+      expect(first.failedThumbnails, 0);
+      expect(await ThumbnailCache.instance.contains('msg_1'), isTrue);
+
+      service.resetScanState();
+      client.nextPages = [
+        {
+          'messages': [_document(1)],
+        },
+        _page(const []),
+      ];
+
+      final rescan = await service.scanChannel();
+
+      expect(rescan.skippedItems, 1);
+      expect(
+        downloads.calls.length,
+        1,
+        reason: 'cached thumbnails are served, not re-downloaded',
+      );
+      expect(await ThumbnailCache.instance.contains('msg_1'), isTrue);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -491,6 +617,10 @@ class _FakeDownloadService implements DownloadService {
   /// Simulate a thumbnail download that fails outright.
   bool throwOnDownload = false;
 
+  /// The download mode of every attempted call, in order — used to prove
+  /// thumbnails are (or aren't) fetched for duplicate items.
+  final calls = <DownloadMode>[];
+
   @override
   Stream<DownloadProgress> get progressStream => const Stream.empty();
 
@@ -501,6 +631,7 @@ class _FakeDownloadService implements DownloadService {
     required int channelId,
     DownloadMode mode = DownloadMode.original,
   }) async {
+    calls.add(mode);
     if (throwOnDownload) throw StateError('download failed');
 
     // A real thumbnail file: the scanner reads the bytes, caches them, and

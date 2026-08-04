@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
+import '../../../../core/tdlib/tdlib_client.dart';
 import '../../../../core/tdlib/tdlib_connection_manager.dart';
 import '../../../../core/tdlib/tdlib_exception.dart';
 import '../models/caption_metadata.dart';
@@ -52,13 +55,23 @@ abstract class DownloadService {
 /// Handles file downloads from the storage channel with progress tracking,
 /// cancellation support, and thumbnail/original mode selection.
 class TelegramDownloadService implements DownloadService {
-  TelegramDownloadService({required this._manager});
+  TelegramDownloadService({
+    required TdLibConnectionManager manager,
+    @visibleForTesting TdRequestSender? requestSender,
+    @visibleForTesting Stream<Map<String, dynamic>>? updates,
+  }) : _sendRequest = requestSender ?? manager.sendRequest,
+       _updates = updates ?? manager.client.updates;
 
   // Requests go through the connection manager (not the raw TdLibClient) so
   // a dropped connection mid-download triggers the same backoff/reconnect
   // logic the rest of the app already relies on, instead of just failing
   // the transfer outright.
-  final TdLibConnectionManager _manager;
+  //
+  // Both collaborators are injectable because neither the manager nor the
+  // client can be constructed in a test — TdLibClient is a private-constructor
+  // FFI singleton. These two are the entire surface this service uses.
+  final TdRequestSender _sendRequest;
+  final Stream<Map<String, dynamic>> _updates;
   final _progressController = StreamController<DownloadProgress>.broadcast();
   final _activeDownloads = <String, Completer<void>>{};
 
@@ -77,7 +90,7 @@ class TelegramDownloadService implements DownloadService {
 
     try {
       // Get message to extract file info.
-      final message = await _manager.sendRequest(
+      final message = await _sendRequest(
         method: 'getMessage',
         params: {'chat_id': channelId, 'message_id': messageId},
       );
@@ -85,31 +98,52 @@ class TelegramDownloadService implements DownloadService {
       final content = message['content'] as Map<String, dynamic>?;
       final contentType = content?['@type'] as String?;
 
-      // Extract file info based on content type.
+      // Extract file info based on content type. TDLib nests the real `file`
+      // object (which carries `id`, `local`, `remote`, ...) INSIDE the content
+      // wrapper: `document.document`, `video.video`, `photoSize.photo` — there
+      // is no top-level `id` on the document/video objects themselves.
       int? fileId;
       String? localPath;
 
+      Map<String, dynamic>? file;
       if (contentType == 'messageDocument') {
         final document = content?['document'] as Map<String, dynamic>?;
-        fileId = document?['id'] as int?;
-        final local = document?['local'] as Map<String, dynamic>?;
-        localPath = local?['path'] as String?;
+        if (mode == DownloadMode.thumbnail) {
+          // Prefer the document thumbnail (a small JPEG) when available;
+          // fall back to the full document file.
+          final thumbFile =
+              (document?['thumbnail'] as Map<String, dynamic>?)?['file']
+                  as Map<String, dynamic>?;
+          file = thumbFile ?? (document?['document'] as Map<String, dynamic>?);
+        } else {
+          file = document?['document'] as Map<String, dynamic>?;
+        }
       } else if (contentType == 'messagePhoto') {
         final photo = content?['photo'] as Map<String, dynamic>?;
         final sizes = photo?['sizes'] as List<dynamic>?;
-        final lastSize = sizes != null && sizes.isNotEmpty
-            ? sizes.last as Map<String, dynamic>
-            : null;
-        final photoFile = lastSize?['photo'] as Map<String, dynamic>?;
-        fileId = photoFile?['id'] as int?;
-        final local = photoFile?['local'] as Map<String, dynamic>?;
-        localPath = local?['path'] as String?;
+        if (sizes != null && sizes.isNotEmpty) {
+          // TDLib lists photo sizes ascending: thumbnails want the smallest
+          // variant, originals the largest.
+          final size =
+              (mode == DownloadMode.thumbnail ? sizes.first : sizes.last)
+                  as Map<String, dynamic>;
+          file = size['photo'] as Map<String, dynamic>?;
+        }
       } else if (contentType == 'messageVideo') {
         final video = content?['video'] as Map<String, dynamic>?;
-        fileId = video?['id'] as int?;
-        final local = video?['local'] as Map<String, dynamic>?;
-        localPath = local?['path'] as String?;
+        if (mode == DownloadMode.thumbnail) {
+          final thumbFile =
+              (video?['thumbnail'] as Map<String, dynamic>?)?['file']
+                  as Map<String, dynamic>?;
+          file = thumbFile ?? (video?['video'] as Map<String, dynamic>?);
+        } else {
+          file = video?['video'] as Map<String, dynamic>?;
+        }
       }
+
+      final local = file?['local'] as Map<String, dynamic>?;
+      fileId = file?['id'] as int?;
+      localPath = local?['path'] as String?;
 
       // Check if already downloaded.
       if (localPath != null && localPath.isNotEmpty) {
@@ -149,7 +183,7 @@ class TelegramDownloadService implements DownloadService {
       late final StreamSubscription<Map<String, dynamic>> subscription;
       final completionCompleter = Completer<String>();
 
-      subscription = _manager.client.updates.listen((update) {
+      subscription = _updates.listen((update) {
         if (completionCompleter.isCompleted) return;
         final updateType = update['@type'] as String?;
         if (updateType != 'updateFile') return;
@@ -180,7 +214,7 @@ class TelegramDownloadService implements DownloadService {
       });
 
       // Request the download — subscription is already listening.
-      await _manager.sendRequest(
+      await _sendRequest(
         method: 'downloadFile',
         params: {
           'file_id': fileId,

@@ -502,7 +502,11 @@ Map<String, dynamic> _document(int id) => {
   'date': 1700000000 + id,
   'content': {
     '@type': 'messageDocument',
-    'document': {'id': 900 + id, 'file_name': 'doc_$id.jpg'},
+    'document': {
+      'file_name': 'doc_$id.jpg',
+      // Real TDLib nests the file object inside the document wrapper.
+      'document': {'id': 900 + id},
+    },
   },
 };
 
@@ -526,7 +530,10 @@ Map<String, dynamic> _video(int id) => {
   'date': 1700000000 + id,
   'content': {
     '@type': 'messageVideo',
-    'video': {'id': 700 + id, 'file_name': 'video_$id.mp4'},
+    'video': {
+      'file_name': 'video_$id.mp4',
+      'video': {'id': 700 + id},
+    },
   },
 };
 

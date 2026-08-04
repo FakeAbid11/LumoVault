@@ -129,7 +129,8 @@ class RestoreRepository {
             final document = content?['document'] as Map<String, dynamic>?;
             final caption = content?['caption'] as Map<String, dynamic>?;
             final captionText = caption?['text'] as String?;
-            final fileId = document?['id'] as int?;
+            final fileId =
+                (document?['document'] as Map<String, dynamic>?)?['id'] as int?;
             final fileName = document?['file_name'] as String? ?? 'unknown';
 
             messages.add(

@@ -305,7 +305,10 @@ class ChannelScanService {
           final document = content?['document'] as Map<String, dynamic>?;
           final caption = content?['caption'] as Map<String, dynamic>?;
           final captionText = caption?['text'] as String?;
-          final fileId = document?['id'] as int?;
+          // The file id lives on the nested `document` field of the wrapper
+          // (TDLib has no top-level `id` on the document object).
+          final fileId =
+              (document?['document'] as Map<String, dynamic>?)?['id'] as int?;
           final fileName = document?['file_name'] as String? ?? 'unknown';
 
           messages.add(
@@ -339,7 +342,8 @@ class ChannelScanService {
           );
         } else if (contentType == 'messageVideo') {
           final video = content?['video'] as Map<String, dynamic>?;
-          final fileId = video?['id'] as int?;
+          final fileId =
+              (video?['video'] as Map<String, dynamic>?)?['id'] as int?;
           final caption = content?['caption'] as Map<String, dynamic>?;
           final captionText = caption?['text'] as String?;
           final fileName =

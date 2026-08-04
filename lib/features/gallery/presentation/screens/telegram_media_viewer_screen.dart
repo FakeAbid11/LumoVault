@@ -10,6 +10,7 @@ import '../../../../core/di/tdlib_providers.dart';
 import '../../../../core/storage/storage_channel_service.dart';
 import '../../../restore/presentation/providers/restore_providers.dart';
 import '../../data/models/media_item.dart';
+import '../../data/models/transfer_error.dart';
 import '../../data/repositories/telegram_download_service.dart';
 
 /// Full-screen viewer for Telegram-only items (backed-up copies with no
@@ -175,7 +176,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
         }
         final filePath = snapshot.data?.filePath ?? '';
         if (snapshot.hasError || filePath.isEmpty) {
-          return _buildError(context);
+          return _buildError(context, snapshot.error);
         }
         return InteractiveViewer(
           minScale: 1,
@@ -211,16 +212,26 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
     );
   }
 
-  Widget _buildError(BuildContext context) {
+  Widget _buildError(BuildContext context, Object? error) {
+    String message;
+    if (error is TransferError) {
+      message = error.message;
+    } else if (error != null) {
+      message = error.toString();
+    } else {
+      message = 'Could not download this photo';
+    }
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.error_outline, color: Colors.white38, size: 64),
           const SizedBox(height: 12),
-          const Text(
-            'Could not download this photo',
-            style: TextStyle(color: Colors.white70),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white70),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(

@@ -105,7 +105,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Could not download this photo'), findsOneWidget);
+    expect(find.text('Bad state: download failed'), findsOneWidget);
 
     // Retry issues a fresh download for the same item.
     downloads.failNext = false;

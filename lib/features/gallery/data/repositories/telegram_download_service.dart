@@ -140,6 +140,46 @@ class TelegramDownloadService implements DownloadService {
         );
       }
 
+      // Subscribe to file updates BEFORE requesting the download.
+      // client.updates is a broadcast stream with no buffering — if we
+      // subscribe after the request, TDLib can emit the completion event
+      // before the listener is active and it is silently lost, causing a
+      // 30-minute timeout for every download.
+      // ignore: cancel_subscriptions – cancelled in _awaitDownloadCompletion's finally block.
+      late final StreamSubscription<Map<String, dynamic>> subscription;
+      final completionCompleter = Completer<String>();
+
+      subscription = _manager.client.updates.listen((update) {
+        if (completionCompleter.isCompleted) return;
+        final updateType = update['@type'] as String?;
+        if (updateType != 'updateFile') return;
+
+        final file = update['file'] as Map<String, dynamic>?;
+        if (file == null || file['id'] != fileId) return;
+
+        final local = file['local'] as Map<String, dynamic>?;
+        final downloadedSize = local?['downloaded_size'] as int? ?? 0;
+        final expectedSize = file['expected_size'] as int? ?? 0;
+        final isCompleted =
+            local?['is_downloading_completed'] as bool? ?? false;
+
+        final progress = expectedSize > 0 ? downloadedSize / expectedSize : 0.0;
+        _progressController.add(
+          DownloadProgress(
+            taskId: taskId,
+            progress: progress.clamp(0.0, 1.0),
+            bytesDownloaded: downloadedSize,
+            totalBytes: expectedSize,
+          ),
+        );
+
+        if (isCompleted && !completionCompleter.isCompleted) {
+          final path = local?['path'] as String? ?? '';
+          completionCompleter.complete(path);
+        }
+      });
+
+      // Request the download — subscription is already listening.
       await _manager.sendRequest(
         method: 'downloadFile',
         params: {
@@ -155,8 +195,9 @@ class TelegramDownloadService implements DownloadService {
       // progress along the way, and resolve with the final local path.
       final updatedPath = await _awaitDownloadCompletion(
         taskId: taskId,
-        fileId: fileId,
         cancelCompleter: cancelCompleter,
+        subscription: subscription,
+        completionCompleter: completionCompleter,
       );
       final captionText =
           (content?['caption'] as Map<String, dynamic>?)?['text'] as String?;
@@ -195,53 +236,22 @@ class TelegramDownloadService implements DownloadService {
   /// file path on success. Honors cancellation via [cancelCompleter] and an
   /// overall [_downloadTimeout].
   ///
-  /// Replaces the old `_monitorDownloadProgress`, which listened for a
-  /// non-existent `updateFileProgress` type (TDLib actually sends
-  /// `updateFile`) and only ever resolved on cancellation — so a real
-  /// download never had a signal telling it to stop waiting and just hung
-  /// forever.
+  /// The [subscription] and [completionCompleter] are created by the caller
+  /// BEFORE the TDLib `downloadFile` request is sent, so the broadcast
+  /// stream subscription is active in time to catch fast-completing
+  /// downloads (the race condition that caused every download to hang for
+  /// 30 minutes).
   Future<String> _awaitDownloadCompletion({
     required String taskId,
-    required int fileId,
     required Completer<void> cancelCompleter,
+    required StreamSubscription<Map<String, dynamic>> subscription,
+    required Completer<String> completionCompleter,
   }) async {
-    final completer = Completer<String>();
-
-    late final StreamSubscription<Map<String, dynamic>> subscription;
-    subscription = _manager.client.updates.listen((update) {
-      if (completer.isCompleted) return;
-      final updateType = update['@type'] as String?;
-      if (updateType != 'updateFile') return;
-
-      final file = update['file'] as Map<String, dynamic>?;
-      if (file == null || file['id'] != fileId) return;
-
-      final local = file['local'] as Map<String, dynamic>?;
-      final downloadedSize = local?['downloaded_size'] as int? ?? 0;
-      final expectedSize = file['expected_size'] as int? ?? 0;
-      final isCompleted = local?['is_downloading_completed'] as bool? ?? false;
-
-      final progress = expectedSize > 0 ? downloadedSize / expectedSize : 0.0;
-      _progressController.add(
-        DownloadProgress(
-          taskId: taskId,
-          progress: progress.clamp(0.0, 1.0),
-          bytesDownloaded: downloadedSize,
-          totalBytes: expectedSize,
-        ),
-      );
-
-      if (isCompleted && !completer.isCompleted) {
-        final path = local?['path'] as String? ?? '';
-        completer.complete(path);
-      }
-    });
-
     // Cancellation from cancelDownload() -> treat as a cancelled transfer.
     unawaited(
       cancelCompleter.future.then((_) {
-        if (!completer.isCompleted) {
-          completer.completeError(
+        if (!completionCompleter.isCompleted) {
+          completionCompleter.completeError(
             TransferError(
               category: TransferErrorCategory.unknown,
               message: 'Download cancelled',
@@ -253,7 +263,7 @@ class TelegramDownloadService implements DownloadService {
     );
 
     try {
-      return await completer.future.timeout(
+      return await completionCompleter.future.timeout(
         _downloadTimeout,
         onTimeout: () => throw TransferError(
           category: TransferErrorCategory.network,

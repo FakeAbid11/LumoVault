@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/gallery/data/models/media_item.dart';
@@ -119,11 +119,12 @@ class TelegramThumbnailFetcher {
 
       try {
         await _thumbnailCache.put(item.localId, bytes);
-      } catch (_) {
-        // Cache write failure is non-fatal — the tile renders from [bytes].
+      } catch (e) {
+        debugPrint('[TG-Thumb] cache write failed for ${item.localId}: $e');
       }
       return bytes;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TG-Thumb] download failed for ${item.localId}: $e');
       _failedAt[item.localId] = DateTime.now();
       return null;
     }

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import '../tdlib/tdlib_client.dart';
 import '../tdlib/tdlib_exception.dart';
 import 'auth_service.dart';
@@ -12,9 +14,21 @@ import 'auth_service.dart';
 /// TDLib communicates via an async update stream. This class maps
 /// TDLib authorization state updates to [AuthState] transitions.
 class TelegramAuthRepository implements AuthService {
-  TelegramAuthRepository(this._client, [this._ensureConnected]);
+  TelegramAuthRepository(
+    this._client, [
+    this._ensureConnected,
+    this.versionResolver,
+  ]);
 
   final TdLibClient _client;
+
+  /// Resolves the running TDLib version string (e.g. `1.8.29`).
+  ///
+  /// Injectable for tests; defaults to querying the client's `version`
+  /// option. The result is cached per repository instance.
+  @visibleForTesting
+  Future<String?> Function()? versionResolver;
+  String? _cachedTdLibVersion;
 
   /// Establishes the underlying TDLib connection (client creation +
   /// `setTdlibParameters`) before this repository relies on it being ready.
@@ -96,11 +110,7 @@ class TelegramAuthRepository implements AuthService {
     try {
       await _client.sendRequest(
         method: 'setAuthenticationPhoneNumber',
-        params: {
-          'phone_number': phoneNumber,
-          'allow_flash_call': false,
-          'is_current_phone_number': true,
-        },
+        params: await _phoneNumberParams(phoneNumber),
       );
 
       // TDLib will emit authorizationStateWaitCode update.
@@ -111,6 +121,75 @@ class TelegramAuthRepository implements AuthService {
       _updateState(AuthState.error);
       return AuthError(message: e.displayMessage, code: e.code);
     }
+  }
+
+  /// Build the `setAuthenticationPhoneNumber` params for the running TDLib.
+  ///
+  /// TDLib 1.7 moved `allow_flash_call` / `is_current_phone_number` from
+  /// top-level fields into `settings.phoneNumberAuthenticationSettings`.
+  /// Older TDLib rejects the nested shape; newer TDLib deprecates (and in
+  /// some builds rejects) the flat one — so the shape is chosen by the
+  /// runtime version rather than hardcoded.
+  Future<Map<String, dynamic>> _phoneNumberParams(String phoneNumber) async {
+    final modern = await _isModernTdLib();
+    return {
+      'phone_number': phoneNumber,
+      if (modern)
+        'settings': {
+          '@type': 'phoneNumberAuthenticationSettings',
+          'allow_flash_call': false,
+          'is_current_phone_number': true,
+        }
+      else ...{
+        'allow_flash_call': false,
+        'is_current_phone_number': true,
+      },
+    };
+  }
+
+  /// Whether TDLib is >= 1.7 (nested auth-settings shape).
+  ///
+  /// Falls back to `true` when the version can't be determined: TDLib 1.7
+  /// shipped years ago, and a failed version probe must never block login.
+  Future<bool> _isModernTdLib() async {
+    final version = await _tdLibVersion();
+    if (version == null) return true;
+    final parts = version.split('.');
+    if (parts.length < 2) return true;
+    final major = int.tryParse(parts[0]);
+    final minor = int.tryParse(parts[1]);
+    if (major == null || minor == null) return true;
+    return major > 1 || (major == 1 && minor >= 7);
+  }
+
+  /// Resolve the TDLib version once per session, via the injectable
+  /// resolver or the client's `version` option. Failures return null and
+  /// leave the caller on the modern default.
+  Future<String?> _tdLibVersion() async {
+    final cached = _cachedTdLibVersion;
+    if (cached != null) return cached;
+
+    String? version;
+    try {
+      final resolver = versionResolver;
+      if (resolver != null) {
+        version = await resolver();
+      } else {
+        final result = await _client.sendRequest(
+          method: 'getOption',
+          params: {'name': 'version'},
+        );
+        final value = result['value'] as Map<String, dynamic>?;
+        version = value?['value'] as String?;
+      }
+    } catch (e) {
+      debugPrint(
+        '[TelegramAuthRepository] Failed to resolve TDLib version: $e',
+      );
+    }
+
+    if (version != null) _cachedTdLibVersion = version;
+    return version;
   }
 
   @override

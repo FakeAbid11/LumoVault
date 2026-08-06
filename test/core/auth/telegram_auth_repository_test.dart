@@ -21,6 +21,10 @@ class MockTdLibClient implements TdLibClient {
   bool throwOnSend;
   bool throwOnLogout;
 
+  /// Version returned for the `getOption {"name": "version"}` probe.
+  /// Null means the probe fails to resolve a version (modern default).
+  String? tdLibVersion;
+
   final _updateController = StreamController<Map<String, dynamic>>.broadcast();
   final sentRequests = <Map<String, dynamic>>[];
 
@@ -42,6 +46,15 @@ class MockTdLibClient implements TdLibClient {
     Map<String, dynamic>? params,
   }) async {
     sentRequests.add({'method': method, if (params != null) 'params': params});
+
+    if (method == 'getOption' && params?['name'] == 'version') {
+      final version = tdLibVersion;
+      if (version != null) {
+        return {
+          'value': {'@type': 'optionValueString', 'value': version},
+        };
+      }
+    }
 
     if (throwOnSend) {
       throw const TdLibException(
@@ -141,6 +154,77 @@ void main() {
           mockClient.sentRequests.last['method'],
           'setAuthenticationPhoneNumber',
         );
+      });
+
+      test('uses nested auth settings on TDLib >= 1.7', () async {
+        mockClient.tdLibVersion = '1.8.29';
+        await repository.initialize();
+        await repository.sendCode('+1234567890');
+
+        final params =
+            mockClient.sentRequests.last['params'] as Map<String, dynamic>;
+        final settings = params['settings'] as Map<String, dynamic>;
+        expect(settings['@type'], 'phoneNumberAuthenticationSettings');
+        expect(settings['allow_flash_call'], false);
+        expect(settings['is_current_phone_number'], true);
+        expect(params.containsKey('allow_flash_call'), isFalse);
+      });
+
+      test('uses flat params on TDLib < 1.7', () async {
+        mockClient.tdLibVersion = '1.6.0';
+        await repository.initialize();
+        await repository.sendCode('+1234567890');
+
+        final params =
+            mockClient.sentRequests.last['params'] as Map<String, dynamic>;
+        expect(params['allow_flash_call'], false);
+        expect(params['is_current_phone_number'], true);
+        expect(params.containsKey('settings'), isFalse);
+      });
+
+      test(
+        'defaults to modern shape when version cannot be resolved',
+        () async {
+          // tdLibVersion is null -> the getOption probe returns nothing useful.
+          await repository.initialize();
+          await repository.sendCode('+1234567890');
+
+          final params =
+              mockClient.sentRequests.last['params'] as Map<String, dynamic>;
+          expect(params['settings'], isNotNull);
+        },
+      );
+
+      test('uses the injectable version resolver when provided', () async {
+        final repo = TelegramAuthRepository(
+          mockClient,
+          null,
+          () async => '1.6.0',
+        );
+        addTearDown(repo.dispose);
+
+        await repo.initialize();
+        await repo.sendCode('+1234567890');
+
+        final params =
+            mockClient.sentRequests.last['params'] as Map<String, dynamic>;
+        expect(params['allow_flash_call'], false);
+        expect(params.containsKey('settings'), isFalse);
+      });
+
+      test('caches the resolved version', () async {
+        var probes = 0;
+        final repo = TelegramAuthRepository(mockClient, null, () async {
+          probes++;
+          return '1.8.29';
+        });
+        addTearDown(repo.dispose);
+
+        await repo.initialize();
+        await repo.sendCode('+1234567890');
+        await repo.sendCode('+9876543210');
+
+        expect(probes, 1);
       });
 
       test('returns error on TDLib failure', () async {

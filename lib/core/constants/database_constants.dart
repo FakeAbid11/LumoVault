@@ -10,7 +10,10 @@ abstract final class DatabaseConstants {
   ///
   /// v3: added query hot-path indexes on MediaItems (file_hash, status,
   /// album_name, created_at).
-  static const int schemaVersion = 3;
+  ///
+  /// v4: added favorites and trash indexes on MediaItems (is_favorite,
+  /// is_trashed + trashed_at composite).
+  static const int schemaVersion = 4;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

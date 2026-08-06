@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'package:lumovault/core/database/app_database.dart';
 import 'package:lumovault/core/database/media_item_mapper.dart';
@@ -15,6 +16,16 @@ void main() {
   tearDown(() async {
     await db.close();
   });
+
+  Future<Set<String>> mediaItemIndexNames(AppDatabase database) async {
+    final rows = await database
+        .customSelect(
+          'SELECT name FROM sqlite_master '
+          "WHERE type = 'index' AND tbl_name = 'media_items'",
+        )
+        .get();
+    return rows.map((r) => r.read<String>('name')).toSet();
+  }
 
   MediaItem buildMediaItem() => MediaItem(
     localId: 'local-1',
@@ -45,13 +56,7 @@ void main() {
     });
 
     test('creates indexes for query hot paths', () async {
-      final rows = await db
-          .customSelect(
-            'SELECT name FROM sqlite_master '
-            "WHERE type = 'index' AND tbl_name = 'media_items'",
-          )
-          .get();
-      final names = rows.map((r) => r.read<String>('name')).toSet();
+      final names = await mediaItemIndexNames(db);
 
       expect(
         names,
@@ -60,8 +65,55 @@ void main() {
           'idx_media_items_status',
           'idx_media_items_album_name',
           'idx_media_items_created_at',
+          'idx_media_items_is_favorite',
+          'idx_media_items_trashed_trashed_at',
         ]),
       );
+    });
+
+    test('v3 -> v4 migration creates favorites and trash indexes', () async {
+      final raw = sqlite3.openInMemory();
+      raw.userVersion = 3;
+      raw.execute(
+        'CREATE TABLE media_items ('
+        'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+        'local_id TEXT NOT NULL UNIQUE, file_hash TEXT NOT NULL, '
+        'telegram_message_id TEXT, telegram_file_id TEXT, '
+        'file_path TEXT NOT NULL, file_name TEXT NOT NULL, '
+        'mime_type TEXT NOT NULL, file_size INTEGER NOT NULL, '
+        'width INTEGER NOT NULL, height INTEGER NOT NULL, '
+        'duration_ms INTEGER, created_at INTEGER NOT NULL, '
+        'modified_at INTEGER NOT NULL, scanned_at INTEGER NOT NULL, '
+        'uploaded_at INTEGER, backed_up_at INTEGER, '
+        'status INTEGER NOT NULL DEFAULT 0, error_message TEXT, '
+        'is_favorite INTEGER NOT NULL DEFAULT 0, '
+        'is_hidden INTEGER NOT NULL DEFAULT 0, '
+        'is_archived INTEGER NOT NULL DEFAULT 0, '
+        'is_trashed INTEGER NOT NULL DEFAULT 0, trashed_at INTEGER, '
+        'is_excluded INTEGER NOT NULL DEFAULT 0, album_name TEXT, '
+        'device_folder TEXT, description TEXT, tags TEXT NOT NULL DEFAULT \'[]\', '
+        'thumbnail_path TEXT)',
+      );
+      raw.execute(
+        'CREATE INDEX idx_media_items_file_hash ON media_items (file_hash)',
+      );
+      raw.execute(
+        'CREATE INDEX idx_media_items_status ON media_items (status)',
+      );
+      raw.execute(
+        'CREATE INDEX idx_media_items_album_name ON media_items (album_name)',
+      );
+      raw.execute(
+        'CREATE INDEX idx_media_items_created_at ON media_items (created_at)',
+      );
+
+      final migrated = AppDatabase.forTesting(NativeDatabase.opened(raw));
+      addTearDown(migrated.close);
+
+      final names = await mediaItemIndexNames(migrated);
+      expect(names, contains('idx_media_items_is_favorite'));
+      expect(names, contains('idx_media_items_trashed_trashed_at'));
+      expect(names, contains('idx_media_items_file_hash'));
     });
   });
 

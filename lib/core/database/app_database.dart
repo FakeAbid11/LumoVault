@@ -37,12 +37,21 @@ class StringListConverter extends TypeConverter<List<String>, String> {
 /// [GalleryRepository] is wired onto this table via [MediaDao].
 ///
 /// Query hot-path indexes: `byHash` dedup checks, status filters, album
-/// queries, and every `createdAt`-ordered timeline sort.
+/// queries, every `createdAt`-ordered timeline sort, and the favorites /
+/// trash surfaces.
 @DataClassName('MediaItemRow')
 @TableIndex(name: 'idx_media_items_file_hash', columns: {#fileHash})
 @TableIndex(name: 'idx_media_items_status', columns: {#status})
 @TableIndex(name: 'idx_media_items_album_name', columns: {#albumName})
 @TableIndex(name: 'idx_media_items_created_at', columns: {#createdAt})
+@TableIndex(name: 'idx_media_items_is_favorite', columns: {#isFavorite})
+@TableIndex(
+  name: 'idx_media_items_trashed_trashed_at',
+  columns: {
+    #isTrashed,
+    #trashedAt,
+  },
+)
 class MediaItems extends Table {
   /// Local autoincrement primary key.
   IntColumn get id => integer().autoIncrement()();
@@ -146,6 +155,17 @@ class AppDatabase extends _$AppDatabase {
         await m.database.customStatement(
           'CREATE INDEX IF NOT EXISTS idx_media_items_created_at '
           'ON media_items (created_at)',
+        );
+      }
+      // v3 -> v4: favorites and trash screen filters.
+      if (from < 4) {
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_is_favorite '
+          'ON media_items (is_favorite)',
+        );
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_trashed_trashed_at '
+          'ON media_items (is_trashed, trashed_at)',
         );
       }
     },

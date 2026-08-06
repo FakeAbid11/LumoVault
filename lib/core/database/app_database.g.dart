@@ -1662,6 +1662,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_media_items_created_at',
     'CREATE INDEX idx_media_items_created_at ON media_items (created_at)',
   );
+  late final Index idxMediaItemsIsFavorite = Index(
+    'idx_media_items_is_favorite',
+    'CREATE INDEX idx_media_items_is_favorite ON media_items (is_favorite)',
+  );
+  late final Index idxMediaItemsTrashedTrashedAt = Index(
+    'idx_media_items_trashed_trashed_at',
+    'CREATE INDEX idx_media_items_trashed_trashed_at ON media_items (is_trashed, trashed_at)',
+  );
   late final MediaDao mediaDao = MediaDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -1673,6 +1681,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxMediaItemsStatus,
     idxMediaItemsAlbumName,
     idxMediaItemsCreatedAt,
+    idxMediaItemsIsFavorite,
+    idxMediaItemsTrashedTrashedAt,
   ];
 }
 

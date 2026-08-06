@@ -10,6 +10,7 @@ import '../../../gallery/data/repositories/telegram_download_service.dart';
 import '../../data/models/restore_progress.dart';
 import '../../data/repositories/restore_repository.dart';
 import '../../engine/restore_engine.dart';
+import '../../engine/restore_state_store.dart';
 
 /// Whether a restore is currently in progress.
 final isRestoreActiveProvider = Provider<bool>((ref) {
@@ -59,6 +60,7 @@ final restoreEngineProvider = Provider<RestoreEngine>((ref) {
     manifestService: manifestService,
     partitionService: partitionService,
     searchIndexService: searchIndexService,
+    restoreStateStore: RestoreStateStore(),
     ensureTdLibConnected: () async {
       await ref.read(tdLibInitializedProvider.future);
       await ref.read(authServiceProvider).initialize();

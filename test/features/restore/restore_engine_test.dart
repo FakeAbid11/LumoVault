@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/storage/thumbnail_cache.dart';
 import 'package:lumovault/features/restore/engine/restore_engine.dart';
+import 'package:lumovault/features/restore/engine/restore_state_store.dart';
 import 'package:lumovault/features/restore/data/repositories/restore_repository.dart';
 import 'package:lumovault/features/restore/data/models/restore_progress.dart';
 import 'package:lumovault/features/gallery/data/repositories/gallery_repository.dart';
@@ -80,6 +81,11 @@ void main() {
   late ConflictResolver conflictResolver;
 
   setUp(() {
+    // ThumbnailCache.instance is a process-wide singleton; isolate tests so
+    // one test's cached entries can't silently turn another test's download
+    // into a skip.
+    ThumbnailCache.instance.clear();
+
     manifestService = ManifestService();
     partitionService = PartitionService();
     searchIndexService = SearchIndexService();
@@ -215,6 +221,114 @@ void main() {
           await ThumbnailCache.instance.contains('restored_local_1'),
           isTrue,
         );
+      },
+    );
+
+    test(
+      'startRestore persists restored hashes into the state store',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'lumovault_restore_state',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final store = RestoreStateStore(filePath: '${tempDir.path}/state.json');
+        final engineWithStore = RestoreEngine(
+          restoreRepository: MockRestoreRepository(),
+          galleryRepository: galleryRepository,
+          metadataRepository: metadataRepository,
+          manifestService: manifestService,
+          partitionService: partitionService,
+          searchIndexService: searchIndexService,
+          restoreStateStore: store,
+        );
+        addTearDown(engineWithStore.dispose);
+
+        final repo = engineWithStore.restoreRepository as MockRestoreRepository;
+        repo.detectionResult = const ChannelDetectionResult(channelId: 42);
+        repo.manifest = Manifest.create(deviceHash: 'test_device');
+        repo.messages = [
+          ChannelMessage(
+            messageId: 1,
+            fileId: 10,
+            fileName: 'photo.jpg',
+            caption: CaptionMetadata(
+              mediaItemId: 'r1',
+              fileHash: 'abc123',
+              createdAt: DateTime(2026, 1, 15),
+              modifiedAt: DateTime(2026, 1, 15),
+              backedUpAt: DateTime(2026, 1, 15),
+            ).toCaptionString(),
+          ),
+        ];
+        repo.thumbnailFile = const DownloadedFile(
+          filePath: '/nonexistent/thumb.bin',
+          fileName: 'photo.jpg',
+        );
+
+        final result = await engineWithStore.startRestore();
+        expect(result, isTrue);
+
+        final persisted = await store.load();
+        expect(persisted, contains('abc123'));
+      },
+    );
+
+    test('startRestore skips thumbnails already in the shared cache', () async {
+      // Pre-populate the cache under the same key the channel scan uses.
+      await ThumbnailCache.instance.put('r2', kTransparentPng);
+
+      final repo = engine.restoreRepository as MockRestoreRepository;
+      repo.detectionResult = const ChannelDetectionResult(channelId: 42);
+      repo.manifest = Manifest.create(deviceHash: 'test_device');
+      repo.messages = [
+        ChannelMessage(
+          messageId: 2,
+          fileId: 20,
+          fileName: 'photo2.jpg',
+          caption: CaptionMetadata(
+            mediaItemId: 'r2',
+            fileHash: 'hash2',
+            createdAt: DateTime(2026, 1, 15),
+            modifiedAt: DateTime(2026, 1, 15),
+            backedUpAt: DateTime(2026, 1, 15),
+          ).toCaptionString(),
+        ),
+      ];
+      repo.thumbnailFile = const DownloadedFile(
+        filePath: '/nonexistent/thumb.bin',
+        fileName: 'photo2.jpg',
+      );
+
+      final result = await engine.startRestore();
+      expect(result, isTrue);
+      expect(repo.downloadCalls, 0);
+      expect(engine.currentProgress.skippedItems, 1);
+    });
+
+    test(
+      'resumeInterruptedRestore combines persisted and gallery hashes',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'lumovault_restore_state',
+        );
+        addTearDown(() => tempDir.delete(recursive: true));
+        final store = RestoreStateStore(filePath: '${tempDir.path}/state.json');
+        await store.save({'persisted_hash_1'});
+
+        final engineWithStore = RestoreEngine(
+          restoreRepository: MockRestoreRepository(),
+          galleryRepository: galleryRepository,
+          metadataRepository: metadataRepository,
+          manifestService: manifestService,
+          partitionService: partitionService,
+          searchIndexService: searchIndexService,
+          restoreStateStore: store,
+        );
+        addTearDown(engineWithStore.dispose);
+
+        await engineWithStore.resumeInterruptedRestore();
+        expect(engineWithStore.isAlreadyRestored('persisted_hash_1'), isTrue);
+        expect(engineWithStore.isAlreadyRestored('unknown_hash'), isFalse);
       },
     );
   });
@@ -381,6 +495,9 @@ class MockRestoreRepository implements RestoreRepository {
   List<ChannelMessage> messages = [];
   DownloadedFile? thumbnailFile;
 
+  /// Number of times [downloadFile] has been invoked.
+  int downloadCalls = 0;
+
   @override
   Future<ChannelDetectionResult> detectExistingBackup() async =>
       detectionResult;
@@ -393,13 +510,20 @@ class MockRestoreRepository implements RestoreRepository {
       messages;
 
   @override
-  Future<DownloadedFile?> downloadFile({
+  Future<DownloadedFile> downloadFile({
     required int messageId,
     required int channelId,
     required String fileName,
     DownloadMode mode = DownloadMode.original,
     void Function(double progress)? onProgress,
-  }) async => thumbnailFile;
+  }) async {
+    downloadCalls++;
+    final file = thumbnailFile;
+    if (file == null) {
+      throw StateError('thumbnailFile not configured for this test');
+    }
+    return file;
+  }
 
   @override
   Future<String> saveRestoredFile({

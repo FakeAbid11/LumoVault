@@ -15,6 +15,7 @@ import '../../metadata/data/repositories/partition_service.dart';
 import '../../metadata/data/repositories/search_index_service.dart';
 import '../data/models/restore_progress.dart';
 import '../data/repositories/restore_repository.dart';
+import 'restore_state_store.dart';
 
 /// Core restore engine orchestrating the full restore flow per PRD Section 10.
 ///
@@ -33,6 +34,7 @@ class RestoreEngine {
     required this.manifestService,
     required this.partitionService,
     required this.searchIndexService,
+    this.restoreStateStore,
     this.ensureTdLibConnected,
   });
 
@@ -42,6 +44,12 @@ class RestoreEngine {
   final ManifestService manifestService;
   final PartitionService partitionService;
   final SearchIndexService searchIndexService;
+
+  /// Persists the set of hashes restored so far, so an interrupted restore
+  /// (app kill, crash, manual cancellation) can skip already-fetched
+  /// thumbnails on the next run. Null in tests and lightweight setups to
+  /// keep resume opt-in.
+  final RestoreStateStore? restoreStateStore;
 
   /// Ensures TDLib is initialized and its auth state has settled before any
   /// restore operation touches it. Same gap, same fix as
@@ -91,6 +99,11 @@ class RestoreEngine {
     }
 
     try {
+      // Differential restore (PRD Section 10.4): fold in whatever survived
+      // a previous attempt (gallery items + persisted restore state) before
+      // the thumbnail phase runs.
+      await resumeInterruptedRestore();
+
       // Phase 1: Detect existing backup
       final detection = await restoreRepository.detectExistingBackup();
 
@@ -233,6 +246,10 @@ class RestoreEngine {
 
       await _rebuildDatabase(allMetadata, metadataByPartition);
 
+      // Remember what this run has restored, so a later interrupted attempt
+      // resumes from here instead of re-downloading everything.
+      await _persistRestoredState(allMetadata);
+
       // Phase 5: Download thumbnails (progressive)
       _updateProgress(
         phase: RestorePhase.thumbnailDownload,
@@ -357,12 +374,20 @@ class RestoreEngine {
   /// Download thumbnails for all restored items.
   ///
   /// Per PRD Section 10.3: thumbnails download first for fast gallery display.
+  ///
+  /// Items whose thumbnail is already in the shared cache are skipped — this
+  /// is what makes a re-run after an interruption (or a plain re-restore)
+  /// differential instead of re-fetching every file. Note the cache key is
+  /// the caption mediaItemId (`msg_<id>` fallback), the same scheme the
+  /// channel scan uses, so a restore that runs over an existing library also
+  /// skips everything the user still has from before.
   Future<void> _downloadThumbnails(
     int channelId,
     List<ChannelMessage> messages,
     List<PartitionItem> allMetadata,
   ) async {
     int downloaded = 0;
+    int skipped = 0;
     final total = messages.length;
 
     for (final message in messages) {
@@ -372,6 +397,23 @@ class RestoreEngine {
         if (_isCancelled) break;
       }
       if (_isCancelled) break;
+
+      final metadata = message.captionMetadata;
+      final localId = (metadata == null || metadata.mediaItemId.isEmpty)
+          ? 'msg_${message.messageId}'
+          : metadata.mediaItemId;
+
+      final processed = downloaded + skipped;
+      if (await ThumbnailCache.instance.contains(localId)) {
+        skipped++;
+        _updateProgress(
+          completedItems: processed + 1,
+          skippedItems: skipped,
+          overallProgress: (processed + 1) / total,
+          currentFileName: message.fileName,
+        );
+        continue;
+      }
 
       try {
         final result = await restoreRepository.downloadFile(
@@ -384,30 +426,24 @@ class RestoreEngine {
           },
         );
 
-        if (result != null) {
-          downloaded++;
-          _updateProgress(
-            completedItems: downloaded,
-            overallProgress: downloaded / total,
-            currentFileName: message.fileName,
-          );
+        downloaded++;
+        _updateProgress(
+          completedItems: processed + 1,
+          overallProgress: (processed + 1) / total,
+          currentFileName: message.fileName,
+        );
 
-          // Write the thumbnail into the shared cache under the same key
-          // scheme as the channel scan (caption mediaItemId, or the
-          // msg_<messageId> fallback) so the timeline shows it immediately
-          // instead of re-downloading per tile. These bytes used to be
-          // discarded after download, which left every restored item's tile
-          // stuck on the placeholder.
-          final metadata = message.captionMetadata;
-          final localId = (metadata == null || metadata.mediaItemId.isEmpty)
-              ? 'msg_${message.messageId}'
-              : metadata.mediaItemId;
-          try {
-            final bytes = await File(result.filePath).readAsBytes();
-            await ThumbnailCache.instance.put(localId, bytes);
-          } catch (e) {
-            debugPrint('[RestoreEngine] Thumbnail cache write failed: $e');
-          }
+        // Write the thumbnail into the shared cache under the same key
+        // scheme as the channel scan (caption mediaItemId, or the
+        // msg_<messageId> fallback) so the timeline shows it immediately
+        // instead of re-downloading per tile. These bytes used to be
+        // discarded after download, which left every restored item's tile
+        // stuck on the placeholder.
+        try {
+          final bytes = await File(result.filePath).readAsBytes();
+          await ThumbnailCache.instance.put(localId, bytes);
+        } catch (e) {
+          debugPrint('[RestoreEngine] Thumbnail cache write failed: $e');
         }
       } catch (e) {
         debugPrint('[RestoreEngine] Thumbnail download failed: $e');
@@ -433,18 +469,47 @@ class RestoreEngine {
       onProgress: onProgress,
     );
 
-    return result?.filePath;
+    return result.filePath;
   }
 
   /// Resume interrupted restore by checking what's already been done.
   ///
   /// Per PRD Section 10.4: differential restore - skip files already present.
+  ///
+  /// Combines the hashes currently in the gallery with the hashes persisted
+  /// by [RestoreStateStore] from a previous partial run. Failures to load
+  /// persisted state are logged and ignored — they only cost redundant
+  /// downloads, never a failed restore.
   Future<void> resumeInterruptedRestore() async {
-    final existingItems = galleryRepository.mediaItems;
-    final existingHashes = existingItems.map((item) => item.fileHash).toSet();
+    final hashes = <String>{
+      for (final item in galleryRepository.mediaItems)
+        if (item.fileHash.isNotEmpty) item.fileHash,
+    };
 
-    // Store for differential restore filtering
-    _existingHashes = existingHashes;
+    final store = restoreStateStore;
+    if (store != null) {
+      try {
+        hashes.addAll(await store.load());
+      } catch (e) {
+        debugPrint('[RestoreEngine] Failed to load restore state: $e');
+      }
+    }
+
+    _existingHashes = hashes;
+  }
+
+  /// Persist the restored hashes for differential resume on the next run.
+  Future<void> _persistRestoredState(List<PartitionItem> allMetadata) async {
+    final store = restoreStateStore;
+    if (store == null) return;
+    try {
+      await store.save({
+        for (final item in allMetadata)
+          if (item.fileHash.isNotEmpty) item.fileHash,
+      });
+    } catch (e) {
+      debugPrint('[RestoreEngine] Failed to persist restore state: $e');
+    }
   }
 
   Set<String> _existingHashes = {};

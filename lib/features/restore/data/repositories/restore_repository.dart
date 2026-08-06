@@ -56,110 +56,139 @@ class RestoreRepository {
   /// Fetch the manifest from the pinned message in the storage channel.
   ///
   /// Per PRD Section 10.2 Step 3: get pinned message, parse manifest JSON.
+  ///
+  /// Returns null only when the channel legitimately has no pinned manifest.
+  /// Transport/parse failures propagate to the caller — silently returning
+  /// null here used to surface to the user as "backup corrupted" (a
+  /// non-retryable error) on a transient network blip.
   Future<Manifest?> fetchManifest(int channelId) async {
-    try {
-      final result = await _client.sendRequest(
-        method: 'getChatPinnedMessages',
-        params: {'chat_id': channelId},
-      );
+    final result = await _client.sendRequest(
+      method: 'getChatPinnedMessages',
+      params: {'chat_id': channelId},
+    );
 
-      final messageIds = (result['message_ids'] as List<dynamic>?) ?? [];
-      if (messageIds.isEmpty) return null;
+    final messageIds = (result['message_ids'] as List<dynamic>?) ?? [];
+    if (messageIds.isEmpty) return null;
 
-      final messageId = messageIds.first as int;
-      final message = await _client.sendRequest(
-        method: 'getMessage',
-        params: {'chat_id': channelId, 'message_id': messageId},
-      );
+    final messageId = messageIds.first as int;
+    final message = await _client.sendRequest(
+      method: 'getMessage',
+      params: {'chat_id': channelId, 'message_id': messageId},
+    );
 
-      final content = message['content'] as Map<String, dynamic>?;
-      final text = content?['text'] as Map<String, dynamic>?;
-      final manifestText = text?['text'] as String?;
+    final content = message['content'] as Map<String, dynamic>?;
+    final text = content?['text'] as Map<String, dynamic>?;
+    final manifestText = text?['text'] as String?;
 
-      if (manifestText == null || manifestText.isEmpty) return null;
+    if (manifestText == null || manifestText.isEmpty) return null;
 
-      return Manifest.fromJsonString(manifestText);
-    } catch (e) {
-      debugPrint('[RestoreRepository] Failed to fetch manifest: $e');
-      return null;
-    }
+    return Manifest.fromJsonString(manifestText);
   }
 
   /// Get all file messages from the storage channel.
   ///
   /// Returns messages with their IDs, captions, and file info.
+  ///
+  /// Each history page gets a bounded retry before the failure propagates:
+  /// returning a silently truncated list here used to make the engine think
+  /// the backup was complete (or "corrupted" if the first page failed) and
+  /// permanently drop the unreached files from the restore.
   Future<List<ChannelMessage>> fetchChannelMessages(int channelId) async {
     final messages = <ChannelMessage>[];
     int? fromMessageId;
 
-    try {
-      while (true) {
-        final params = <String, dynamic>{
-          'chat_id': channelId,
-          'limit': 100,
-          'from_message_id': fromMessageId ?? 0,
-          'offset': 0,
-          'sender_server_date_min': 0,
-          'sender_server_date_max': 0,
-          'offset_date': 0,
-          'offset_chat_id': 0,
-          'offset_message_id': 0,
-          'only_local': false,
-        };
+    while (true) {
+      final result = await _fetchHistoryPage(channelId, fromMessageId);
 
-        final result = await _client.sendRequest(
-          method: 'getChatHistory',
-          params: params,
-        );
+      final messagesList = (result['messages'] as List<dynamic>?) ?? [];
+      if (messagesList.isEmpty) break;
 
-        final messagesList = (result['messages'] as List<dynamic>?) ?? [];
-        if (messagesList.isEmpty) break;
+      for (final msg in messagesList) {
+        final msgMap = msg as Map<String, dynamic>;
+        final msgId = msgMap['id'] as int?;
+        final dateUnix = msgMap['date'] as int?;
+        final sentAt = dateUnix != null && dateUnix > 0
+            ? DateTime.fromMillisecondsSinceEpoch(dateUnix * 1000)
+            : null;
+        final content = msgMap['content'] as Map<String, dynamic>?;
+        final contentType = content?['@type'] as String?;
 
-        for (final msg in messagesList) {
-          final msgMap = msg as Map<String, dynamic>;
-          final msgId = msgMap['id'] as int?;
-          final dateUnix = msgMap['date'] as int?;
-          final sentAt = dateUnix != null && dateUnix > 0
-              ? DateTime.fromMillisecondsSinceEpoch(dateUnix * 1000)
-              : null;
-          final content = msgMap['content'] as Map<String, dynamic>?;
-          final contentType = content?['@type'] as String?;
+        if (contentType == 'messageDocument') {
+          final document = content?['document'] as Map<String, dynamic>?;
+          final caption = content?['caption'] as Map<String, dynamic>?;
+          final captionText = caption?['text'] as String?;
+          final fileId =
+              (document?['document'] as Map<String, dynamic>?)?['id'] as int?;
+          final fileName = document?['file_name'] as String? ?? 'unknown';
 
-          if (contentType == 'messageDocument') {
-            final document = content?['document'] as Map<String, dynamic>?;
-            final caption = content?['caption'] as Map<String, dynamic>?;
-            final captionText = caption?['text'] as String?;
-            final fileId =
-                (document?['document'] as Map<String, dynamic>?)?['id'] as int?;
-            final fileName = document?['file_name'] as String? ?? 'unknown';
-
-            messages.add(
-              ChannelMessage(
-                messageId: msgId ?? 0,
-                fileId: fileId ?? 0,
-                fileName: fileName,
-                caption: captionText,
-                sentAt: sentAt,
-              ),
-            );
-          }
-
-          fromMessageId = msgId;
+          messages.add(
+            ChannelMessage(
+              messageId: msgId ?? 0,
+              fileId: fileId ?? 0,
+              fileName: fileName,
+              caption: captionText,
+              sentAt: sentAt,
+            ),
+          );
         }
 
-        if (messagesList.length < 100) break;
+        fromMessageId = msgId;
       }
-    } catch (e) {
-      debugPrint('[RestoreRepository] Error fetching messages: $e');
+
+      if (messagesList.length < 100) break;
     }
 
     return messages;
   }
 
+  /// Fetch a single page of chat history with a bounded retry.
+  ///
+  /// Only transient request errors are retried (each page is idempotent via
+  /// [fromMessageId], so a retry can never duplicate entries).
+  Future<Map<String, dynamic>> _fetchHistoryPage(
+    int channelId,
+    int? fromMessageId,
+  ) async {
+    Object? lastError;
+    for (var attempt = 1; attempt <= _maxPageAttempts; attempt++) {
+      try {
+        return await _client.sendRequest(
+          method: 'getChatHistory',
+          params: {
+            'chat_id': channelId,
+            'limit': 100,
+            'from_message_id': fromMessageId ?? 0,
+            'offset': 0,
+            'sender_server_date_min': 0,
+            'sender_server_date_max': 0,
+            'offset_date': 0,
+            'offset_chat_id': 0,
+            'offset_message_id': 0,
+            'only_local': false,
+          },
+        );
+      } catch (e) {
+        lastError = e;
+        debugPrint(
+          '[RestoreRepository] History page failed '
+          '(attempt $attempt/$_maxPageAttempts): $e',
+        );
+      }
+    }
+    throw lastError!;
+  }
+
+  static const int _maxPageAttempts = 2;
+
   /// Download a single file from the channel.
   ///
   /// Returns the local file path and parsed caption metadata.
-  Future<DownloadedFile?> downloadFile({
+  ///
+  /// Failures propagate to the caller. Returning null here used to make the
+  /// engine count a failed file as successfully skipped, so a storage-full
+  /// or auth-expired condition was silently swallowed and the restore still
+  /// reported "complete".
+  Future<DownloadedFile> downloadFile({
     required int messageId,
     required int channelId,
     required String fileName,
@@ -169,13 +198,13 @@ class RestoreRepository {
     final taskId =
         'restore_${messageId}_${DateTime.now().millisecondsSinceEpoch}';
 
-    try {
-      final subscription = _downloadService.progressStream.listen((progress) {
-        if (progress.taskId == taskId) {
-          onProgress?.call(progress.progress);
-        }
-      });
+    final subscription = _downloadService.progressStream.listen((progress) {
+      if (progress.taskId == taskId) {
+        onProgress?.call(progress.progress);
+      }
+    });
 
+    try {
       final result = await _downloadService.downloadFile(
         taskId: taskId,
         messageId: messageId,
@@ -183,16 +212,13 @@ class RestoreRepository {
         mode: mode,
       );
 
-      await subscription.cancel();
-
       return DownloadedFile(
         filePath: result.filePath,
         metadata: result.metadata,
         fileName: fileName,
       );
-    } catch (e) {
-      debugPrint('[RestoreRepository] Download failed for $fileName: $e');
-      return null;
+    } finally {
+      await subscription.cancel();
     }
   }
 

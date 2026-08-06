@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/tdlib/tdlib_client.dart';
 import 'package:lumovault/core/tdlib/tdlib_connection_manager.dart';
@@ -65,6 +67,49 @@ void main() {
 
       manager.dispose();
     });
+
+    test('connect marks failed and rethrows on TdLibException', () async {
+      final manager = TdLibConnectionManager(
+        client: _ThrowingTdLibClient(
+          const TdLibException(message: 'init failed', code: 'INIT_FAILED'),
+        ),
+      );
+
+      await expectLater(
+        manager.connect(databaseKey: 'key'),
+        throwsA(isA<TdLibException>()),
+      );
+      expect(manager.status, ConnectionStatus.failed);
+      expect(manager.isConnected, isFalse);
+
+      manager.dispose();
+    });
+
+    test(
+      'connect marks failed and wraps non-TdLib initialize errors',
+      () async {
+        // e.g. an Isolate.spawn failure is a StateError, not a TdLibException.
+        // Before the fix the status stayed stuck on "connecting" forever.
+        final manager = TdLibConnectionManager(
+          client: _ThrowingTdLibClient(StateError('isolate spawn failed')),
+        );
+
+        await expectLater(
+          manager.connect(databaseKey: 'key'),
+          throwsA(
+            isA<TdLibException>().having(
+              (e) => e.code,
+              'code',
+              'CONNECT_FAILED',
+            ),
+          ),
+        );
+        expect(manager.status, ConnectionStatus.failed);
+        expect(manager.isConnected, isFalse);
+
+        manager.dispose();
+      },
+    );
   });
 
   group('TdLibException', () {
@@ -150,4 +195,51 @@ void main() {
       expect(error.code, equals('400'));
     });
   });
+}
+
+/// TDLib client whose [initialize] always throws the configured error, for
+/// exercising connection-manager failure handling without an FFI instance.
+class _ThrowingTdLibClient implements TdLibClient {
+  _ThrowingTdLibClient(this.error);
+
+  final Object error;
+
+  @override
+  Stream<Map<String, dynamic>> get updates => const Stream.empty();
+
+  @override
+  bool get isInitialized => false;
+
+  @override
+  int get clientId => 0;
+
+  @override
+  Future<void> initialize({required String databaseKey}) async {
+    throw error;
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendRequest({
+    required String method,
+    Map<String, dynamic>? params,
+  }) async {
+    return {'@type': 'ok'};
+  }
+
+  @override
+  void processUpdates() {}
+
+  @override
+  Future<bool> isAuthenticated() async => false;
+
+  @override
+  Future<Map<String, dynamic>> getAuthorizationState() async {
+    return {'@type': 'authorizationStateWaitTdlibParameters'};
+  }
+
+  @override
+  Future<void> logOut() async {}
+
+  @override
+  Future<void> close() async {}
 }

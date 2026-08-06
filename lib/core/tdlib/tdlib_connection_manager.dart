@@ -96,6 +96,17 @@ class TdLibConnectionManager {
     } on TdLibException {
       _updateStatus(ConnectionStatus.failed);
       rethrow;
+    } catch (e) {
+      // initialize() can fail with non-TdLib errors too (isolate spawn
+      // failures, IO errors). Without this branch the status stayed stuck on
+      // "connecting" forever while the caller got an untyped error.
+      debugPrint('[TdLibConnectionManager] connect failed: $e');
+      _updateStatus(ConnectionStatus.failed);
+      throw TdLibException(
+        message: 'Failed to connect to TDLib: $e',
+        code: 'CONNECT_FAILED',
+        userFacingMessage: 'Could not connect to Telegram. Please try again.',
+      );
     }
   }
 

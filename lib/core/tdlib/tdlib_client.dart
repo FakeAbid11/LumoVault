@@ -90,6 +90,18 @@ class TdLibClient {
 
   final _updateController = StreamController<Map<String, dynamic>>.broadcast();
   final _requestCompleters = <int, Completer<Map<String, dynamic>>>{};
+
+  /// Request IDs whose 30s window expired before TDLib answered.
+  ///
+  /// A late response for one of these carries the old `@extra` but has no
+  /// pending completer left. Without this set it would fall through to the
+  /// update stream and be misread as a real update. Bounded: ids are removed
+  /// as their late responses arrive, and the set is cleared wholesale if it
+  /// ever outgrows [maxExpiredRequestIds] (e.g. TDLib stopped responding
+  /// entirely).
+  final _expiredRequestIds = <int>{};
+  static const int maxExpiredRequestIds = 256;
+
   int _requestId = 0;
 
   /// Completes once `_sendTdlibParameters` finishes (success or failure).
@@ -163,15 +175,26 @@ class TdLibClient {
     debugPrint('[TdLibClient] initialize: plugin loaded, creating client');
     _clientId = await _createClient();
     debugPrint('[TdLibClient] initialize: client created (id=$_clientId)');
-    _initialized = true;
 
     // TDLib will start the auth flow by emitting
     // authorizationStateWaitTdlibParameters — respond to it automatically
     // so callers only need to deal with phone/code/password states.
     _updateController.stream.listen(_maybeBootstrapAuth);
 
+    // Only mark the client initialized AFTER the receive loop is confirmed
+    // running. Setting _initialized first meant a failed Isolate.spawn left
+    // it true forever: every later initialize() short-circuited and every
+    // request died with REQUEST_TIMEOUT because nothing was consuming
+    // responses.
     debugPrint('[TdLibClient] initialize: starting receive loop');
-    await _startReceiveLoop();
+    try {
+      await _startReceiveLoop();
+    } catch (e) {
+      debugPrint('[TdLibClient] Failed to start receive loop: $e');
+      await _teardownAfterFailedStart();
+      rethrow;
+    }
+    _initialized = true;
     debugPrint('[TdLibClient] initialize: receive loop started');
 
     // Wait for setTdlibParameters to complete (or fail) so the caller
@@ -232,6 +255,10 @@ class TdLibClient {
       const Duration(seconds: 30),
       onTimeout: () {
         _requestCompleters.remove(id);
+        _expiredRequestIds.add(id);
+        if (_expiredRequestIds.length > maxExpiredRequestIds) {
+          _expiredRequestIds.clear();
+        }
         throw TdLibException(
           message: 'TDLib request timed out: $method',
           code: 'REQUEST_TIMEOUT',
@@ -303,6 +330,7 @@ class TdLibClient {
       }
     }
     _requestCompleters.clear();
+    _expiredRequestIds.clear();
 
     _initialized = false;
     _clientId = null;
@@ -313,6 +341,26 @@ class TdLibClient {
   /// Create a new TDLib client via the native tdlib plugin.
   Future<int> _createClient() async {
     return TdPlugin.instance.tdJsonClientCreate();
+  }
+
+  /// Roll back everything [initialize] did before the receive loop came up,
+  /// so a failed start leaves the client retryable instead of half-initialized
+  /// (a leaked native client would also accumulate across retries).
+  Future<void> _teardownAfterFailedStart() async {
+    final clientId = _clientId;
+    if (clientId != null) {
+      try {
+        TdPlugin.instance.tdJsonClientDestroy(clientId);
+      } catch (e) {
+        debugPrint('[TdLibClient] Failed to destroy native client: $e');
+      }
+    }
+    _clientId = null;
+    final subscription = _receivePortSubscription;
+    _receivePortSubscription = null;
+    _receivePort?.close();
+    _receivePort = null;
+    await subscription?.cancel();
   }
 
   /// Send a JSON string to TDLib.
@@ -346,13 +394,22 @@ class TdLibClient {
       final data = jsonDecode(response) as Map<String, dynamic>;
       final extra = data['@extra'] as int?;
 
-      if (extra != null && _requestCompleters.containsKey(extra)) {
-        final completer = _requestCompleters.remove(extra)!;
-        if (data['@type'] == 'error') {
-          completer.completeError(TdLibErrorMapper.fromResponse(data));
-        } else {
-          completer.complete(data);
+      if (extra != null) {
+        final completer = _requestCompleters.remove(extra);
+        if (completer != null) {
+          if (data['@type'] == 'error') {
+            completer.completeError(TdLibErrorMapper.fromResponse(data));
+          } else {
+            completer.complete(data);
+          }
+          return;
         }
+        // A response carrying @extra with no pending completer is either the
+        // late answer to a timed-out request (drop it) or a response for a
+        // request this client never tracked (also drop it). Broadcasting
+        // either one as an "update" used to leak request responses into the
+        // update stream, where listeners could misread them.
+        _expiredRequestIds.remove(extra);
       } else {
         _updateController.add(data);
       }

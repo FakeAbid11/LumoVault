@@ -263,6 +263,58 @@ void main() {
       repo.dispose();
     });
   });
+
+  group('errors stream', () {
+    test('emits on failed read', () async {
+      final repo = SettingsRepository(storage: _ThrowingStorage());
+      final errors = <Object>[];
+      repo.errors.listen(errors.add);
+
+      await repo.getSettings();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(errors, hasLength(1));
+      repo.dispose();
+    });
+
+    test('emits on failed write', () async {
+      final repo = SettingsRepository(storage: _ThrowingStorage());
+      final errors = <Object>[];
+      repo.errors.listen(errors.add);
+
+      // _persist swallows, but the failure must surface on the errors stream.
+      await repo.updateSettings(const AppSettings(wifiOnly: false));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(errors, hasLength(1));
+      repo.dispose();
+    });
+
+    test('emits on failed delete during resetToDefaults', () async {
+      final repo = SettingsRepository(storage: _ThrowingStorage());
+      final errors = <Object>[];
+      repo.errors.listen(errors.add);
+
+      await repo.resetToDefaults();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(errors, hasLength(1));
+      expect(repo.current, equals(const AppSettings()));
+      repo.dispose();
+    });
+
+    test('does not emit on successful operations', () async {
+      final errors = <Object>[];
+      repository.errors.listen(errors.add);
+
+      await repository.getSettings();
+      await repository.updateSettings(const AppSettings(wifiOnly: false));
+      await repository.resetToDefaults();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(errors, isEmpty);
+    });
+  });
 }
 
 /// Storage that throws on every operation.

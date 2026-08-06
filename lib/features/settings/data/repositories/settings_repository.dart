@@ -16,9 +16,19 @@ class SettingsRepository {
   final FlutterSecureStorage _storage;
   AppSettings? _cache;
   final _changeController = StreamController<AppSettings>.broadcast();
+  final _errorController = StreamController<Object>.broadcast();
 
   /// Stream of settings changes.
   Stream<AppSettings> get changes => _changeController.stream;
+
+  /// Stream of persistence failures.
+  ///
+  /// Settings are always applied in memory, so a failed write never crashes
+  /// the caller — but the failure used to be completely silent, which meant
+  /// e.g. a failed `storageChannelId` write went unnoticed and the next
+  /// startup created a duplicate backup channel. Listeners can log, surface
+  /// a banner, or retry.
+  Stream<Object> get errors => _errorController.stream;
 
   /// Get current settings (from cache or storage).
   Future<AppSettings> getSettings() async {
@@ -31,7 +41,7 @@ class SettingsRepository {
         return _cache!;
       }
     } catch (e) {
-      // Fall through to defaults on storage error.
+      _emitError(e);
     }
 
     _cache = const AppSettings();
@@ -62,7 +72,9 @@ class SettingsRepository {
     try {
       await _storage.write(key: _settingsKey, value: settings.toJsonString());
     } catch (e) {
-      // Storage write failed — settings are still in memory.
+      // Settings are still applied in memory; surface the failure so it is
+      // not silent.
+      _emitError(e);
     }
   }
 
@@ -71,10 +83,16 @@ class SettingsRepository {
     try {
       await _storage.delete(key: _settingsKey);
     } catch (e) {
-      // Ignore storage errors on delete.
+      _emitError(e);
     }
     _cache = const AppSettings();
     _changeController.add(_cache!);
+  }
+
+  void _emitError(Object error) {
+    if (!_errorController.isClosed) {
+      _errorController.add(error);
+    }
   }
 
   /// Check if onboarding has been completed.

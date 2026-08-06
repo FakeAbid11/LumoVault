@@ -95,6 +95,16 @@ Future<ProviderContainer> _bootstrap() async {
   container.read(onboardingCompletedProvider.notifier).state =
       onboardingCompleted;
 
+  // Persistence failures in the settings repository are never fatal (settings
+  // still apply in memory), but they used to be completely silent. Log them
+  // from boot so a lost write — e.g. a storageChannelId that would otherwise
+  // cause a duplicate backup channel on the next launch — is at least
+  // observable.
+  container
+      .read(settingsRepositoryProvider)
+      .errors
+      .listen((e) => debugPrint('[Settings] Persistence error: $e'));
+
   // Register the notification channels before anything tries to post progress.
   await container.read(notificationServiceProvider).initialize();
 

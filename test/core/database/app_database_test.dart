@@ -43,6 +43,26 @@ void main() {
     test('creates tables and starts empty', () async {
       expect(await db.select(db.mediaItems).get(), isEmpty);
     });
+
+    test('creates indexes for query hot paths', () async {
+      final rows = await db
+          .customSelect(
+            'SELECT name FROM sqlite_master '
+            "WHERE type = 'index' AND tbl_name = 'media_items'",
+          )
+          .get();
+      final names = rows.map((r) => r.read<String>('name')).toSet();
+
+      expect(
+        names,
+        containsAll([
+          'idx_media_items_file_hash',
+          'idx_media_items_status',
+          'idx_media_items_album_name',
+          'idx_media_items_created_at',
+        ]),
+      );
+    });
   });
 
   group('MediaItem mapping', () {

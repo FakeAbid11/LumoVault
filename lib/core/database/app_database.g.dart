@@ -780,6 +780,9 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
   final int width;
   final int height;
   final int? durationMs;
+
+  /// Indexed: the timeline and every album/favorite/search query sorts by
+  /// `createdAt` descending.
   final DateTime createdAt;
   final DateTime modifiedAt;
   final DateTime scannedAt;
@@ -1643,12 +1646,34 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
+  late final Index idxMediaItemsFileHash = Index(
+    'idx_media_items_file_hash',
+    'CREATE INDEX idx_media_items_file_hash ON media_items (file_hash)',
+  );
+  late final Index idxMediaItemsStatus = Index(
+    'idx_media_items_status',
+    'CREATE INDEX idx_media_items_status ON media_items (status)',
+  );
+  late final Index idxMediaItemsAlbumName = Index(
+    'idx_media_items_album_name',
+    'CREATE INDEX idx_media_items_album_name ON media_items (album_name)',
+  );
+  late final Index idxMediaItemsCreatedAt = Index(
+    'idx_media_items_created_at',
+    'CREATE INDEX idx_media_items_created_at ON media_items (created_at)',
+  );
   late final MediaDao mediaDao = MediaDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [mediaItems];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    mediaItems,
+    idxMediaItemsFileHash,
+    idxMediaItemsStatus,
+    idxMediaItemsAlbumName,
+    idxMediaItemsCreatedAt,
+  ];
 }
 
 typedef $$MediaItemsTableCreateCompanionBuilder =

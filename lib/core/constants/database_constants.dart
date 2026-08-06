@@ -7,7 +7,10 @@ abstract final class DatabaseConstants {
   ///
   /// v2: removed the UploadTasks drift table (upload queue now persisted to
   /// JSON via TransferQueuePersistence instead of drift).
-  static const int schemaVersion = 2;
+  ///
+  /// v3: added query hot-path indexes on MediaItems (file_hash, status,
+  /// album_name, created_at).
+  static const int schemaVersion = 3;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

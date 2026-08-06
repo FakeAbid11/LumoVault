@@ -35,7 +35,14 @@ class StringListConverter extends TypeConverter<List<String>, String> {
 ///
 /// This is the persisted schema that replaces the previous in-memory list.
 /// [GalleryRepository] is wired onto this table via [MediaDao].
+///
+/// Query hot-path indexes: `byHash` dedup checks, status filters, album
+/// queries, and every `createdAt`-ordered timeline sort.
 @DataClassName('MediaItemRow')
+@TableIndex(name: 'idx_media_items_file_hash', columns: {#fileHash})
+@TableIndex(name: 'idx_media_items_status', columns: {#status})
+@TableIndex(name: 'idx_media_items_album_name', columns: {#albumName})
+@TableIndex(name: 'idx_media_items_created_at', columns: {#createdAt})
 class MediaItems extends Table {
   /// Local autoincrement primary key.
   IntColumn get id => integer().autoIncrement()();
@@ -57,6 +64,8 @@ class MediaItems extends Table {
   IntColumn get height => integer()();
   IntColumn get durationMs => integer().nullable()();
 
+  /// Indexed: the timeline and every album/favorite/search query sorts by
+  /// `createdAt` descending.
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get modifiedAt => dateTime()();
   DateTimeColumn get scannedAt => dateTime()();
@@ -116,6 +125,28 @@ class AppDatabase extends _$AppDatabase {
       // was never read by the engine. Drop it for existing installs.
       if (from < 2) {
         await m.database.customStatement('DROP TABLE IF EXISTS upload_tasks');
+      }
+      // v2 -> v3: query hot-path indexes on MediaItems. The annotations on
+      // the table only apply to fresh databases (onCreate -> createAll), so
+      // existing installs get the same indexes here. IF NOT EXISTS keeps the
+      // branch idempotent for any future re-runs.
+      if (from < 3) {
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_file_hash '
+          'ON media_items (file_hash)',
+        );
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_status '
+          'ON media_items (status)',
+        );
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_album_name '
+          'ON media_items (album_name)',
+        );
+        await m.database.customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_items_created_at '
+          'ON media_items (created_at)',
+        );
       }
     },
   );

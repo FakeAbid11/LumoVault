@@ -48,9 +48,7 @@ class AlbumsScreen extends ConsumerWidget {
         return _AlbumCard(
           folder: folder,
           onTap: () {
-            context.go(
-              '/albums/detail/${Uri.encodeComponent(folder.name)}',
-            );
+            context.go('/albums/detail/${Uri.encodeComponent(folder.name)}');
           },
         );
       },

@@ -103,10 +103,7 @@ class AlbumDetailScreen extends ConsumerWidget {
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 24),
-          Text(
-            'Album empty',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
+          Text('Album empty', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(
             'This album has no media yet.',

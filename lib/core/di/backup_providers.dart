@@ -212,9 +212,7 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
         (batteryState) => updateCharging(_isPluggedIn(batteryState)),
       );
     } catch (e) {
-      debugPrint(
-        '[BackupEnvironment] Battery state stream unavailable: $e',
-      );
+      debugPrint('[BackupEnvironment] Battery state stream unavailable: $e');
     }
 
     unawaited(_refreshBatteryLevel());

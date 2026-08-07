@@ -89,7 +89,9 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             onChanged: (value) {
               ref
                   .read(appSettingsProvider.notifier)
-                  .updateField((s) => s.copyWith(backgroundBackupEnabled: value));
+                  .updateField(
+                    (s) => s.copyWith(backgroundBackupEnabled: value),
+                  );
             },
           ),
 

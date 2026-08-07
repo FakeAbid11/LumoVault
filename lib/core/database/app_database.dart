@@ -47,10 +47,7 @@ class StringListConverter extends TypeConverter<List<String>, String> {
 @TableIndex(name: 'idx_media_items_is_favorite', columns: {#isFavorite})
 @TableIndex(
   name: 'idx_media_items_trashed_trashed_at',
-  columns: {
-    #isTrashed,
-    #trashedAt,
-  },
+  columns: {#isTrashed, #trashedAt},
 )
 class MediaItems extends Table {
   /// Local autoincrement primary key.

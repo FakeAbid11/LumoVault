@@ -233,15 +233,28 @@ class ChannelScanNotifier extends StateNotifier<ChannelScanState> {
       clearError: true,
     );
 
-    final result = await service.scanChannel(
-      onProgress: (current, total, fileName) {
-        state = state.copyWith(
-          scannedItems: current,
-          totalItems: total,
-          currentFileName: fileName,
-        );
-      },
-    );
+    ChannelScanResult result;
+    try {
+      result = await service.scanChannel(
+        onProgress: (current, total, fileName) {
+          state = state.copyWith(
+            scannedItems: current,
+            totalItems: total,
+            currentFileName: fileName,
+          );
+        },
+      );
+    } catch (e) {
+      // An unexpected failure used to propagate out of scan() and leave the
+      // state stuck on `scanning` forever — the timeline kept showing an
+      // endless spinner with no error and no way to retry.
+      debugPrint('[ChannelScan] scanChannel failed: $e');
+      state = state.copyWith(
+        status: ChannelScanStatus.failed,
+        error: 'Scan failed unexpectedly: $e',
+      );
+      return;
+    }
 
     if (result.hasError) {
       state = state.copyWith(

@@ -21,6 +21,16 @@ class TransferQueuePersistence {
 
   File? _file;
 
+  /// Latest payload waiting to be written; null when no save is queued.
+  ///
+  /// Coalescing: progress events fire constantly ([BackupEngine] saves on
+  /// every task change), so when saves pile up only the newest payload
+  /// matters once the dust settles.
+  List<UploadTask>? _queuedTasks;
+
+  /// Chained future serializing all file writes. See [saveTasks].
+  Future<void> _pendingSave = Future<void>.value();
+
   /// Initialize the persistence file.
   Future<void> initialize() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -33,9 +43,33 @@ class TransferQueuePersistence {
   /// crash mid-write leaves the previous queue intact rather than a truncated
   /// file that [loadTasks] would have to throw away. This runs on every
   /// progress event, so the payload is encoded compactly.
+  ///
+  /// All saves are serialized through a single chained future and coalesced:
+  /// overlapping saves used to share one `.tmp` path, so their
+  /// writeAsString/rename calls interleaved and could leave the queue file
+  /// corrupted (a rename of a half-written temp replacing a good file). With
+  /// the chain, one write runs at a time and each write captures the newest
+  /// payload registered before it starts, so an intermediate save that gets
+  /// superseded is skipped entirely instead of queued.
   Future<void> saveTasks(List<UploadTask> tasks) async {
     if (_file == null) await initialize();
 
+    _queuedTasks = tasks;
+    final saveFuture = _pendingSave.then((_) async {
+      final toWrite = _queuedTasks;
+      _queuedTasks = null;
+      if (toWrite == null) return;
+      await _writeTasks(toWrite);
+    });
+    // A failed write must not poison the chain for every later save.
+    _pendingSave = saveFuture.catchError((Object e) {
+      debugPrint('[TransferQueuePersistence] Queued save failed: $e');
+    });
+    await saveFuture;
+  }
+
+  /// Perform a single atomic temp-file write + rename.
+  Future<void> _writeTasks(List<UploadTask> tasks) async {
     final jsonList = tasks.map((t) => _taskToJson(t)).toList();
     final data = {
       'version': 1,

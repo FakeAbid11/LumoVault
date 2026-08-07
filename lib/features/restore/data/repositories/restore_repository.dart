@@ -96,6 +96,7 @@ class RestoreRepository {
   Future<List<ChannelMessage>> fetchChannelMessages(int channelId) async {
     final messages = <ChannelMessage>[];
     int? fromMessageId;
+    int? previousFromMessageId;
 
     while (true) {
       final result = await _fetchHistoryPage(channelId, fromMessageId);
@@ -135,7 +136,26 @@ class RestoreRepository {
         fromMessageId = msgId;
       }
 
-      if (messagesList.length < 100) break;
+      // Page until TDLib returns an EMPTY result.
+      //
+      // This used to be `if (messagesList.length < 100) break;`. getChatHistory
+      // is explicitly allowed to return fewer messages than `limit` even when
+      // more history remains (it returns whatever is in one locally-available
+      // chunk), so a single short page silently ended the restore and dropped
+      // the unreached files with no error surfaced anywhere.
+      //
+      // The only reliable terminator is an empty page, handled above.
+      if (fromMessageId == null || fromMessageId == previousFromMessageId) {
+        // The cursor didn't advance, so the next request would return the same
+        // page forever. Nothing sane produces this, but an unbounded network
+        // loop is a worse failure than a truncated restore.
+        debugPrint(
+          '[RestoreRepository] Pagination cursor stalled at $fromMessageId '
+          'after ${messages.length} message(s); stopping',
+        );
+        break;
+      }
+      previousFromMessageId = fromMessageId;
     }
 
     return messages;

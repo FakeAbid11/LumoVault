@@ -337,6 +337,14 @@ class RestoreEngine {
     }
 
     // Populate gallery repository with restored items
+    //
+    // The in-memory metadata layers above are persisted to their own files,
+    // but the gallery (timeline/albums/search) is backed by the drift
+    // database. Previously nothing wrote restored items into [galleryRepository],
+    // so a freshly restored library showed up empty in the app until the next
+    // device scan happened to re-discover the files. mergeTelegramItems adds
+    // them to the in-memory read model AND persists them through MediaDao.
+    final galleryItems = <MediaItem>[];
     for (final item in allMetadata) {
       final mediaItem = MediaItem(
         localId: item.localId,
@@ -368,7 +376,10 @@ class RestoreEngine {
 
       // Record in metadata repository
       await metadataRepository.recordNewItem(mediaItem);
+      galleryItems.add(mediaItem);
     }
+
+    await galleryRepository.mergeTelegramItems(galleryItems);
   }
 
   /// Download thumbnails for all restored items.

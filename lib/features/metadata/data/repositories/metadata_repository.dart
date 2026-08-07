@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
+
 import '../../../gallery/data/models/media_item.dart';
 import '../models/metadata_models.dart';
 import 'conflict_resolver.dart';
@@ -74,6 +76,19 @@ class MetadataRepository {
     final deviceHash = manifestService.getCurrentManifest()?.deviceHash;
     if (deviceHash != null) {
       await generateManifest(deviceHash: deviceHash);
+    }
+
+    // A flush with zero dirty partitions means the batch was already
+    // reflected in a sync that ran while the debounce was pending (or the
+    // operations cancelled each other out). Announcing sync_pending anyway
+    // used to make the backup layer call syncToTelegram, which then
+    // re-uploaded the manifest even though nothing had changed.
+    if (getDirtyPartitions().isEmpty) {
+      debugPrint(
+        '[MetadataRepository] Flush produced no dirty partitions — '
+        'skipping sync announcement',
+      );
+      return;
     }
 
     if (_changeController.isClosed) return;

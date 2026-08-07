@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -174,9 +175,13 @@ final backupEnvironmentProvider =
 class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
   BackupEnvironmentNotifier() : super(const BackupEnvironment()) {
     _initConnectivityListener();
+    _initBatteryListener();
   }
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<BatteryState>? _batterySubscription;
+  Timer? _batteryLevelTimer;
+  final _battery = Battery();
 
   void _initConnectivityListener() {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
@@ -190,6 +195,58 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
         isAutoBackupEnabled: state.isAutoBackupEnabled,
       );
     });
+  }
+
+  /// Wire charging state and battery level into the environment.
+  ///
+  /// [BackupScheduler] gates on both ([BackupScheduler._minBatteryLevel] and
+  /// the `chargingOnly` setting), but nothing ever fed them a real source:
+  /// `isCharging` stayed false forever and the level stuck at the 100%
+  /// default, so the charging gate silently never held back a backup. The
+  /// plugin's state stream only fires on plug/unplug, and there is no level
+  /// stream on Android — so the level is read once and re-polled in the
+  /// background (the scheduler runs on minute-ish cadence anyway).
+  void _initBatteryListener() {
+    try {
+      _batterySubscription = _battery.onBatteryStateChanged.listen(
+        (batteryState) => updateCharging(_isPluggedIn(batteryState)),
+      );
+    } catch (e) {
+      debugPrint(
+        '[BackupEnvironment] Battery state stream unavailable: $e',
+      );
+    }
+
+    unawaited(_refreshBatteryLevel());
+    _batteryLevelTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => unawaited(_refreshBatteryLevel()),
+    );
+  }
+
+  Future<void> _refreshBatteryLevel() async {
+    try {
+      final level = await _battery.batteryLevel;
+      // Some devices report -1 while the level is unknown; anything outside
+      // 0-100 is garbage and would trip the scheduler's low-battery gate.
+      if (level < 0 || level > 100) return;
+      updateBatteryLevel(level);
+    } catch (e) {
+      // Unsupported platform (desktop/web) or plugin not available (tests).
+      debugPrint('[BackupEnvironment] Battery level read failed: $e');
+    }
+  }
+
+  /// Whether the device is on external power.
+  ///
+  /// [BatteryState.connectedNotCharging] (e.g. a charge limit reached, or an
+  /// underpowered source) still counts as "charging" for the scheduler's
+  /// `chargingOnly` gate — the battery isn't draining, which is all the gate
+  /// is protecting against.
+  bool _isPluggedIn(BatteryState state) {
+    return state == BatteryState.charging ||
+        state == BatteryState.full ||
+        state == BatteryState.connectedNotCharging;
   }
 
   void updateCharging(bool isCharging) {
@@ -213,6 +270,8 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
   @override
   void dispose() {
     _connectivitySubscription?.cancel();
+    _batterySubscription?.cancel();
+    _batteryLevelTimer?.cancel();
     super.dispose();
   }
 }

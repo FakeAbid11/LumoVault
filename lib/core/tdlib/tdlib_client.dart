@@ -88,7 +88,8 @@ class TdLibClient {
   ReceivePort? _receivePort;
   StreamSubscription<dynamic>? _receivePortSubscription;
 
-  final _updateController = StreamController<Map<String, dynamic>>.broadcast();
+  StreamController<Map<String, dynamic>> _updateController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final _requestCompleters = <int, Completer<Map<String, dynamic>>>{};
 
   /// Request IDs whose 30s window expired before TDLib answered.
@@ -113,6 +114,22 @@ class TdLibClient {
   /// Stream of TDLib updates (auth state changes, messages, etc.).
   Stream<Map<String, dynamic>> get updates => _updateController.stream;
 
+  /// Recreate the update stream controller if a previous [close] closed it.
+  ///
+  /// A reconnect goes `close()` → `initialize()` on the same client instance
+  /// (see [TdLibConnectionManager.reconnect]). With the controller left
+  /// closed, the fresh listener registered in [initialize] would never hear
+  /// anything, [TdLibClient._maybeBootstrapAuth] would never fire (leaving
+  /// TDLib stuck in `authorizationStateWaitTdlibParameters` forever) and
+  /// [TdLibClient._handleIncomingJson]'s `add` would throw on every update —
+  /// so reconnects came back "connected" while silently dropping all
+  /// updates and requests.
+  void _ensureUpdateStream() {
+    if (_updateController.isClosed) {
+      _updateController = StreamController<Map<String, dynamic>>.broadcast();
+    }
+  }
+
   /// Whether the client has been initialized.
   bool get isInitialized => _initialized;
 
@@ -134,6 +151,9 @@ class TdLibClient {
   /// Must be called before any other methods.
   Future<void> initialize({required String databaseKey}) async {
     if (_initialized) return;
+
+    // A reconnect lands here with the previous run's controller closed.
+    _ensureUpdateStream();
 
     if (databaseKey.isEmpty) {
       throw const TdLibException(
@@ -411,6 +431,10 @@ class TdLibClient {
         // update stream, where listeners could misread them.
         _expiredRequestIds.remove(extra);
       } else {
+        // The receive loop is only alive between initialize() and close(),
+        // so a message arriving after the controller was closed means a
+        // teardown is racing us — drop it rather than throwing on add().
+        if (_updateController.isClosed) return;
         _updateController.add(data);
       }
     } catch (e) {

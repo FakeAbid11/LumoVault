@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
 import '../widgets/folder_selection_widget.dart';
 import '../../data/models/backup_settings.dart';
 
@@ -80,9 +81,15 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             secondary: const Icon(Icons.phone_android),
             title: const Text('Background Backup'),
             subtitle: const Text('Continue backup when app is minimized'),
-            value: true,
+            // Persisted in AppSettings; backgroundBackupSyncProvider (read
+            // during bootstrap) listens to the same provider and keeps the
+            // WorkManager registration in step, so this toggle is what
+            // actually schedules/unschedules the background task.
+            value: ref.watch(appSettingsProvider).backgroundBackupEnabled,
             onChanged: (value) {
-              // Wire to background backup service.
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .updateField((s) => s.copyWith(backgroundBackupEnabled: value));
             },
           ),
 

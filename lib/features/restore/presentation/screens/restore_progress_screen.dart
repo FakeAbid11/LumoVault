@@ -337,7 +337,11 @@ class RestoreProgressScreen extends ConsumerWidget {
             child: ElevatedButton(
               onPressed: () {
                 ref.read(restoreProgressProvider.notifier).reset();
-                context.go('/onboarding/welcome');
+                // Back to the app. Going to /onboarding/welcome used to
+                // redirect right back here — the router sends onboarding
+                // routes to /local once onboarding is complete — so the
+                // button appeared to do nothing at all.
+                context.go('/local');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.onPrimary,

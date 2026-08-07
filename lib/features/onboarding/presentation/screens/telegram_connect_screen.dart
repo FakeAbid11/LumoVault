@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/auth/auth_service.dart';
 import '../../../../core/di/tdlib_providers.dart';
@@ -48,6 +49,50 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
     final picked = await showCountryCodePicker(context);
     if (picked != null && mounted) {
       setState(() => _selectedCountry = picked);
+    }
+  }
+
+  /// Explain what the 2FA password is and where to reset it.
+  ///
+  /// This used to be a dead button — TDLib offers no in-app reset here
+  /// (resetting requires Telegram's own recovery flow), so the honest
+  /// behavior is to say so and hand off to Telegram support.
+  Future<void> _showForgotPasswordHelp(BuildContext context) async {
+    final reset = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forgot your password?'),
+        content: const Text(
+          'This is the two-step verification password set on your Telegram '
+          'account — not a LumoVault password.\n\n'
+          'To reset it, contact Telegram support through the official '
+          'Telegram app (Settings → Privacy and Security → Two-Step '
+          'Verification → Forgot password), or via the Telegram website. '
+          'Resets can take a few days.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Open Telegram Help'),
+          ),
+        ],
+      ),
+    );
+
+    if (reset != true || !context.mounted) return;
+    final uri = Uri.parse('https://telegram.org/support');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open link')));
+      }
     }
   }
 
@@ -507,7 +552,7 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       const SizedBox(height: 12),
                       Center(
                         child: TextButton(
-                          onPressed: () {},
+                          onPressed: () => _showForgotPasswordHelp(context),
                           child: const Text('Forgot password?'),
                         ),
                       ),

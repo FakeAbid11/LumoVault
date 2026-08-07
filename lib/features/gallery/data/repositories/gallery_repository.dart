@@ -673,9 +673,9 @@ class GalleryRepository {
 
     // Persist only items that were actually added or updated, and look up
     // existing DB row IDs to avoid creating duplicate rows on rescans.
-    for (final item in changed) {
-      await _persistItem(item);
-    }
+    // Batched (single lookup + upsertAll) rather than one upsert per item —
+    // a full restore can merge tens of thousands of items.
+    await _persistBatch(changed);
   }
 
   int get totalSize => _mediaItems.fold(0, (sum, item) => sum + item.fileSize);

@@ -112,21 +112,43 @@ final _authStateStreamProvider = StreamProvider<AuthState>((ref) {
   return authService.stateStream;
 });
 
+/// In-flight (or completed) database-key resolution.
+///
+/// Two call sites consume the key — [tdLibDatabaseKeyProvider] and the
+/// connection manager's reconnect key provider — and both can run
+/// concurrently (e.g. a reconnect while the initial connect is still
+/// bootstrapping). Without single-flight, both would read null, generate
+/// two different keys, and the second write would orphan the first key's
+/// encrypted TDLib database. The key never legitimately changes, so
+/// memoizing it for the process lifetime is safe.
+Future<String>? _databaseKeyFuture;
+
 /// Read the persisted TDLib database key, creating one on first run.
 ///
 /// The key is a cryptographically random [TdLibConfig.databaseKeyLength]-byte
 /// value, base64-encoded for storage. It is generated once and reused on every
 /// subsequent launch and reconnect so the encrypted TDLib database remains
 /// readable.
-Future<String> _readOrCreateDatabaseKey(FlutterSecureStorage storage) async {
-  final existing = await storage.read(key: kTdLibDatabaseKeyName);
-  if (existing != null && existing.isNotEmpty) {
-    return existing;
-  }
+Future<String> _readOrCreateDatabaseKey(FlutterSecureStorage storage) {
+  return _databaseKeyFuture ??= _doReadOrCreateDatabaseKey(storage);
+}
 
-  final key = _generateSecureKey();
-  await storage.write(key: kTdLibDatabaseKeyName, value: key);
-  return key;
+Future<String> _doReadOrCreateDatabaseKey(FlutterSecureStorage storage) async {
+  try {
+    final existing = await storage.read(key: kTdLibDatabaseKeyName);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+
+    final key = _generateSecureKey();
+    await storage.write(key: kTdLibDatabaseKeyName, value: key);
+    return key;
+  } catch (e) {
+    // A failed attempt must not poison the memo for the rest of the
+    // process — let the next caller retry.
+    _databaseKeyFuture = null;
+    rethrow;
+  }
 }
 
 /// Generate a cryptographically secure random key.

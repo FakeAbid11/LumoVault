@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/metadata/data/models/metadata_partition.dart';
@@ -64,6 +66,21 @@ void main() {
       expect(parsed.fileHash, 'abc123');
       expect(parsed.fileSize, 1024);
       expect(parsed.isFavorite, isTrue);
+    });
+
+    test('fromJson clamps out-of-range status index', () {
+      final item = PartitionItem(
+        localId: '123',
+        fileHash: 'abc123',
+        createdAt: DateTime(2026, 1, 15),
+        modifiedAt: DateTime(2026, 1, 15),
+      );
+
+      final json = item.toJson()..['st'] = 99;
+      final parsed = PartitionItem.fromJson(json);
+
+      expect(parsed.status, MediaStatus.values.last);
+      expect(parsed.localId, '123');
     });
 
     test('equality based on localId and fileHash', () {
@@ -152,6 +169,105 @@ void main() {
       expect(partition.hasChanged('different_hash'), isTrue);
     });
 
+    test('hash detects user-visible metadata edits', () {
+      PartitionItem item({
+        String? albumName,
+        List<String>? tags,
+        String? description,
+        String? deviceFolder,
+        String? fileName,
+        bool isTrashed = false,
+        DateTime? trashedAt,
+      }) => PartitionItem(
+        localId: '123',
+        fileHash: 'abc',
+        createdAt: DateTime(2026, 1, 1),
+        modifiedAt: DateTime(2026, 1, 1),
+        albumName: albumName,
+        tags: tags ?? const [],
+        description: description,
+        deviceFolder: deviceFolder,
+        fileName: fileName,
+        isTrashed: isTrashed,
+        trashedAt: trashedAt,
+      );
+
+      MetadataPartition partition(List<PartitionItem> items) =>
+          MetadataPartition(
+            id: '2026/01',
+            periodStart: DateTime(2026, 1),
+            periodEnd: DateTime(2026, 2),
+            items: items,
+            lastModified: DateTime(2026, 1, 15),
+          );
+
+      final baseHash = partition([item()]).computeHash();
+
+      expect(
+        partition([item(albumName: 'Vacation')]).computeHash(),
+        isNot(baseHash),
+      );
+      expect(
+        partition([
+          item(tags: ['travel', 'beach']),
+        ]).computeHash(),
+        isNot(baseHash),
+      );
+      expect(
+        partition([item(description: 'Beach sunset')]).computeHash(),
+        isNot(baseHash),
+      );
+      expect(
+        partition([item(deviceFolder: 'DCIM')]).computeHash(),
+        isNot(baseHash),
+      );
+      expect(
+        partition([item(fileName: 'renamed.jpg')]).computeHash(),
+        isNot(baseHash),
+      );
+      expect(
+        partition([
+          item(isTrashed: true, trashedAt: DateTime(2026, 1, 2)),
+        ]).computeHash(),
+        isNot(baseHash),
+      );
+    });
+
+    test(
+      'hash ignores upload-completion fields to avoid re-upload ping-pong',
+      () {
+        final base = PartitionItem(
+          localId: '123',
+          fileHash: 'abc',
+          createdAt: DateTime(2026, 1, 1),
+          modifiedAt: DateTime(2026, 1, 1),
+        );
+        final uploaded = PartitionItem(
+          localId: '123',
+          fileHash: 'abc',
+          createdAt: DateTime(2026, 1, 1),
+          modifiedAt: DateTime(2026, 1, 1),
+          telegramMessageId: '42',
+          telegramFileId: '7',
+          backedUpAt: DateTime(2026, 1, 3),
+          status: MediaStatus.uploaded,
+        );
+
+        MetadataPartition partition(PartitionItem item) => MetadataPartition(
+          id: '2026/01',
+          periodStart: DateTime(2026, 1),
+          periodEnd: DateTime(2026, 2),
+          items: [item],
+          lastModified: DateTime(2026, 1, 15),
+        );
+
+        expect(
+          partition(uploaded).computeHash(),
+          partition(base).computeHash(),
+        );
+      },
+    );
+
     test('toJsonString produces valid JSON', () {
       final partition = MetadataPartition(
         id: '2026/01',
@@ -200,6 +316,32 @@ void main() {
     test('fromJsonString returns null for invalid JSON', () {
       final parsed = MetadataPartition.fromJsonString('invalid');
       expect(parsed, isNull);
+    });
+
+    test('fromJsonString survives corrupt status index', () {
+      final partition = MetadataPartition(
+        id: '2026/01',
+        periodStart: DateTime(2026, 1),
+        periodEnd: DateTime(2026, 2),
+        items: [
+          PartitionItem(
+            localId: '123',
+            fileHash: 'abc',
+            createdAt: DateTime(2026, 1, 1),
+            modifiedAt: DateTime(2026, 1, 1),
+          ),
+        ],
+        lastModified: DateTime(2026, 1, 15),
+      );
+
+      final map = jsonDecode(partition.toJsonString()) as Map<String, dynamic>;
+      (map['items'] as List<dynamic>)[0]['st'] = 99;
+
+      final parsed = MetadataPartition.fromJsonString(jsonEncode(map));
+
+      expect(parsed, isNotNull);
+      expect(parsed!.items.length, 1);
+      expect(parsed.items.first.status, MediaStatus.values.last);
     });
 
     test('equality based on id', () {

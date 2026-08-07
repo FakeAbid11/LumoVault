@@ -15,6 +15,8 @@ class CaptionMetadata {
     this.isFavorite = false,
     this.isHidden = false,
     this.isArchived = false,
+    this.isTrashed = false,
+    this.trashedAt,
     this.albumName,
     this.deviceFolder,
     this.description,
@@ -43,6 +45,8 @@ class CaptionMetadata {
         isFavorite: map['fav'] as bool? ?? false,
         isHidden: map['hid'] as bool? ?? false,
         isArchived: map['arc'] as bool? ?? false,
+        isTrashed: map['trash'] as bool? ?? false,
+        trashedAt: DateTime.tryParse(map['trasht'] as String? ?? ''),
         albumName: map['alb'] as String?,
         deviceFolder: map['fol'] as String?,
         description: map['desc'] as String?,
@@ -72,6 +76,8 @@ class CaptionMetadata {
   final bool isFavorite;
   final bool isHidden;
   final bool isArchived;
+  final bool isTrashed;
+  final DateTime? trashedAt;
   final String? albumName;
   final String? deviceFolder;
   final String? description;
@@ -96,6 +102,8 @@ class CaptionMetadata {
     if (isFavorite) map['fav'] = true;
     if (isHidden) map['hid'] = true;
     if (isArchived) map['arc'] = true;
+    if (isTrashed) map['trash'] = true;
+    if (trashedAt != null) map['trasht'] = trashedAt!.toUtc().toIso8601String();
     if (albumName != null) map['alb'] = albumName;
     if (deviceFolder != null) map['fol'] = deviceFolder;
     if (description != null) map['desc'] = description;

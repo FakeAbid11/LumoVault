@@ -64,6 +64,25 @@ void main() {
       expect(parsed.createdAt, isNotNull);
     });
 
+    test('trash state round-trips through the caption', () {
+      final original = CaptionMetadata(
+        mediaItemId: 'media_1',
+        fileHash: 'hash1',
+        createdAt: DateTime(2026, 7, 14),
+        modifiedAt: DateTime(2026, 7, 14),
+        backedUpAt: DateTime(2026, 7, 14),
+        isTrashed: true,
+        trashedAt: DateTime.utc(2026, 7, 16, 8, 30),
+      );
+
+      final parsed = CaptionMetadata.fromCaptionString(
+        original.toCaptionString(),
+      );
+
+      expect(parsed.isTrashed, isTrue);
+      expect(parsed.trashedAt, original.trashedAt);
+    });
+
     test('equality based on mediaItemId and fileHash', () {
       final metadata1 = CaptionMetadata(
         mediaItemId: 'media_1',

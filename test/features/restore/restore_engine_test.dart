@@ -305,6 +305,41 @@ void main() {
       expect(engine.currentProgress.skippedItems, 1);
     });
 
+    test('startRestore rebuilds trashed state from captions', () async {
+      final trashedAt = DateTime.utc(2026, 6, 1, 12, 30);
+
+      final repo = engine.restoreRepository as MockRestoreRepository;
+      repo.detectionResult = const ChannelDetectionResult(channelId: 42);
+      repo.manifest = Manifest.create(deviceHash: 'test_device');
+      repo.messages = [
+        ChannelMessage(
+          messageId: 3,
+          fileId: 30,
+          fileName: 'trashed.jpg',
+          caption: CaptionMetadata(
+            mediaItemId: 'r_trash',
+            fileHash: 'hash_trash',
+            createdAt: DateTime(2026, 1, 15),
+            modifiedAt: DateTime(2026, 1, 15),
+            backedUpAt: DateTime(2026, 1, 15),
+            isTrashed: true,
+            trashedAt: trashedAt,
+          ).toCaptionString(),
+        ),
+      ];
+      repo.thumbnailFile = const DownloadedFile(
+        filePath: '/nonexistent/thumb.bin',
+        fileName: 'trashed.jpg',
+      );
+
+      final result = await engine.startRestore();
+      expect(result, isTrue);
+
+      final restored = galleryRepository.getItemById('r_trash');
+      expect(restored, isNotNull);
+      expect(restored!.isTrashed, isTrue);
+      expect(restored.trashedAt, trashedAt);
+    });
     test(
       'resumeInterruptedRestore combines persisted and gallery hashes',
       () async {

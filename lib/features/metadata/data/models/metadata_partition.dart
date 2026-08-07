@@ -100,7 +100,14 @@ class PartitionItem {
       deviceFolder: json['fol'] as String?,
       description: json['desc'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
-      status: MediaStatus.values[(json['st'] as int?) ?? 0],
+      // Clamp instead of letting an out-of-range value throw RangeError:
+      // fromJsonString would swallow the exception and drop the entire
+      // partition — losing every item in it over one corrupt status byte.
+      status:
+          MediaStatus.values[((json['st'] as num?)?.toInt() ?? 0).clamp(
+            0,
+            MediaStatus.values.length - 1,
+          )],
       fileName: json['fn'] as String?,
     );
   }
@@ -266,6 +273,19 @@ class MetadataPartition {
   /// (restored from disk, re-scanned in a different order) would otherwise
   /// hash differently and look permanently dirty.
   ///
+  /// Every user-visible mutable field participates: file hash, modified time,
+  /// favorite/hidden/archived/trashed flags, trashed time, album, device
+  /// folder, description, file name, and tags. Leaving any of those out (as
+  /// an earlier version did) meant an edit to e.g. an item's album or tags
+  /// never changed the hash — the partition never looked dirty, and the
+  /// change was never uploaded to Telegram.
+  ///
+  /// Deliberately excluded: [PartitionItem.telegramMessageId],
+  /// [PartitionItem.telegramFileId], [PartitionItem.backedUpAt], and
+  /// [PartitionItem.status]. Those are set when an upload completes, so
+  /// including them would mark a freshly-synced partition dirty again and
+  /// force a second re-upload of the whole partition.
+  ///
   /// [ManifestService] computes its chunk hashes through this same function,
   /// so a value from [computeHash] and a `ManifestChunk.hash` are directly
   /// comparable. Keeping the two in sync is what makes incremental sync work
@@ -281,6 +301,12 @@ class MetadataPartition {
                 item.isHidden ? '1' : '0',
                 item.isArchived ? '1' : '0',
                 item.isTrashed ? '1' : '0',
+                item.trashedAt?.toUtc().toIso8601String() ?? '',
+                item.albumName ?? '',
+                item.deviceFolder ?? '',
+                item.description ?? '',
+                item.fileName ?? '',
+                (item.tags.toList()..sort()).join(','),
               ].join(_kFieldSeparator),
             )
             .toList()

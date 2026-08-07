@@ -215,6 +215,8 @@ class RestoreEngine {
           isFavorite: metadata.isFavorite,
           isHidden: metadata.isHidden,
           isArchived: metadata.isArchived,
+          isTrashed: metadata.isTrashed,
+          trashedAt: metadata.trashedAt,
           albumName: metadata.albumName,
           deviceFolder: metadata.deviceFolder,
           description: metadata.description,

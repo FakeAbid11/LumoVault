@@ -1,4 +1,4 @@
-import '../../gallery/data/models/media_item.dart';
+import 'package:lumovault/features/gallery/data/models/media_item.dart';
 
 /// A group of photos/videos from a specific anniversary date.
 ///

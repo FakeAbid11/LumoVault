@@ -1,7 +1,7 @@
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/database/app_database.dart';
-import 'package:lumovault/core/database/tables/face_tables.dart';
 import 'package:lumovault/features/faces/data/repositories/face_repository.dart';
 import 'package:lumovault/features/faces/data/services/face_detection_service.dart';
 import 'package:lumovault/features/faces/data/services/face_grouping_service.dart';
@@ -54,7 +54,7 @@ void main() {
       await db.faceDao.upsertFaces([
         FacesCompanion.insert(
           mediaItemId: 'test_1',
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.1,
           bboxTop: 0.1,
           bboxRight: 0.5,
@@ -82,7 +82,7 @@ void main() {
       await db.faceDao.upsertFaces([
         FacesCompanion.insert(
           mediaItemId: 'test_1',
-          groupId: group1,
+          groupId: Value(group1),
           bboxLeft: 0.1,
           bboxTop: 0.1,
           bboxRight: 0.5,
@@ -93,7 +93,7 @@ void main() {
         ),
         FacesCompanion.insert(
           mediaItemId: 'test_2',
-          groupId: group2,
+          groupId: Value(group2),
           bboxLeft: 0.2,
           bboxTop: 0.2,
           bboxRight: 0.6,
@@ -122,7 +122,7 @@ void main() {
       await db.faceDao.upsertFaces([
         FacesCompanion.insert(
           mediaItemId: 'item_1',
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.1,
           bboxTop: 0.1,
           bboxRight: 0.5,
@@ -133,7 +133,7 @@ void main() {
         ),
         FacesCompanion.insert(
           mediaItemId: 'item_2',
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.2,
           bboxTop: 0.2,
           bboxRight: 0.6,
@@ -145,7 +145,7 @@ void main() {
         // Face in a different group.
         FacesCompanion.insert(
           mediaItemId: 'item_3',
-          groupId: 999,
+          groupId: const Value(999),
           bboxLeft: 0.3,
           bboxTop: 0.3,
           bboxRight: 0.7,
@@ -169,7 +169,7 @@ void main() {
       await db.faceDao.upsertFaces([
         FacesCompanion.insert(
           mediaItemId: 'item_1',
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.1,
           bboxTop: 0.1,
           bboxRight: 0.5,
@@ -180,7 +180,7 @@ void main() {
         ),
         FacesCompanion.insert(
           mediaItemId: 'item_1', // Same item, second face.
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.4,
           bboxTop: 0.4,
           bboxRight: 0.8,
@@ -191,7 +191,7 @@ void main() {
         ),
         FacesCompanion.insert(
           mediaItemId: 'item_2',
-          groupId: groupId,
+          groupId: Value(groupId),
           bboxLeft: 0.2,
           bboxTop: 0.2,
           bboxRight: 0.6,

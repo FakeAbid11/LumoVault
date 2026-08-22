@@ -1,3 +1,5 @@
+import 'content_category.dart';
+
 /// A user-defined moderation rule that the analysis engine evaluates
 /// against every analyzed media item.
 ///
@@ -16,6 +18,26 @@ class ModerationRule {
     this.createdAt,
     this.updatedAt,
   });
+
+  factory ModerationRule.fromJson(Map<String, dynamic> json) {
+    return ModerationRule(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      condition: ModerationCondition.fromJson(
+        json['condition'] as Map<String, dynamic>,
+      ),
+      action: ModerationAction.values[json['action'] as int? ?? 0],
+      isEnabled: json['isEnabled'] as bool? ?? true,
+      priority: json['priority'] as int? ?? 0,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'] as String)
+          : null,
+    );
+  }
 
   /// Unique identifier (UUID or monotonic int).
   final String id;
@@ -74,26 +96,6 @@ class ModerationRule {
     'createdAt': createdAt?.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
   };
-
-  factory ModerationRule.fromJson(Map<String, dynamic> json) {
-    return ModerationRule(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      condition: ModerationCondition.fromJson(
-        json['condition'] as Map<String, dynamic>,
-      ),
-      action: ModerationAction.values[json['action'] as int? ?? 0],
-      isEnabled: json['isEnabled'] as bool? ?? true,
-      priority: json['priority'] as int? ?? 0,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String)
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'] as String)
-          : null,
-    );
-  }
 }
 
 /// A condition that can be evaluated against a [ContentAnalysisResult].
@@ -110,6 +112,34 @@ class ModerationCondition {
     this.maxFileSizeBytes,
     this.targetMimeTypes,
   });
+
+  factory ModerationCondition.fromJson(Map<String, dynamic> json) {
+    return ModerationCondition(
+      minSensitivityLevel: json['minSensitivityLevel'] != null
+          ? SensitivityLevel.values[json['minSensitivityLevel'] as int]
+          : null,
+      targetCategories: json['targetCategories'] != null
+          ? (json['targetCategories'] as List)
+                .map((i) => ContentCategory.values[i as int])
+                .toList()
+          : null,
+      requiredTags: json['requiredTags'] != null
+          ? (json['requiredTags'] as List)
+                .map((i) => ContentTag.values[i as int])
+                .toList()
+          : null,
+      excludedTags: json['excludedTags'] != null
+          ? (json['excludedTags'] as List)
+                .map((i) => ContentTag.values[i as int])
+                .toList()
+          : null,
+      minConfidence: (json['minConfidence'] as num?)?.toDouble(),
+      maxFileSizeBytes: json['maxFileSizeBytes'] as int?,
+      targetMimeTypes: (json['targetMimeTypes'] as List?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+  }
 
   /// If set, items at or above this sensitivity level match.
   final SensitivityLevel? minSensitivityLevel;
@@ -190,34 +220,6 @@ class ModerationCondition {
     if (maxFileSizeBytes != null) 'maxFileSizeBytes': maxFileSizeBytes,
     if (targetMimeTypes != null) 'targetMimeTypes': targetMimeTypes,
   };
-
-  factory ModerationCondition.fromJson(Map<String, dynamic> json) {
-    return ModerationCondition(
-      minSensitivityLevel: json['minSensitivityLevel'] != null
-          ? SensitivityLevel.values[json['minSensitivityLevel'] as int]
-          : null,
-      targetCategories: json['targetCategories'] != null
-          ? (json['targetCategories'] as List)
-                .map((i) => ContentCategory.values[i as int])
-                .toList()
-          : null,
-      requiredTags: json['requiredTags'] != null
-          ? (json['requiredTags'] as List)
-                .map((i) => ContentTag.values[i as int])
-                .toList()
-          : null,
-      excludedTags: json['excludedTags'] != null
-          ? (json['excludedTags'] as List)
-                .map((i) => ContentTag.values[i as int])
-                .toList()
-          : null,
-      minConfidence: (json['minConfidence'] as num?)?.toDouble(),
-      maxFileSizeBytes: json['maxFileSizeBytes'] as int?,
-      targetMimeTypes: (json['targetMimeTypes'] as List?)
-          ?.map((e) => e as String)
-          .toList(),
-    );
-  }
 }
 
 /// Aggregate statistics about content analysis across the library.

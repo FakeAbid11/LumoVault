@@ -155,7 +155,9 @@ Future<Directory?> _safeGetDocumentsDirectory() async {
   try {
     return await getApplicationDocumentsDirectory();
   } catch (e) {
-    debugPrint('[StorageProviders] getApplicationDocumentsDirectory failed: $e');
+    debugPrint(
+      '[StorageProviders] getApplicationDocumentsDirectory failed: $e',
+    );
     return null;
   }
 }

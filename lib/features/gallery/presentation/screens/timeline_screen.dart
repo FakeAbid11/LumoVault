@@ -77,13 +77,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
             ),
         ],
       ),
-      body: _buildBody(
-        context,
-        uploadedItems,
-        isScanning,
-        scanned,
-        total,
-      ),
+      body: _buildBody(context, uploadedItems, isScanning, scanned, total),
     );
   }
 
@@ -181,25 +175,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       child: CustomScrollView(
         slivers: [
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final entry = visibleEntries[index];
-                if (entry.isHeader) {
-                  return DateHeader(
-                    dateText: entry.dateKey!,
-                    itemCount: entry.itemCount,
-                  );
-                }
-                return MediaTile(
-                  mediaItem: entry.item!,
-                  showStatus: true,
-                  reloadGeneration: reloadGeneration,
-                  telegramThumbnailFetcher: telegramFetcher.fetch,
-                  onTap: () => _onItemTap(context, entry.item!, allItems),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final entry = visibleEntries[index];
+              if (entry.isHeader) {
+                return DateHeader(
+                  dateText: entry.dateKey!,
+                  itemCount: entry.itemCount,
                 );
-              },
-              childCount: visibleEntries.length,
-            ),
+              }
+              return MediaTile(
+                mediaItem: entry.item!,
+                showStatus: true,
+                reloadGeneration: reloadGeneration,
+                telegramThumbnailFetcher: telegramFetcher.fetch,
+                onTap: () => _onItemTap(context, entry.item!, allItems),
+              );
+            }, childCount: visibleEntries.length),
           ),
           if (hasMore)
             const SliverToBoxAdapter(
@@ -279,13 +270,13 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 /// media item. This enables pagination across date boundaries.
 class _TimelineEntry {
   const _TimelineEntry.header(this.dateKey, this.itemCount)
-      : item = null,
-        isHeader = true;
+    : item = null,
+      isHeader = true;
 
   const _TimelineEntry.item(this.item)
-      : dateKey = null,
-        itemCount = 0,
-        isHeader = false;
+    : dateKey = null,
+      itemCount = 0,
+      isHeader = false;
 
   final String? dateKey;
   final int itemCount;

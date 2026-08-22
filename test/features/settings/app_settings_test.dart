@@ -187,9 +187,7 @@ void main() {
 
       test('settings differing only in lastBackupAt are not equal', () {
         const a = AppSettings();
-        final b = const AppSettings().copyWith(
-          lastBackupAt: DateTime(2025),
-        );
+        final b = const AppSettings().copyWith(lastBackupAt: DateTime(2025));
 
         expect(a, isNot(equals(b)));
       });

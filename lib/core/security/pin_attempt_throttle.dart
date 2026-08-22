@@ -135,7 +135,9 @@ class PinAttemptThrottle {
     try {
       await _store.delete(_storageKey);
     } catch (e) {
-      debugPrint('[PinAttemptThrottle] Failed to delete stale throttle blob: $e');
+      debugPrint(
+        '[PinAttemptThrottle] Failed to delete stale throttle blob: $e',
+      );
     }
   }
 
@@ -150,7 +152,9 @@ class PinAttemptThrottle {
         }),
       );
     } catch (e) {
-      debugPrint('[PinAttemptThrottle] Persistence failed (session-only throttle): $e');
+      debugPrint(
+        '[PinAttemptThrottle] Persistence failed (session-only throttle): $e',
+      );
     }
     return state;
   }

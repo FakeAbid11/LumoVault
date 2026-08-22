@@ -537,7 +537,11 @@ class _AssetPreview extends StatelessWidget {
           minScale: 1,
           maxScale: 4,
           child: Center(
-            child: Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true),
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
           ),
         );
       },

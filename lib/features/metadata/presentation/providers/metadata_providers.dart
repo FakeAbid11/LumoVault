@@ -239,22 +239,22 @@ final searchMetadataProvider = Provider.family<Set<String>, String>((
 /// no results (e.g., for terms only present in the gallery but not yet
 /// indexed by the metadata layer). This is O(m) where m is the number of
 /// indexed terms, vs the gallery's O(n) linear scan over all items.
-final indexedSearchProvider =
-    FutureProvider.autoDispose.family<List<MediaItem>, String>((ref, query) async {
-  final gallery = ref.watch(galleryRepositoryProvider);
-  final searchIndex = ref.watch(searchIndexServiceProvider);
+final indexedSearchProvider = FutureProvider.autoDispose
+    .family<List<MediaItem>, String>((ref, query) async {
+      final gallery = ref.watch(galleryRepositoryProvider);
+      final searchIndex = ref.watch(searchIndexServiceProvider);
 
-  // Use the indexed search when the index has entries.
-  if (searchIndex.indexSize > 0) {
-    final ids = searchIndex.search(query);
-    if (ids.isNotEmpty) {
-      return [
-        for (final id in ids)
-          if (gallery.getItemById(id) case final item?) item,
-      ];
-    }
-  }
+      // Use the indexed search when the index has entries.
+      if (searchIndex.indexSize > 0) {
+        final ids = searchIndex.search(query);
+        if (ids.isNotEmpty) {
+          return [
+            for (final id in ids)
+              if (gallery.getItemById(id) case final item?) item,
+          ];
+        }
+      }
 
-  // Fall back to the gallery's linear scan for unindexed terms.
-  return gallery.searchMedia(query);
-});
+      // Fall back to the gallery's linear scan for unindexed terms.
+      return gallery.searchMedia(query);
+    });

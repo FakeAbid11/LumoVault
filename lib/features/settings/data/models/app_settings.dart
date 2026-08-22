@@ -132,7 +132,9 @@ class AppSettings {
         debugMode: map['debugMode'] as bool? ?? false,
       );
     } catch (e) {
-      debugPrint('[AppSettings] Failed to parse settings, returning defaults: $e');
+      debugPrint(
+        '[AppSettings] Failed to parse settings, returning defaults: $e',
+      );
       return const AppSettings();
     }
   }
@@ -407,8 +409,7 @@ class AppSettings {
           backupProgressNotification == other.backupProgressNotification &&
           backupCompletedNotification == other.backupCompletedNotification &&
           backupFailedNotification == other.backupFailedNotification &&
-          restoreCompletedNotification ==
-              other.restoreCompletedNotification &&
+          restoreCompletedNotification == other.restoreCompletedNotification &&
           storageWarningNotification == other.storageWarningNotification &&
           debugMode == other.debugMode;
 

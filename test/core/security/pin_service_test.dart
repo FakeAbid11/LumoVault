@@ -53,13 +53,19 @@ void main() {
     test('verifyPin rejects null, empty and malformed hashes', () async {
       expect(await service.verifyPin(pin: '123456', encoded: null), isFalse);
       expect(await service.verifyPin(pin: '123456', encoded: ''), isFalse);
-      expect(await service.verifyPin(pin: '123456', encoded: '123456'), isFalse);
+      expect(
+        await service.verifyPin(pin: '123456', encoded: '123456'),
+        isFalse,
+      );
       expect(
         await service.verifyPin(pin: '123456', encoded: r'md5$1000$aa$bb'),
         isFalse,
       );
       expect(
-        await service.verifyPin(pin: '123456', encoded: r'pbkdf2-sha256$0$aa$bb'),
+        await service.verifyPin(
+          pin: '123456',
+          encoded: r'pbkdf2-sha256$0$aa$bb',
+        ),
         isFalse,
       );
       expect(
@@ -76,13 +82,16 @@ void main() {
       expect(() => service.hashPin('abcdef'), throwsArgumentError);
     });
 
-    test('a hash stays verifiable under a service with more iterations', () async {
-      final old = PinService(iterations: 1000).hashPin('246810');
-      final upgraded = PinService(iterations: 2000);
+    test(
+      'a hash stays verifiable under a service with more iterations',
+      () async {
+        final old = PinService(iterations: 1000).hashPin('246810');
+        final upgraded = PinService(iterations: 2000);
 
-      expect(await upgraded.verifyPin(pin: '246810', encoded: old), isTrue);
-      expect(upgraded.needsRehash(old), isTrue);
-    });
+        expect(await upgraded.verifyPin(pin: '246810', encoded: old), isTrue);
+        expect(upgraded.needsRehash(old), isTrue);
+      },
+    );
 
     test('needsRehash is false for a current-parameter hash', () {
       expect(service.needsRehash(service.hashPin('123456')), isFalse);

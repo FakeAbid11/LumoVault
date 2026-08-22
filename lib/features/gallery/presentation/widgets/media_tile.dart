@@ -75,10 +75,12 @@ class MediaTile extends StatefulWidget {
       ).timeout(const Duration(seconds: 15));
       if (asset == null) return _readFileFallback(item);
       bytes = await asset
-          .thumbnailDataWithSize(const ThumbnailSize(
-            AppConstants.thumbnailPixelSize,
-            AppConstants.thumbnailPixelSize,
-          ))
+          .thumbnailDataWithSize(
+            const ThumbnailSize(
+              AppConstants.thumbnailPixelSize,
+              AppConstants.thumbnailPixelSize,
+            ),
+          )
           .timeout(const Duration(seconds: 15));
     } catch (_) {
       // Timeout, photo permission revoked, platform error, etc. — fall

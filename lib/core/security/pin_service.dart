@@ -76,7 +76,10 @@ class PinService {
   ///
   /// Runs PBKDF2 on a background isolate to avoid blocking the UI thread
   /// during the 120K-iteration computation.
-  Future<bool> verifyPin({required String pin, required String? encoded}) async {
+  Future<bool> verifyPin({
+    required String pin,
+    required String? encoded,
+  }) async {
     if (encoded == null || encoded.isEmpty) return false;
 
     final parts = encoded.split(r'$');

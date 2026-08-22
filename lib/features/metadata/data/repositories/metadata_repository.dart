@@ -141,10 +141,7 @@ class MetadataRepository {
     searchIndexService.indexItem(partitionItem);
     syncService.enqueueChange(mediaItemId: item.localId, operation: 'create');
 
-    _emitChange(
-      mediaItemId: item.localId,
-      operation: 'create',
-    );
+    _emitChange(mediaItemId: item.localId, operation: 'create');
   }
 
   /// Record metadata update when an item's state changes.
@@ -166,10 +163,7 @@ class MetadataRepository {
       operation: operation ?? 'update',
     );
 
-    _emitChange(
-      mediaItemId: localId,
-      operation: operation ?? 'update',
-    );
+    _emitChange(mediaItemId: localId, operation: operation ?? 'update');
   }
 
   /// Record upload completion and update Telegram message metadata.
@@ -233,10 +227,7 @@ class MetadataRepository {
 
     syncService.enqueueChange(mediaItemId: localId, operation: operation);
 
-    _emitChange(
-      mediaItemId: localId,
-      operation: operation,
-    );
+    _emitChange(mediaItemId: localId, operation: operation);
   }
 
   /// Get dirty partitions that need re-upload.
@@ -394,10 +385,7 @@ class MetadataRepository {
   }
 
   /// Emit a change event, guarded against a closed controller.
-  void _emitChange({
-    required String mediaItemId,
-    required String operation,
-  }) {
+  void _emitChange({required String mediaItemId, required String operation}) {
     if (_changeController.isClosed) return;
     _changeController.add(
       MetadataChangeEvent(

@@ -123,7 +123,10 @@ class MediaItems extends Table {
 ///
 /// Opened once at startup (see main.dart bootstrap, follow-up) and shared via
 /// the DI layer. Schema version tracks [DatabaseConstants.schemaVersion].
-@DriftDatabase(tables: [MediaItems, Faces, FaceGroups], daos: [MediaDao, FaceDao])
+@DriftDatabase(
+  tables: [MediaItems, Faces, FaceGroups],
+  daos: [MediaDao, FaceDao],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 

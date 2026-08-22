@@ -34,14 +34,14 @@ class DetectedFace {
 /// mid-range hardware.
 class FaceDetectionService {
   FaceDetectionService()
-      : _options = FaceDetectorOptions(
-          enableLandmarks: false,
-          enableContours: false,
-          enableClassification: true,
-          enableTracking: false,
-          performanceMode: FaceDetectorMode.accurate,
-          minFaceSize: 0.1,
-        );
+    : _options = FaceDetectorOptions(
+        enableLandmarks: false,
+        enableContours: false,
+        enableClassification: true,
+        enableTracking: false,
+        performanceMode: FaceDetectorMode.accurate,
+        minFaceSize: 0.1,
+      );
 
   final FaceDetectorOptions _options;
   FaceDetector? _detector;
@@ -77,7 +77,12 @@ class FaceDetectionService {
       // a feature vector from the face geometry and classification properties.
       // This is a lightweight stand-in — in a production build you'd swap in
       // a dedicated face embedding model (e.g. FaceNet via TFLite).
-      final embedding = _synthesiseEmbedding(face, rect, imageWidth, imageHeight);
+      final embedding = _synthesiseEmbedding(
+        face,
+        rect,
+        imageWidth,
+        imageHeight,
+      );
 
       // Use headEulerAngleY/X as confidence proxies when available.
       final confidence = face.headEulerAngleY != null
@@ -117,13 +122,10 @@ class FaceDetectionService {
     final normalisedW = rect.width / imageWidth;
     final normalisedH = rect.height / imageHeight;
     for (int i = 0; i < 48; i++) {
-      embedding[i] = [
-        normalisedX,
-        normalisedY,
-        normalisedW,
-        normalisedH,
-      ][i % 4] +
-          rng.nextDouble() * 0.01; // tiny noise to differentiate near-identical faces
+      embedding[i] =
+          [normalisedX, normalisedY, normalisedW, normalisedH][i % 4] +
+          rng.nextDouble() *
+              0.01; // tiny noise to differentiate near-identical faces
     }
 
     // Angle features (next 48 dims).
@@ -131,7 +133,8 @@ class FaceDetectionService {
     final eulerZ = face.headEulerAngleZ ?? 0.0;
     final eulerX = face.headEulerAngleX ?? 0.0;
     for (int i = 48; i < 96; i++) {
-      embedding[i] = [eulerY, eulerZ, eulerX][(i - 48) % 3] / 90.0 +
+      embedding[i] =
+          [eulerY, eulerZ, eulerX][(i - 48) % 3] / 90.0 +
           rng.nextDouble() * 0.01;
     }
 
@@ -143,11 +146,10 @@ class FaceDetectionService {
     final mouth = landmarks[FaceLandmarkType.bottomMouth];
 
     if (leftEye != null && rightEye != null) {
-      final eyeDist = (leftEye.position.x - rightEye.position.x).abs() /
-          imageWidth;
-      final eyeY = (leftEye.position.y + rightEye.position.y) /
-          2.0 /
-          imageHeight;
+      final eyeDist =
+          (leftEye.position.x - rightEye.position.x).abs() / imageWidth;
+      final eyeY =
+          (leftEye.position.y + rightEye.position.y) / 2.0 / imageHeight;
       embedding[96] = eyeDist;
       embedding[97] = eyeY;
     }

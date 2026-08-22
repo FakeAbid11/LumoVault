@@ -40,10 +40,11 @@ class FaceGroupCard extends StatelessWidget {
                   backgroundColor: colorScheme.primaryContainer,
                   backgroundImage:
                       group.thumbnailPath != null &&
-                              File(group.thumbnailPath!).existsSync()
-                          ? FileImage(File(group.thumbnailPath!))
-                          : null,
-                  child: group.thumbnailPath == null ||
+                          File(group.thumbnailPath!).existsSync()
+                      ? FileImage(File(group.thumbnailPath!))
+                      : null,
+                  child:
+                      group.thumbnailPath == null ||
                           !File(group.thumbnailPath!).existsSync()
                       ? Icon(
                           Icons.person,
@@ -63,17 +64,14 @@ class FaceGroupCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colorScheme.primaryContainer,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: colorScheme.surface,
-                        width: 2,
-                      ),
+                      border: Border.all(color: colorScheme.surface, width: 2),
                     ),
                     child: Text(
                       '${group.itemCount}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -84,9 +82,8 @@ class FaceGroupCard extends StatelessWidget {
           Text(
             group.displayName,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight:
-                      group.isNamed ? FontWeight.w600 : FontWeight.normal,
-                ),
+              fontWeight: group.isNamed ? FontWeight.w600 : FontWeight.normal,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,

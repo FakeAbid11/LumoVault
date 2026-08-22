@@ -21,10 +21,7 @@ void main() {
         a[0] = 1.0;
         final b = List<double>.filled(192, 0.0);
         b[1] = 1.0;
-        expect(
-          FaceGroupingService.cosineSimilarity(a, b),
-          closeTo(0.0, 1e-6),
-        );
+        expect(FaceGroupingService.cosineSimilarity(a, b), closeTo(0.0, 1e-6));
       });
 
       test('returns 0.0 for zero vectors', () {
@@ -42,10 +39,7 @@ void main() {
       test('returns negative value for opposite vectors', () {
         final a = List<double>.filled(192, 1.0);
         final b = List<double>.filled(192, -1.0);
-        expect(
-          FaceGroupingService.cosineSimilarity(a, b),
-          closeTo(-1.0, 1e-6),
-        );
+        expect(FaceGroupingService.cosineSimilarity(a, b), closeTo(-1.0, 1e-6));
       });
     });
 

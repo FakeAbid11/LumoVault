@@ -41,9 +41,7 @@ class FaceGroupDetailScreen extends ConsumerWidget {
       body: facesAsync.when(
         data: (faces) {
           if (faces.isEmpty) {
-            return const Center(
-              child: Text('No faces in this group'),
-            );
+            return const Center(child: Text('No faces in this group'));
           }
 
           // Collect unique media item IDs and show as a grid.
@@ -59,8 +57,8 @@ class FaceGroupDetailScreen extends ConsumerWidget {
                   '${faces.length} face${faces.length == 1 ? '' : 's'} '
                   'in ${mediaIds.length} photo${mediaIds.length == 1 ? '' : 's'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
 
@@ -68,8 +66,7 @@ class FaceGroupDetailScreen extends ConsumerWidget {
               Expanded(
                 child: GridView.builder(
                   padding: const EdgeInsets.all(8),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     mainAxisSpacing: 4,
                     crossAxisSpacing: 4,
@@ -89,11 +86,7 @@ class FaceGroupDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showRenameDialog(
-    BuildContext context,
-    WidgetRef ref,
-    FaceGroup group,
-  ) {
+  void _showRenameDialog(BuildContext context, WidgetRef ref, FaceGroup group) {
     final controller = TextEditingController(text: group.name ?? '');
     showDialog(
       context: context,
@@ -114,10 +107,9 @@ class FaceGroupDetailScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.pop(context);
               final name = controller.text.trim();
-              ref.read(faceRepositoryProvider).renameGroup(
-                    groupId,
-                    name.isEmpty ? null : name,
-                  );
+              ref
+                  .read(faceRepositoryProvider)
+                  .renameGroup(groupId, name.isEmpty ? null : name);
               ref.invalidate(faceGroupsProvider);
             },
             child: const Text('Save'),
@@ -193,8 +185,10 @@ class _ThumbnailFromItem extends StatelessWidget {
         // here, so just open the single item in the timeline viewer.
         // This is a simplified path — a production build would pass the
         // full list for swipe navigation.
-        context.push('/gallery/telegram-media/$mediaItemId',
-            extra: (items: [item], initialIndex: 0));
+        context.push(
+          '/gallery/telegram-media/$mediaItemId',
+          extra: (items: [item], initialIndex: 0),
+        );
       },
       child: Image.file(
         File(imagePath),

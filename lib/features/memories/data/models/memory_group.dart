@@ -21,8 +21,7 @@ class MemoryGroup {
   final DateTime anniversaryDate;
 
   /// Human-readable label such as "1 year ago" or "3 years ago".
-  String get label =>
-      yearsAgo == 1 ? '1 year ago' : '$yearsAgo years ago';
+  String get label => yearsAgo == 1 ? '1 year ago' : '$yearsAgo years ago';
 
   /// Whether this group has enough items for a multi-photo preview collage.
   bool get hasCollage => items.length >= 3;

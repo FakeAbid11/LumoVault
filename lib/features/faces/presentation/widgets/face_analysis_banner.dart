@@ -10,8 +10,9 @@ class FaceAnalysisBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final (processed, total, facesFound) =
-        ref.watch(faceAnalysisProgressProvider);
+    final (processed, total, facesFound) = ref.watch(
+      faceAnalysisProgressProvider,
+    );
 
     final progress = total > 0 ? processed / total : 0.0;
 
@@ -37,19 +38,18 @@ class FaceAnalysisBanner extends ConsumerWidget {
                 Text(
                   'Detecting faces…',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
                 if (total > 0) ...[
                   const SizedBox(height: 2),
                   Text(
                     '$processed / $total photos · $facesFound faces found',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onPrimaryContainer
-                              .withValues(alpha: 0.8),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                    ),
                   ),
                 ],
               ],

@@ -110,9 +110,7 @@ class FaceGroupingService {
         results.add((gid, false));
       } else {
         // New group.
-        final newId = groupIds.isEmpty
-            ? 1
-            : groupIds.reduce(max) + 1;
+        final newId = groupIds.isEmpty ? 1 : groupIds.reduce(max) + 1;
         groupIds.add(newId);
         centroids.add(List<double>.from(embedding));
         results.add((newId, true));

@@ -60,8 +60,9 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
 
   /// Delete all faces for a media item (e.g. when the item is deleted).
   Future<void> deleteFacesForMediaItem(String mediaItemId) {
-    return (delete(faces)..where((t) => t.mediaItemId.equals(mediaItemId)))
-        .go();
+    return (delete(
+      faces,
+    )..where((t) => t.mediaItemId.equals(mediaItemId))).go();
   }
 
   /// Count of faces per group, keyed by group id.
@@ -81,23 +82,20 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
 
   /// All face groups, ordered by item count descending.
   Future<List<FaceGroupRow>> allGroups() {
-    return (select(faceGroups)
-          ..orderBy([(t) => OrderingTerm.desc(t.itemCount)]))
-        .get();
+    return (select(
+      faceGroups,
+    )..orderBy([(t) => OrderingTerm.desc(t.itemCount)])).get();
   }
 
   /// A single group by id.
   Future<FaceGroupRow?> groupById(int id) {
-    return (select(faceGroups)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (select(
+      faceGroups,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Create a new face group. Returns the new row id.
-  Future<int> createGroup({
-    String? name,
-    String? thumbnailPath,
-  }) {
+  Future<int> createGroup({String? name, String? thumbnailPath}) {
     return into(faceGroups).insert(
       FaceGroupsCompanion.insert(
         name: Value(name),
@@ -133,9 +131,7 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
     final counts = await faceCountByGroup();
     await transaction(() async {
       // Zero out all groups first.
-      await customStatement(
-        'UPDATE face_groups SET item_count = 0',
-      );
+      await customStatement('UPDATE face_groups SET item_count = 0');
       // Set the real counts.
       for (final entry in counts.entries) {
         await (update(faceGroups)..where((t) => t.id.equals(entry.key))).write(
@@ -159,12 +155,9 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
   /// [targetGroupId], then the source is deleted.
   Future<void> mergeGroups(int sourceGroupId, int targetGroupId) async {
     await transaction(() async {
-      await (update(faces)
-            ..where((t) => t.groupId.equals(sourceGroupId)))
+      await (update(faces)..where((t) => t.groupId.equals(sourceGroupId)))
           .write(FacesCompanion(groupId: Value(targetGroupId)));
-      await (delete(faceGroups)
-            ..where((t) => t.id.equals(sourceGroupId)))
-          .go();
+      await (delete(faceGroups)..where((t) => t.id.equals(sourceGroupId))).go();
       await refreshGroupCounts();
     });
   }

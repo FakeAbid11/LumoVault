@@ -64,16 +64,16 @@ class ModerationRule {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'condition': condition.toJson(),
-        'action': action.index,
-        'isEnabled': isEnabled,
-        'priority': priority,
-        'createdAt': createdAt?.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'description': description,
+    'condition': condition.toJson(),
+    'action': action.index,
+    'isEnabled': isEnabled,
+    'priority': priority,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
+  };
 
   factory ModerationRule.fromJson(Map<String, dynamic> json) {
     return ModerationRule(
@@ -178,20 +178,18 @@ class ModerationCondition {
   }
 
   Map<String, dynamic> toJson() => {
-        if (minSensitivityLevel != null)
-          'minSensitivityLevel': minSensitivityLevel!.index,
-        if (targetCategories != null)
-          'targetCategories':
-              targetCategories!.map((c) => c.index).toList(),
-        if (requiredTags != null)
-          'requiredTags': requiredTags!.map((t) => t.index).toList(),
-        if (excludedTags != null)
-          'excludedTags': excludedTags!.map((t) => t.index).toList(),
-        if (minConfidence != null) 'minConfidence': minConfidence,
-        if (maxFileSizeBytes != null)
-          'maxFileSizeBytes': maxFileSizeBytes,
-        if (targetMimeTypes != null) 'targetMimeTypes': targetMimeTypes,
-      };
+    if (minSensitivityLevel != null)
+      'minSensitivityLevel': minSensitivityLevel!.index,
+    if (targetCategories != null)
+      'targetCategories': targetCategories!.map((c) => c.index).toList(),
+    if (requiredTags != null)
+      'requiredTags': requiredTags!.map((t) => t.index).toList(),
+    if (excludedTags != null)
+      'excludedTags': excludedTags!.map((t) => t.index).toList(),
+    if (minConfidence != null) 'minConfidence': minConfidence,
+    if (maxFileSizeBytes != null) 'maxFileSizeBytes': maxFileSizeBytes,
+    if (targetMimeTypes != null) 'targetMimeTypes': targetMimeTypes,
+  };
 
   factory ModerationCondition.fromJson(Map<String, dynamic> json) {
     return ModerationCondition(
@@ -200,18 +198,18 @@ class ModerationCondition {
           : null,
       targetCategories: json['targetCategories'] != null
           ? (json['targetCategories'] as List)
-              .map((i) => ContentCategory.values[i as int])
-              .toList()
+                .map((i) => ContentCategory.values[i as int])
+                .toList()
           : null,
       requiredTags: json['requiredTags'] != null
           ? (json['requiredTags'] as List)
-              .map((i) => ContentTag.values[i as int])
-              .toList()
+                .map((i) => ContentTag.values[i as int])
+                .toList()
           : null,
       excludedTags: json['excludedTags'] != null
           ? (json['excludedTags'] as List)
-              .map((i) => ContentTag.values[i as int])
-              .toList()
+                .map((i) => ContentTag.values[i as int])
+                .toList()
           : null,
       minConfidence: (json['minConfidence'] as num?)?.toDouble(),
       maxFileSizeBytes: json['maxFileSizeBytes'] as int?,

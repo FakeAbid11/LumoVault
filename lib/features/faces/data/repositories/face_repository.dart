@@ -71,8 +71,8 @@ class FaceRepository {
     required this.mediaDao,
     FaceDetectionService? detectionService,
     FaceGroupingService? groupingService,
-  })  : _detectionService = detectionService ?? FaceDetectionService(),
-        _groupingService = groupingService ?? FaceGroupingService();
+  }) : _detectionService = detectionService ?? FaceDetectionService(),
+       _groupingService = groupingService ?? FaceGroupingService();
 
   final FaceDao faceDao;
   final MediaDao mediaDao;

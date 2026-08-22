@@ -25,9 +25,7 @@ class PeopleScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.face_retouching_natural),
             tooltip: 'Detect faces',
-            onPressed: isAnalyzing
-                ? null
-                : () => _runAnalysis(context, ref),
+            onPressed: isAnalyzing ? null : () => _runAnalysis(context, ref),
           ),
         ],
       ),
@@ -51,10 +49,11 @@ class PeopleScreen extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Text(
                           '· ${stats.faceCount} faces detected',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                       ],
@@ -76,11 +75,8 @@ class PeopleScreen extends ConsumerWidget {
                 }
                 return _FaceGroupGrid(groups: groups);
               },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text('Error loading people: $e'),
-              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error loading people: $e')),
             ),
           ),
         ],
@@ -143,8 +139,10 @@ class _FaceGroupGrid extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Delete group',
-                  style: TextStyle(color: Colors.red)),
+              title: const Text(
+                'Delete group',
+                style: TextStyle(color: Colors.red),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDelete(context, group);
@@ -165,9 +163,7 @@ class _FaceGroupGrid extends StatelessWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Enter a name',
-          ),
+          decoration: const InputDecoration(hintText: 'Enter a name'),
           onSubmitted: (_) => Navigator.pop(context),
         ),
         actions: [
@@ -179,10 +175,10 @@ class _FaceGroupGrid extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
               final name = controller.text.trim();
-              ProviderScope.containerOf(context).read(faceRepositoryProvider)
-                  .renameGroup(group.id, name.isEmpty ? null : name);
               ProviderScope.containerOf(context)
-                  .invalidate(faceGroupsProvider);
+                  .read(faceRepositoryProvider)
+                  .renameGroup(group.id, name.isEmpty ? null : name);
+              ProviderScope.containerOf(context).invalidate(faceGroupsProvider);
             },
             child: const Text('Save'),
           ),
@@ -211,12 +207,11 @@ class _FaceGroupGrid extends StatelessWidget {
             ),
             onPressed: () {
               Navigator.pop(context);
-              ProviderScope.containerOf(context).read(faceRepositoryProvider)
-                  .deleteGroup(group.id);
-              ProviderScope.containerOf(context)
-                  .invalidate(faceGroupsProvider);
-              ProviderScope.containerOf(context)
-                  .invalidate(faceStatsProvider);
+              ProviderScope.containerOf(
+                context,
+              ).read(faceRepositoryProvider).deleteGroup(group.id);
+              ProviderScope.containerOf(context).invalidate(faceGroupsProvider);
+              ProviderScope.containerOf(context).invalidate(faceStatsProvider);
             },
             child: const Text('Delete'),
           ),
@@ -257,8 +252,8 @@ class _EmptyState extends StatelessWidget {
               'Detect faces in your photos to group\nthem by person.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(

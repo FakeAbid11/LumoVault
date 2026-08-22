@@ -19,7 +19,10 @@ abstract final class DatabaseConstants {
   ///
   /// v6: added is_location_user_set flag so manually-set coordinates survive
   /// rescans (EXIF-derived coordinates are still overwritten on rescan).
-  static const int schemaVersion = 6;
+  ///
+  /// v7: added Faces and FaceGroups tables for on-device face detection
+  /// and person grouping.
+  static const int schemaVersion = 7;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

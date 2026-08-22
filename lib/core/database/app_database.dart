@@ -10,7 +10,9 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import '../constants/database_constants.dart';
+import 'daos/face_dao.dart';
 import 'daos/media_dao.dart';
+import 'tables/face_tables.dart';
 
 part 'app_database.g.dart';
 
@@ -121,7 +123,7 @@ class MediaItems extends Table {
 ///
 /// Opened once at startup (see main.dart bootstrap, follow-up) and shared via
 /// the DI layer. Schema version tracks [DatabaseConstants.schemaVersion].
-@DriftDatabase(tables: [MediaItems], daos: [MediaDao])
+@DriftDatabase(tables: [MediaItems, Faces, FaceGroups], daos: [MediaDao, FaceDao])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -185,6 +187,11 @@ class AppDatabase extends _$AppDatabase {
       // rescans.
       if (from < 6) {
         await m.addColumn(mediaItems, mediaItems.isLocationUserSet);
+      }
+      // v6 -> v7: Faces and FaceGroups tables for face detection.
+      if (from < 7) {
+        await m.createTable(faces);
+        await m.createTable(faceGroups);
       }
     },
   );

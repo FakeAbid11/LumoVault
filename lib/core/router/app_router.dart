@@ -7,6 +7,8 @@ import '../../features/archive/presentation/screens/archive_screen.dart';
 import '../../features/backup/presentation/screens/backup_dashboard_screen.dart';
 import '../../features/backup/presentation/screens/storage_stats_screen.dart';
 import '../../features/gallery/data/models/media_item.dart';
+import '../../features/faces/presentation/screens/people_screen.dart';
+import '../../features/faces/presentation/screens/face_group_detail_screen.dart';
 import '../../features/gallery/presentation/screens/local_screen.dart';
 import '../../features/gallery/presentation/screens/map_screen.dart';
 import '../../features/gallery/presentation/screens/timeline_screen.dart';
@@ -170,7 +172,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // ── Tab 3: Map (photos plotted by GPS location) ──────
+          // ── Tab 3: People (face groups) ───────────────────────
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/people',
+                pageBuilder: (context, state) => CustomTransitionPage<void>(
+                  key: state.pageKey,
+                  child: const PeopleScreen(),
+                  transitionDuration: Duration.zero,
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        return child;
+                      },
+                ),
+              ),
+            ],
+          ),
+
+          // ── Tab 4: Map (photos plotted by GPS location) ──────
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -188,7 +208,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // ── Tab 4: Settings ──────────────────────────────────
+          // ── Tab 5: Settings ──────────────────────────────────
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -218,6 +238,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/restore/progress',
         pageBuilder: (context, state) =>
             _slideFromRight(const RestoreProgressScreen(), state),
+      ),
+
+      // ── People sub-screens ───────────────────────────────────
+      GoRoute(
+        path: '/people/:groupId',
+        pageBuilder: (context, state) {
+          final groupId = int.parse(state.pathParameters['groupId']!);
+          return _slideFromRight(
+            FaceGroupDetailScreen(groupId: groupId),
+            state,
+          );
+        },
       ),
 
       // ── Gallery sub-screens ──────────────────────────────────

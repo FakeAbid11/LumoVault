@@ -59,6 +59,9 @@ dependencies:
   # Video
   video_player: ^2.9.3
 
+  # Face Detection
+  google_mlkit_face_detection: ^0.13.0
+
   # Utilities
   path_provider: ^2.1.5
   device_info_plus: ^11.3.0

@@ -1801,10 +1801,1101 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
   }
 }
 
+class $FacesTable extends Faces with TableInfo<$FacesTable, FaceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FacesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _mediaItemIdMeta = const VerificationMeta(
+    'mediaItemId',
+  );
+  @override
+  late final GeneratedColumn<String> mediaItemId = GeneratedColumn<String>(
+    'media_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<int> groupId = GeneratedColumn<int>(
+    'group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bboxLeftMeta = const VerificationMeta(
+    'bboxLeft',
+  );
+  @override
+  late final GeneratedColumn<double> bboxLeft = GeneratedColumn<double>(
+    'bbox_left',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bboxTopMeta = const VerificationMeta(
+    'bboxTop',
+  );
+  @override
+  late final GeneratedColumn<double> bboxTop = GeneratedColumn<double>(
+    'bbox_top',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bboxRightMeta = const VerificationMeta(
+    'bboxRight',
+  );
+  @override
+  late final GeneratedColumn<double> bboxRight = GeneratedColumn<double>(
+    'bbox_right',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bboxBottomMeta = const VerificationMeta(
+    'bboxBottom',
+  );
+  @override
+  late final GeneratedColumn<double> bboxBottom = GeneratedColumn<double>(
+    'bbox_bottom',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _embeddingMeta = const VerificationMeta(
+    'embedding',
+  );
+  @override
+  late final GeneratedColumn<String> embedding = GeneratedColumn<String>(
+    'embedding',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _confidenceMeta = const VerificationMeta(
+    'confidence',
+  );
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+    'confidence',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _detectedAtMeta = const VerificationMeta(
+    'detectedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> detectedAt = GeneratedColumn<DateTime>(
+    'detected_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isReviewedMeta = const VerificationMeta(
+    'isReviewed',
+  );
+  @override
+  late final GeneratedColumn<bool> isReviewed = GeneratedColumn<bool>(
+    'is_reviewed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_reviewed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    mediaItemId,
+    groupId,
+    bboxLeft,
+    bboxTop,
+    bboxRight,
+    bboxBottom,
+    embedding,
+    confidence,
+    detectedAt,
+    isReviewed,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'faces';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FaceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('media_item_id')) {
+      context.handle(
+        _mediaItemIdMeta,
+        mediaItemId.isAcceptableOrUnknown(
+          data['media_item_id']!,
+          _mediaItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaItemIdMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    }
+    if (data.containsKey('bbox_left')) {
+      context.handle(
+        _bboxLeftMeta,
+        bboxLeft.isAcceptableOrUnknown(data['bbox_left']!, _bboxLeftMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bboxLeftMeta);
+    }
+    if (data.containsKey('bbox_top')) {
+      context.handle(
+        _bboxTopMeta,
+        bboxTop.isAcceptableOrUnknown(data['bbox_top']!, _bboxTopMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bboxTopMeta);
+    }
+    if (data.containsKey('bbox_right')) {
+      context.handle(
+        _bboxRightMeta,
+        bboxRight.isAcceptableOrUnknown(data['bbox_right']!, _bboxRightMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bboxRightMeta);
+    }
+    if (data.containsKey('bbox_bottom')) {
+      context.handle(
+        _bboxBottomMeta,
+        bboxBottom.isAcceptableOrUnknown(data['bbox_bottom']!, _bboxBottomMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bboxBottomMeta);
+    }
+    if (data.containsKey('embedding')) {
+      context.handle(
+        _embeddingMeta,
+        embedding.isAcceptableOrUnknown(data['embedding']!, _embeddingMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_embeddingMeta);
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+        _confidenceMeta,
+        confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_confidenceMeta);
+    }
+    if (data.containsKey('detected_at')) {
+      context.handle(
+        _detectedAtMeta,
+        detectedAt.isAcceptableOrUnknown(data['detected_at']!, _detectedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_detectedAtMeta);
+    }
+    if (data.containsKey('is_reviewed')) {
+      context.handle(
+        _isReviewedMeta,
+        isReviewed.isAcceptableOrUnknown(data['is_reviewed']!, _isReviewedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FaceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FaceRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      mediaItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_item_id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}group_id'],
+      ),
+      bboxLeft: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bbox_left'],
+      )!,
+      bboxTop: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bbox_top'],
+      )!,
+      bboxRight: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bbox_right'],
+      )!,
+      bboxBottom: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bbox_bottom'],
+      )!,
+      embedding: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}embedding'],
+      )!,
+      confidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}confidence'],
+      )!,
+      detectedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}detected_at'],
+      )!,
+      isReviewed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_reviewed'],
+      )!,
+    );
+  }
+
+  @override
+  $FacesTable createAlias(String alias) {
+    return $FacesTable(attachedDatabase, alias);
+  }
+}
+
+class FaceRow extends DataClass implements Insertable<FaceRow> {
+  final int id;
+
+  /// The [MediaItem.localId] this face belongs to.
+  final String mediaItemId;
+
+  /// Optional link to a [FaceGroups] row. Null means "unassigned / unknown".
+  final int? groupId;
+
+  /// Bounding box within the source image (normalised 0.0–1.0).
+  final double bboxLeft;
+  final double bboxTop;
+  final double bboxRight;
+  final double bboxBottom;
+
+  /// Embedding vector produced by ML Kit (192 float32 values).
+  /// Stored as a JSON-encoded list of doubles.
+  final String embedding;
+
+  /// Confidence score from the detector (0.0–1.0).
+  final double confidence;
+
+  /// When this face was detected.
+  final DateTime detectedAt;
+
+  /// Whether this face has been reviewed / confirmed by the user.
+  final bool isReviewed;
+  const FaceRow({
+    required this.id,
+    required this.mediaItemId,
+    this.groupId,
+    required this.bboxLeft,
+    required this.bboxTop,
+    required this.bboxRight,
+    required this.bboxBottom,
+    required this.embedding,
+    required this.confidence,
+    required this.detectedAt,
+    required this.isReviewed,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['media_item_id'] = Variable<String>(mediaItemId);
+    if (!nullToAbsent || groupId != null) {
+      map['group_id'] = Variable<int>(groupId);
+    }
+    map['bbox_left'] = Variable<double>(bboxLeft);
+    map['bbox_top'] = Variable<double>(bboxTop);
+    map['bbox_right'] = Variable<double>(bboxRight);
+    map['bbox_bottom'] = Variable<double>(bboxBottom);
+    map['embedding'] = Variable<String>(embedding);
+    map['confidence'] = Variable<double>(confidence);
+    map['detected_at'] = Variable<DateTime>(detectedAt);
+    map['is_reviewed'] = Variable<bool>(isReviewed);
+    return map;
+  }
+
+  FacesCompanion toCompanion(bool nullToAbsent) {
+    return FacesCompanion(
+      id: Value(id),
+      mediaItemId: Value(mediaItemId),
+      groupId: groupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupId),
+      bboxLeft: Value(bboxLeft),
+      bboxTop: Value(bboxTop),
+      bboxRight: Value(bboxRight),
+      bboxBottom: Value(bboxBottom),
+      embedding: Value(embedding),
+      confidence: Value(confidence),
+      detectedAt: Value(detectedAt),
+      isReviewed: Value(isReviewed),
+    );
+  }
+
+  factory FaceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FaceRow(
+      id: serializer.fromJson<int>(json['id']),
+      mediaItemId: serializer.fromJson<String>(json['mediaItemId']),
+      groupId: serializer.fromJson<int?>(json['groupId']),
+      bboxLeft: serializer.fromJson<double>(json['bboxLeft']),
+      bboxTop: serializer.fromJson<double>(json['bboxTop']),
+      bboxRight: serializer.fromJson<double>(json['bboxRight']),
+      bboxBottom: serializer.fromJson<double>(json['bboxBottom']),
+      embedding: serializer.fromJson<String>(json['embedding']),
+      confidence: serializer.fromJson<double>(json['confidence']),
+      detectedAt: serializer.fromJson<DateTime>(json['detectedAt']),
+      isReviewed: serializer.fromJson<bool>(json['isReviewed']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'mediaItemId': serializer.toJson<String>(mediaItemId),
+      'groupId': serializer.toJson<int?>(groupId),
+      'bboxLeft': serializer.toJson<double>(bboxLeft),
+      'bboxTop': serializer.toJson<double>(bboxTop),
+      'bboxRight': serializer.toJson<double>(bboxRight),
+      'bboxBottom': serializer.toJson<double>(bboxBottom),
+      'embedding': serializer.toJson<String>(embedding),
+      'confidence': serializer.toJson<double>(confidence),
+      'detectedAt': serializer.toJson<DateTime>(detectedAt),
+      'isReviewed': serializer.toJson<bool>(isReviewed),
+    };
+  }
+
+  FaceRow copyWith({
+    int? id,
+    String? mediaItemId,
+    Value<int?> groupId = const Value.absent(),
+    double? bboxLeft,
+    double? bboxTop,
+    double? bboxRight,
+    double? bboxBottom,
+    String? embedding,
+    double? confidence,
+    DateTime? detectedAt,
+    bool? isReviewed,
+  }) => FaceRow(
+    id: id ?? this.id,
+    mediaItemId: mediaItemId ?? this.mediaItemId,
+    groupId: groupId.present ? groupId.value : this.groupId,
+    bboxLeft: bboxLeft ?? this.bboxLeft,
+    bboxTop: bboxTop ?? this.bboxTop,
+    bboxRight: bboxRight ?? this.bboxRight,
+    bboxBottom: bboxBottom ?? this.bboxBottom,
+    embedding: embedding ?? this.embedding,
+    confidence: confidence ?? this.confidence,
+    detectedAt: detectedAt ?? this.detectedAt,
+    isReviewed: isReviewed ?? this.isReviewed,
+  );
+  FaceRow copyWithCompanion(FacesCompanion data) {
+    return FaceRow(
+      id: data.id.present ? data.id.value : this.id,
+      mediaItemId: data.mediaItemId.present
+          ? data.mediaItemId.value
+          : this.mediaItemId,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      bboxLeft: data.bboxLeft.present ? data.bboxLeft.value : this.bboxLeft,
+      bboxTop: data.bboxTop.present ? data.bboxTop.value : this.bboxTop,
+      bboxRight: data.bboxRight.present ? data.bboxRight.value : this.bboxRight,
+      bboxBottom: data.bboxBottom.present
+          ? data.bboxBottom.value
+          : this.bboxBottom,
+      embedding: data.embedding.present ? data.embedding.value : this.embedding,
+      confidence: data.confidence.present
+          ? data.confidence.value
+          : this.confidence,
+      detectedAt: data.detectedAt.present
+          ? data.detectedAt.value
+          : this.detectedAt,
+      isReviewed: data.isReviewed.present
+          ? data.isReviewed.value
+          : this.isReviewed,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FaceRow(')
+          ..write('id: $id, ')
+          ..write('mediaItemId: $mediaItemId, ')
+          ..write('groupId: $groupId, ')
+          ..write('bboxLeft: $bboxLeft, ')
+          ..write('bboxTop: $bboxTop, ')
+          ..write('bboxRight: $bboxRight, ')
+          ..write('bboxBottom: $bboxBottom, ')
+          ..write('embedding: $embedding, ')
+          ..write('confidence: $confidence, ')
+          ..write('detectedAt: $detectedAt, ')
+          ..write('isReviewed: $isReviewed')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    mediaItemId,
+    groupId,
+    bboxLeft,
+    bboxTop,
+    bboxRight,
+    bboxBottom,
+    embedding,
+    confidence,
+    detectedAt,
+    isReviewed,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FaceRow &&
+          other.id == this.id &&
+          other.mediaItemId == this.mediaItemId &&
+          other.groupId == this.groupId &&
+          other.bboxLeft == this.bboxLeft &&
+          other.bboxTop == this.bboxTop &&
+          other.bboxRight == this.bboxRight &&
+          other.bboxBottom == this.bboxBottom &&
+          other.embedding == this.embedding &&
+          other.confidence == this.confidence &&
+          other.detectedAt == this.detectedAt &&
+          other.isReviewed == this.isReviewed);
+}
+
+class FacesCompanion extends UpdateCompanion<FaceRow> {
+  final Value<int> id;
+  final Value<String> mediaItemId;
+  final Value<int?> groupId;
+  final Value<double> bboxLeft;
+  final Value<double> bboxTop;
+  final Value<double> bboxRight;
+  final Value<double> bboxBottom;
+  final Value<String> embedding;
+  final Value<double> confidence;
+  final Value<DateTime> detectedAt;
+  final Value<bool> isReviewed;
+  const FacesCompanion({
+    this.id = const Value.absent(),
+    this.mediaItemId = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.bboxLeft = const Value.absent(),
+    this.bboxTop = const Value.absent(),
+    this.bboxRight = const Value.absent(),
+    this.bboxBottom = const Value.absent(),
+    this.embedding = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.detectedAt = const Value.absent(),
+    this.isReviewed = const Value.absent(),
+  });
+  FacesCompanion.insert({
+    this.id = const Value.absent(),
+    required String mediaItemId,
+    this.groupId = const Value.absent(),
+    required double bboxLeft,
+    required double bboxTop,
+    required double bboxRight,
+    required double bboxBottom,
+    required String embedding,
+    required double confidence,
+    required DateTime detectedAt,
+    this.isReviewed = const Value.absent(),
+  }) : mediaItemId = Value(mediaItemId),
+       bboxLeft = Value(bboxLeft),
+       bboxTop = Value(bboxTop),
+       bboxRight = Value(bboxRight),
+       bboxBottom = Value(bboxBottom),
+       embedding = Value(embedding),
+       confidence = Value(confidence),
+       detectedAt = Value(detectedAt);
+  static Insertable<FaceRow> custom({
+    Expression<int>? id,
+    Expression<String>? mediaItemId,
+    Expression<int>? groupId,
+    Expression<double>? bboxLeft,
+    Expression<double>? bboxTop,
+    Expression<double>? bboxRight,
+    Expression<double>? bboxBottom,
+    Expression<String>? embedding,
+    Expression<double>? confidence,
+    Expression<DateTime>? detectedAt,
+    Expression<bool>? isReviewed,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (mediaItemId != null) 'media_item_id': mediaItemId,
+      if (groupId != null) 'group_id': groupId,
+      if (bboxLeft != null) 'bbox_left': bboxLeft,
+      if (bboxTop != null) 'bbox_top': bboxTop,
+      if (bboxRight != null) 'bbox_right': bboxRight,
+      if (bboxBottom != null) 'bbox_bottom': bboxBottom,
+      if (embedding != null) 'embedding': embedding,
+      if (confidence != null) 'confidence': confidence,
+      if (detectedAt != null) 'detected_at': detectedAt,
+      if (isReviewed != null) 'is_reviewed': isReviewed,
+    });
+  }
+
+  FacesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? mediaItemId,
+    Value<int?>? groupId,
+    Value<double>? bboxLeft,
+    Value<double>? bboxTop,
+    Value<double>? bboxRight,
+    Value<double>? bboxBottom,
+    Value<String>? embedding,
+    Value<double>? confidence,
+    Value<DateTime>? detectedAt,
+    Value<bool>? isReviewed,
+  }) {
+    return FacesCompanion(
+      id: id ?? this.id,
+      mediaItemId: mediaItemId ?? this.mediaItemId,
+      groupId: groupId ?? this.groupId,
+      bboxLeft: bboxLeft ?? this.bboxLeft,
+      bboxTop: bboxTop ?? this.bboxTop,
+      bboxRight: bboxRight ?? this.bboxRight,
+      bboxBottom: bboxBottom ?? this.bboxBottom,
+      embedding: embedding ?? this.embedding,
+      confidence: confidence ?? this.confidence,
+      detectedAt: detectedAt ?? this.detectedAt,
+      isReviewed: isReviewed ?? this.isReviewed,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (mediaItemId.present) {
+      map['media_item_id'] = Variable<String>(mediaItemId.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<int>(groupId.value);
+    }
+    if (bboxLeft.present) {
+      map['bbox_left'] = Variable<double>(bboxLeft.value);
+    }
+    if (bboxTop.present) {
+      map['bbox_top'] = Variable<double>(bboxTop.value);
+    }
+    if (bboxRight.present) {
+      map['bbox_right'] = Variable<double>(bboxRight.value);
+    }
+    if (bboxBottom.present) {
+      map['bbox_bottom'] = Variable<double>(bboxBottom.value);
+    }
+    if (embedding.present) {
+      map['embedding'] = Variable<String>(embedding.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (detectedAt.present) {
+      map['detected_at'] = Variable<DateTime>(detectedAt.value);
+    }
+    if (isReviewed.present) {
+      map['is_reviewed'] = Variable<bool>(isReviewed.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FacesCompanion(')
+          ..write('id: $id, ')
+          ..write('mediaItemId: $mediaItemId, ')
+          ..write('groupId: $groupId, ')
+          ..write('bboxLeft: $bboxLeft, ')
+          ..write('bboxTop: $bboxTop, ')
+          ..write('bboxRight: $bboxRight, ')
+          ..write('bboxBottom: $bboxBottom, ')
+          ..write('embedding: $embedding, ')
+          ..write('confidence: $confidence, ')
+          ..write('detectedAt: $detectedAt, ')
+          ..write('isReviewed: $isReviewed')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FaceGroupsTable extends FaceGroups
+    with TableInfo<$FaceGroupsTable, FaceGroupRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FaceGroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thumbnailPathMeta = const VerificationMeta(
+    'thumbnailPath',
+  );
+  @override
+  late final GeneratedColumn<String> thumbnailPath = GeneratedColumn<String>(
+    'thumbnail_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _itemCountMeta = const VerificationMeta(
+    'itemCount',
+  );
+  @override
+  late final GeneratedColumn<int> itemCount = GeneratedColumn<int>(
+    'item_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    thumbnailPath,
+    itemCount,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'face_groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FaceGroupRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('thumbnail_path')) {
+      context.handle(
+        _thumbnailPathMeta,
+        thumbnailPath.isAcceptableOrUnknown(
+          data['thumbnail_path']!,
+          _thumbnailPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('item_count')) {
+      context.handle(
+        _itemCountMeta,
+        itemCount.isAcceptableOrUnknown(data['item_count']!, _itemCountMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FaceGroupRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FaceGroupRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      ),
+      thumbnailPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumbnail_path'],
+      ),
+      itemCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FaceGroupsTable createAlias(String alias) {
+    return $FaceGroupsTable(attachedDatabase, alias);
+  }
+}
+
+class FaceGroupRow extends DataClass implements Insertable<FaceGroupRow> {
+  final int id;
+
+  /// User-assigned display name, e.g. "Mom". Null means unnamed.
+  final String? name;
+
+  /// File path to the representative thumbnail for this group.
+  /// Displayed in the People grid.
+  final String? thumbnailPath;
+
+  /// Number of faces currently in this group (denormalised counter).
+  final int itemCount;
+
+  /// When this group was first created.
+  final DateTime createdAt;
+
+  /// Last time a face was added or removed.
+  final DateTime updatedAt;
+  const FaceGroupRow({
+    required this.id,
+    this.name,
+    this.thumbnailPath,
+    required this.itemCount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || thumbnailPath != null) {
+      map['thumbnail_path'] = Variable<String>(thumbnailPath);
+    }
+    map['item_count'] = Variable<int>(itemCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  FaceGroupsCompanion toCompanion(bool nullToAbsent) {
+    return FaceGroupsCompanion(
+      id: Value(id),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      thumbnailPath: thumbnailPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thumbnailPath),
+      itemCount: Value(itemCount),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory FaceGroupRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FaceGroupRow(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String?>(json['name']),
+      thumbnailPath: serializer.fromJson<String?>(json['thumbnailPath']),
+      itemCount: serializer.fromJson<int>(json['itemCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String?>(name),
+      'thumbnailPath': serializer.toJson<String?>(thumbnailPath),
+      'itemCount': serializer.toJson<int>(itemCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  FaceGroupRow copyWith({
+    int? id,
+    Value<String?> name = const Value.absent(),
+    Value<String?> thumbnailPath = const Value.absent(),
+    int? itemCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => FaceGroupRow(
+    id: id ?? this.id,
+    name: name.present ? name.value : this.name,
+    thumbnailPath: thumbnailPath.present
+        ? thumbnailPath.value
+        : this.thumbnailPath,
+    itemCount: itemCount ?? this.itemCount,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  FaceGroupRow copyWithCompanion(FaceGroupsCompanion data) {
+    return FaceGroupRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      thumbnailPath: data.thumbnailPath.present
+          ? data.thumbnailPath.value
+          : this.thumbnailPath,
+      itemCount: data.itemCount.present ? data.itemCount.value : this.itemCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FaceGroupRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('thumbnailPath: $thumbnailPath, ')
+          ..write('itemCount: $itemCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, thumbnailPath, itemCount, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FaceGroupRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.thumbnailPath == this.thumbnailPath &&
+          other.itemCount == this.itemCount &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class FaceGroupsCompanion extends UpdateCompanion<FaceGroupRow> {
+  final Value<int> id;
+  final Value<String?> name;
+  final Value<String?> thumbnailPath;
+  final Value<int> itemCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const FaceGroupsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.thumbnailPath = const Value.absent(),
+    this.itemCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  FaceGroupsCompanion.insert({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.thumbnailPath = const Value.absent(),
+    this.itemCount = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) : createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<FaceGroupRow> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? thumbnailPath,
+    Expression<int>? itemCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (thumbnailPath != null) 'thumbnail_path': thumbnailPath,
+      if (itemCount != null) 'item_count': itemCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  FaceGroupsCompanion copyWith({
+    Value<int>? id,
+    Value<String?>? name,
+    Value<String?>? thumbnailPath,
+    Value<int>? itemCount,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return FaceGroupsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+      itemCount: itemCount ?? this.itemCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (thumbnailPath.present) {
+      map['thumbnail_path'] = Variable<String>(thumbnailPath.value);
+    }
+    if (itemCount.present) {
+      map['item_count'] = Variable<int>(itemCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FaceGroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('thumbnailPath: $thumbnailPath, ')
+          ..write('itemCount: $itemCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $MediaItemsTable mediaItems = $MediaItemsTable(this);
+  late final $FacesTable faces = $FacesTable(this);
+  late final $FaceGroupsTable faceGroups = $FaceGroupsTable(this);
   late final Index idxMediaItemsFileHash = Index(
     'idx_media_items_file_hash',
     'CREATE INDEX idx_media_items_file_hash ON media_items (file_hash)',
@@ -1829,19 +2920,37 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_media_items_trashed_trashed_at',
     'CREATE INDEX idx_media_items_trashed_trashed_at ON media_items (is_trashed, trashed_at)',
   );
+  late final Index idxFacesMediaItemId = Index(
+    'idx_faces_media_item_id',
+    'CREATE INDEX idx_faces_media_item_id ON faces (media_item_id)',
+  );
+  late final Index idxFacesGroupId = Index(
+    'idx_faces_group_id',
+    'CREATE INDEX idx_faces_group_id ON faces (group_id)',
+  );
+  late final Index idxFaceGroupsItemCount = Index(
+    'idx_face_groups_item_count',
+    'CREATE INDEX idx_face_groups_item_count ON face_groups (item_count)',
+  );
   late final MediaDao mediaDao = MediaDao(this as AppDatabase);
+  late final FaceDao faceDao = FaceDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     mediaItems,
+    faces,
+    faceGroups,
     idxMediaItemsFileHash,
     idxMediaItemsStatus,
     idxMediaItemsAlbumName,
     idxMediaItemsCreatedAt,
     idxMediaItemsIsFavorite,
     idxMediaItemsTrashedTrashedAt,
+    idxFacesMediaItemId,
+    idxFacesGroupId,
+    idxFaceGroupsItemCount,
   ];
 }
 
@@ -2600,10 +3709,540 @@ typedef $$MediaItemsTableProcessedTableManager =
       MediaItemRow,
       PrefetchHooks Function()
     >;
+typedef $$FacesTableCreateCompanionBuilder =
+    FacesCompanion Function({
+      Value<int> id,
+      required String mediaItemId,
+      Value<int?> groupId,
+      required double bboxLeft,
+      required double bboxTop,
+      required double bboxRight,
+      required double bboxBottom,
+      required String embedding,
+      required double confidence,
+      required DateTime detectedAt,
+      Value<bool> isReviewed,
+    });
+typedef $$FacesTableUpdateCompanionBuilder =
+    FacesCompanion Function({
+      Value<int> id,
+      Value<String> mediaItemId,
+      Value<int?> groupId,
+      Value<double> bboxLeft,
+      Value<double> bboxTop,
+      Value<double> bboxRight,
+      Value<double> bboxBottom,
+      Value<String> embedding,
+      Value<double> confidence,
+      Value<DateTime> detectedAt,
+      Value<bool> isReviewed,
+    });
+
+class $$FacesTableFilterComposer extends Composer<_$AppDatabase, $FacesTable> {
+  $$FacesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mediaItemId => $composableBuilder(
+    column: $table.mediaItemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bboxLeft => $composableBuilder(
+    column: $table.bboxLeft,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bboxTop => $composableBuilder(
+    column: $table.bboxTop,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bboxRight => $composableBuilder(
+    column: $table.bboxRight,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get bboxBottom => $composableBuilder(
+    column: $table.bboxBottom,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get embedding => $composableBuilder(
+    column: $table.embedding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get detectedAt => $composableBuilder(
+    column: $table.detectedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isReviewed => $composableBuilder(
+    column: $table.isReviewed,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FacesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FacesTable> {
+  $$FacesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mediaItemId => $composableBuilder(
+    column: $table.mediaItemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bboxLeft => $composableBuilder(
+    column: $table.bboxLeft,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bboxTop => $composableBuilder(
+    column: $table.bboxTop,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bboxRight => $composableBuilder(
+    column: $table.bboxRight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get bboxBottom => $composableBuilder(
+    column: $table.bboxBottom,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get embedding => $composableBuilder(
+    column: $table.embedding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get detectedAt => $composableBuilder(
+    column: $table.detectedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isReviewed => $composableBuilder(
+    column: $table.isReviewed,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FacesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FacesTable> {
+  $$FacesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaItemId => $composableBuilder(
+    column: $table.mediaItemId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<double> get bboxLeft =>
+      $composableBuilder(column: $table.bboxLeft, builder: (column) => column);
+
+  GeneratedColumn<double> get bboxTop =>
+      $composableBuilder(column: $table.bboxTop, builder: (column) => column);
+
+  GeneratedColumn<double> get bboxRight =>
+      $composableBuilder(column: $table.bboxRight, builder: (column) => column);
+
+  GeneratedColumn<double> get bboxBottom => $composableBuilder(
+    column: $table.bboxBottom,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get embedding =>
+      $composableBuilder(column: $table.embedding, builder: (column) => column);
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get detectedAt => $composableBuilder(
+    column: $table.detectedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isReviewed => $composableBuilder(
+    column: $table.isReviewed,
+    builder: (column) => column,
+  );
+}
+
+class $$FacesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FacesTable,
+          FaceRow,
+          $$FacesTableFilterComposer,
+          $$FacesTableOrderingComposer,
+          $$FacesTableAnnotationComposer,
+          $$FacesTableCreateCompanionBuilder,
+          $$FacesTableUpdateCompanionBuilder,
+          (FaceRow, BaseReferences<_$AppDatabase, $FacesTable, FaceRow>),
+          FaceRow,
+          PrefetchHooks Function()
+        > {
+  $$FacesTableTableManager(_$AppDatabase db, $FacesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FacesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FacesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FacesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> mediaItemId = const Value.absent(),
+                Value<int?> groupId = const Value.absent(),
+                Value<double> bboxLeft = const Value.absent(),
+                Value<double> bboxTop = const Value.absent(),
+                Value<double> bboxRight = const Value.absent(),
+                Value<double> bboxBottom = const Value.absent(),
+                Value<String> embedding = const Value.absent(),
+                Value<double> confidence = const Value.absent(),
+                Value<DateTime> detectedAt = const Value.absent(),
+                Value<bool> isReviewed = const Value.absent(),
+              }) => FacesCompanion(
+                id: id,
+                mediaItemId: mediaItemId,
+                groupId: groupId,
+                bboxLeft: bboxLeft,
+                bboxTop: bboxTop,
+                bboxRight: bboxRight,
+                bboxBottom: bboxBottom,
+                embedding: embedding,
+                confidence: confidence,
+                detectedAt: detectedAt,
+                isReviewed: isReviewed,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String mediaItemId,
+                Value<int?> groupId = const Value.absent(),
+                required double bboxLeft,
+                required double bboxTop,
+                required double bboxRight,
+                required double bboxBottom,
+                required String embedding,
+                required double confidence,
+                required DateTime detectedAt,
+                Value<bool> isReviewed = const Value.absent(),
+              }) => FacesCompanion.insert(
+                id: id,
+                mediaItemId: mediaItemId,
+                groupId: groupId,
+                bboxLeft: bboxLeft,
+                bboxTop: bboxTop,
+                bboxRight: bboxRight,
+                bboxBottom: bboxBottom,
+                embedding: embedding,
+                confidence: confidence,
+                detectedAt: detectedAt,
+                isReviewed: isReviewed,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FacesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FacesTable,
+      FaceRow,
+      $$FacesTableFilterComposer,
+      $$FacesTableOrderingComposer,
+      $$FacesTableAnnotationComposer,
+      $$FacesTableCreateCompanionBuilder,
+      $$FacesTableUpdateCompanionBuilder,
+      (FaceRow, BaseReferences<_$AppDatabase, $FacesTable, FaceRow>),
+      FaceRow,
+      PrefetchHooks Function()
+    >;
+typedef $$FaceGroupsTableCreateCompanionBuilder =
+    FaceGroupsCompanion Function({
+      Value<int> id,
+      Value<String?> name,
+      Value<String?> thumbnailPath,
+      Value<int> itemCount,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+    });
+typedef $$FaceGroupsTableUpdateCompanionBuilder =
+    FaceGroupsCompanion Function({
+      Value<int> id,
+      Value<String?> name,
+      Value<String?> thumbnailPath,
+      Value<int> itemCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+
+class $$FaceGroupsTableFilterComposer
+    extends Composer<_$AppDatabase, $FaceGroupsTable> {
+  $$FaceGroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbnailPath => $composableBuilder(
+    column: $table.thumbnailPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get itemCount => $composableBuilder(
+    column: $table.itemCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FaceGroupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FaceGroupsTable> {
+  $$FaceGroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thumbnailPath => $composableBuilder(
+    column: $table.thumbnailPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get itemCount => $composableBuilder(
+    column: $table.itemCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FaceGroupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FaceGroupsTable> {
+  $$FaceGroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get thumbnailPath => $composableBuilder(
+    column: $table.thumbnailPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get itemCount =>
+      $composableBuilder(column: $table.itemCount, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$FaceGroupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FaceGroupsTable,
+          FaceGroupRow,
+          $$FaceGroupsTableFilterComposer,
+          $$FaceGroupsTableOrderingComposer,
+          $$FaceGroupsTableAnnotationComposer,
+          $$FaceGroupsTableCreateCompanionBuilder,
+          $$FaceGroupsTableUpdateCompanionBuilder,
+          (
+            FaceGroupRow,
+            BaseReferences<_$AppDatabase, $FaceGroupsTable, FaceGroupRow>,
+          ),
+          FaceGroupRow,
+          PrefetchHooks Function()
+        > {
+  $$FaceGroupsTableTableManager(_$AppDatabase db, $FaceGroupsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FaceGroupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FaceGroupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FaceGroupsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> thumbnailPath = const Value.absent(),
+                Value<int> itemCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => FaceGroupsCompanion(
+                id: id,
+                name: name,
+                thumbnailPath: thumbnailPath,
+                itemCount: itemCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> thumbnailPath = const Value.absent(),
+                Value<int> itemCount = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+              }) => FaceGroupsCompanion.insert(
+                id: id,
+                name: name,
+                thumbnailPath: thumbnailPath,
+                itemCount: itemCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FaceGroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FaceGroupsTable,
+      FaceGroupRow,
+      $$FaceGroupsTableFilterComposer,
+      $$FaceGroupsTableOrderingComposer,
+      $$FaceGroupsTableAnnotationComposer,
+      $$FaceGroupsTableCreateCompanionBuilder,
+      $$FaceGroupsTableUpdateCompanionBuilder,
+      (
+        FaceGroupRow,
+        BaseReferences<_$AppDatabase, $FaceGroupsTable, FaceGroupRow>,
+      ),
+      FaceGroupRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
   $$MediaItemsTableTableManager get mediaItems =>
       $$MediaItemsTableTableManager(_db, _db.mediaItems);
+  $$FacesTableTableManager get faces =>
+      $$FacesTableTableManager(_db, _db.faces);
+  $$FaceGroupsTableTableManager get faceGroups =>
+      $$FaceGroupsTableTableManager(_db, _db.faceGroups);
 }

@@ -57,6 +57,12 @@ class AppShell extends StatelessWidget {
             tooltip: 'Photos backed up to Telegram',
           ),
           NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'People',
+            tooltip: 'Photos grouped by detected faces',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: 'Map',
@@ -95,6 +101,11 @@ class AppShell extends StatelessWidget {
                 icon: Icon(Icons.cloud_done_outlined),
                 selectedIcon: Icon(Icons.cloud_done),
                 label: Text('Timeline'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.people_outline),
+                selectedIcon: Icon(Icons.people),
+                label: Text('People'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.map_outlined),
@@ -142,6 +153,11 @@ class AppShell extends StatelessWidget {
                 icon: Icon(Icons.cloud_done_outlined),
                 selectedIcon: Icon(Icons.cloud_done),
                 label: Text('Timeline'),
+              ),
+              NavigationDrawerDestination(
+                icon: Icon(Icons.people_outline),
+                selectedIcon: Icon(Icons.people),
+                label: Text('People'),
               ),
               NavigationDrawerDestination(
                 icon: Icon(Icons.map_outlined),

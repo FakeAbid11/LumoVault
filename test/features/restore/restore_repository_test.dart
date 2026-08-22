@@ -370,8 +370,6 @@ class _FakeTdLibClient implements TdLibClient {
     return handler(method, params);
   }
 
-  @override
-  void processUpdates() {}
 
   @override
   Future<bool> isAuthenticated() async => true;

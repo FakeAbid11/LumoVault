@@ -1,0 +1,602 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+
+import '../../../core/storage/thumbnail_cache.dart';
+import '../../gallery/data/models/media_item.dart';
+import '../../gallery/data/repositories/gallery_repository.dart';
+import '../../gallery/data/repositories/telegram_download_service.dart';
+import '../../metadata/data/models/manifest.dart';
+import '../../metadata/data/models/metadata_partition.dart';
+import '../../metadata/data/repositories/manifest_service.dart';
+import '../../metadata/data/repositories/metadata_repository.dart';
+import '../../metadata/data/repositories/partition_service.dart';
+import '../../metadata/data/repositories/search_index_service.dart';
+import '../data/models/restore_progress.dart';
+import '../data/repositories/restore_repository.dart';
+import 'restore_state_store.dart';
+
+/// Core restore engine orchestrating the full restore flow per PRD Section 10.
+///
+/// Phases:
+/// 1. Detect existing backup channel
+/// 2. Download manifest
+/// 3. Download partition metadata
+/// 4. Rebuild local database
+/// 5. Download thumbnails (fast, progressive)
+/// 6. Download originals (background, on-demand)
+class RestoreEngine {
+  RestoreEngine({
+    required this.restoreRepository,
+    required this.galleryRepository,
+    required this.metadataRepository,
+    required this.manifestService,
+    required this.partitionService,
+    required this.searchIndexService,
+    this.restoreStateStore,
+    this.ensureTdLibConnected,
+  });
+
+  final RestoreRepository restoreRepository;
+  final GalleryRepository galleryRepository;
+  final MetadataRepository metadataRepository;
+  final ManifestService manifestService;
+  final PartitionService partitionService;
+  final SearchIndexService searchIndexService;
+
+  /// Persists the set of hashes restored so far, so an interrupted restore
+  /// (app kill, crash, manual cancellation) can skip already-fetched
+  /// thumbnails on the next run. Null in tests and lightweight setups to
+  /// keep resume opt-in.
+  final RestoreStateStore? restoreStateStore;
+
+  /// Ensures TDLib is initialized and its auth state has settled before any
+  /// restore operation touches it. Same gap, same fix as
+  /// [BackupEngine.ensureTdLibConnected] — TDLib only ever gets initialized
+  /// via the onboarding auth screens and the Account settings screen, so a
+  /// restore triggered any other way (including right after a fresh login,
+  /// which is precisely when restore is most likely to be needed) would
+  /// otherwise hit "TDLib client not initialized" and hang/fail exactly
+  /// like backups did before this was fixed there.
+  final Future<void> Function()? ensureTdLibConnected;
+
+  final _progressController = StreamController<RestoreProgress>.broadcast();
+  RestoreProgress _progress = const RestoreProgress();
+  bool _isCancelled = false;
+  bool _isPaused = false;
+
+  Stream<RestoreProgress> get progressStream => _progressController.stream;
+  RestoreProgress get currentProgress => _progress;
+
+  /// Start the full restore process.
+  ///
+  /// Per PRD Section 10.1, this orchestrates:
+  /// 1. Channel discovery
+  /// 2. Manifest fetch
+  /// 3. File download (batch)
+  /// 4. Database population
+  /// 5. Search index rebuild
+  Future<bool> startRestore() async {
+    _isCancelled = false;
+    _isPaused = false;
+    _progress = const RestoreProgress();
+    _updateProgress(phase: RestorePhase.detecting);
+
+    try {
+      await ensureTdLibConnected?.call();
+    } catch (e) {
+      _fail(
+        RestoreError(
+          category: RestoreErrorCategory.unknown,
+          message: 'Could not connect to Telegram',
+          detail: e.toString(),
+          retryable: true,
+          occurredAt: DateTime.now(),
+        ),
+      );
+      return false;
+    }
+
+    try {
+      // Differential restore (PRD Section 10.4): fold in whatever survived
+      // a previous attempt (gallery items + persisted restore state) before
+      // the thumbnail phase runs.
+      await resumeInterruptedRestore();
+
+      // Phase 1: Detect existing backup
+      final detection = await restoreRepository.detectExistingBackup();
+
+      if (detection.hasError) {
+        _fail(
+          RestoreError(
+            category: RestoreErrorCategory.channelNotFound,
+            message: detection.error ?? 'Failed to check for backup',
+            retryable: true,
+            occurredAt: DateTime.now(),
+          ),
+        );
+        return false;
+      }
+
+      if (!detection.hasBackup) {
+        _fail(RestoreError.channelNotFound());
+        return false;
+      }
+
+      final channelId = detection.channelId!;
+
+      // Phase 2: Download manifest
+      _updateProgress(phase: RestorePhase.manifestDownload);
+      final manifest = await restoreRepository.fetchManifest(channelId);
+
+      if (manifest == null) {
+        _fail(RestoreError.manifestCorrupted());
+        return false;
+      }
+
+      if (!manifest.isCompatibleWith(Manifest.currentSchemaVersion)) {
+        _fail(
+          RestoreError(
+            category: RestoreErrorCategory.manifestCorrupted,
+            message: 'Incompatible backup version',
+            detail:
+                'This backup was created with a newer version of LumoVault. '
+                'Please update your app to restore.',
+            retryable: false,
+            occurredAt: DateTime.now(),
+          ),
+        );
+        return false;
+      }
+
+      final manifestInfo = ManifestInfo(
+        totalMedia: manifest.totalMedia,
+        totalSizeBytes: manifest.totalSizeBytes,
+        created: manifest.created,
+        lastSync: manifest.lastSync,
+        chunkCount: manifest.chunks.length,
+        deviceHash: manifest.deviceHash,
+      );
+
+      _updateProgress(
+        phase: RestorePhase.metadataDownload,
+        manifestInfo: manifestInfo,
+        totalItems: manifest.totalMedia,
+        totalBytes: manifest.totalSizeBytes,
+      );
+
+      // Phase 3: Download partition metadata
+      final messages = await restoreRepository.fetchChannelMessages(channelId);
+
+      if (messages.isEmpty) {
+        _fail(RestoreError.manifestCorrupted());
+        return false;
+      }
+
+      // Build metadata items from channel messages
+      final allMetadata = <PartitionItem>[];
+      final metadataByPartition = <String, List<PartitionItem>>{};
+
+      for (final message in messages) {
+        if (_isCancelled) {
+          _fail(RestoreError.cancelled());
+          return false;
+        }
+        while (_isPaused) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (_isCancelled) {
+            _fail(RestoreError.cancelled());
+            return false;
+          }
+        }
+
+        final metadata = message.captionMetadata;
+        if (metadata == null) continue;
+
+        final partitionItem = PartitionItem(
+          localId: metadata.mediaItemId.isEmpty
+              ? 'msg_${message.messageId}'
+              : metadata.mediaItemId,
+          fileHash: metadata.fileHash,
+          telegramMessageId: message.messageId.toString(),
+          telegramFileId: message.fileId.toString(),
+          createdAt: metadata.createdAt,
+          modifiedAt: metadata.modifiedAt,
+          // The caption already records when this item was backed up. Using
+          // DateTime.now() here would rewrite every restored item's backup
+          // date to the moment of the restore.
+          backedUpAt: metadata.backedUpAt,
+          mimeType: metadata.mimeType,
+          fileSize: metadata.fileSize,
+          width: metadata.width,
+          height: metadata.height,
+          durationMs: metadata.durationMs,
+          isFavorite: metadata.isFavorite,
+          isHidden: metadata.isHidden,
+          isArchived: metadata.isArchived,
+          isTrashed: metadata.isTrashed,
+          trashedAt: metadata.trashedAt,
+          albumName: metadata.albumName,
+          deviceFolder: metadata.deviceFolder,
+          description: metadata.description,
+          tags: metadata.tags,
+          status: MediaStatus.uploaded,
+          fileName: message.fileName,
+        );
+
+        allMetadata.add(partitionItem);
+
+        final partitionKey = MetadataPartition.partitionKeyFromDate(
+          partitionItem.createdAt,
+        );
+        metadataByPartition
+            .putIfAbsent(partitionKey, () => [])
+            .add(partitionItem);
+
+        _updateProgress(
+          completedItems: allMetadata.length,
+          currentFileName: message.fileName,
+        );
+      }
+
+      // Phase 4: Rebuild local database
+      _updateProgress(
+        phase: RestorePhase.databaseRebuild,
+        currentPhaseDescription: 'Rebuilding your library...',
+      );
+
+      await _rebuildDatabase(allMetadata, metadataByPartition);
+
+      // Remember what this run has restored, so a later interrupted attempt
+      // resumes from here instead of re-downloading everything.
+      await _persistRestoredState(allMetadata);
+
+      // Phase 5: Download thumbnails (progressive)
+      _updateProgress(
+        phase: RestorePhase.thumbnailDownload,
+        currentPhaseDescription: 'Loading thumbnails...',
+      );
+
+      await _downloadThumbnails(channelId, messages, allMetadata);
+
+      // Phase 6: Mark as complete (originals download on-demand)
+      _updateProgress(
+        phase: RestorePhase.completed,
+        overallProgress: 1.0,
+        completedItems: allMetadata.length,
+        currentPhaseDescription: 'Restore complete!',
+      );
+
+      return true;
+    } catch (e) {
+      _fail(
+        RestoreError(
+          category: RestoreErrorCategory.unknown,
+          message: 'Unexpected error during restore',
+          detail: e.toString(),
+          retryable: true,
+          occurredAt: DateTime.now(),
+        ),
+      );
+      return false;
+    }
+  }
+
+  /// Pause the restore process.
+  void pauseRestore() {
+    _isPaused = true;
+    _updateProgress(phase: RestorePhase.paused, isPaused: true);
+  }
+
+  /// Resume the restore process.
+  void resumeRestore() {
+    _isPaused = false;
+    // Restore to the previous active phase
+    if (_progress.phase == RestorePhase.paused) {
+      _updateProgress(
+        phase: _progress.manifestInfo != null
+            ? RestorePhase.metadataDownload
+            : RestorePhase.detecting,
+        isPaused: false,
+      );
+    }
+  }
+
+  /// Cancel the restore process.
+  void cancelRestore() {
+    _isCancelled = true;
+    _fail(RestoreError.cancelled());
+  }
+
+  /// Rebuild the local database from downloaded metadata.
+  ///
+  /// Per PRD Section 10.2 Step 5: create all MediaItem records,
+  /// DeviceFolder records, build SearchIndex, mark items as uploaded.
+  Future<void> _rebuildDatabase(
+    List<PartitionItem> allMetadata,
+    Map<String, List<PartitionItem>> metadataByPartition,
+  ) async {
+    // A deletion may be known locally (via a Layer-3 reconcile) even though the
+    // channel media message — and therefore its caption — still exists. Treat
+    // such an item as tombstoned so the caption rebuild below can't resurrect
+    // it, exactly as an in-partition isDeleted flag would.
+    bool isTombstoned(PartitionItem item) {
+      if (item.isDeleted) return true;
+      return metadataRepository.getItemMetadata(item.localId)?.isDeleted ??
+          false;
+    }
+
+    // Set the manifest in the manifest service
+    final manifest = manifestService.getCurrentManifest();
+    if (manifest != null) {
+      manifestService.setManifest(manifest);
+    }
+
+    // Rebuild partitions
+    partitionService.clear();
+    for (final entry in metadataByPartition.entries) {
+      // Add items to partition
+      for (int i = 0; i < entry.value.length; i++) {
+        partitionService.upsertItem(entry.value[i]);
+      }
+    }
+
+    // Rebuild search index. Tombstoned items (isDeleted) are skipped: a
+    // deletion recorded in a Layer-3 partition must not resurrect the item
+    // into the search index on restore.
+    searchIndexService.clear();
+    for (final item in allMetadata) {
+      if (isTombstoned(item)) continue;
+      searchIndexService.indexItem(item);
+    }
+
+    // Populate gallery repository with restored items
+    //
+    // The in-memory metadata layers above are persisted to their own files,
+    // but the gallery (timeline/albums/search) is backed by the drift
+    // database. Previously nothing wrote restored items into [galleryRepository],
+    // so a freshly restored library showed up empty in the app until the next
+    // device scan happened to re-discover the files. mergeTelegramItems adds
+    // them to the in-memory read model AND persists them through MediaDao.
+    final galleryItems = <MediaItem>[];
+    for (final item in allMetadata) {
+      // A tombstoned item was deleted on another device (or here, and the
+      // deletion propagated through Layer 3). Rebuilding it from its still-
+      // present media caption would resurrect it, so skip it entirely — this
+      // is the whole reason the deletion tombstone survives in the partition.
+      if (isTombstoned(item)) continue;
+      final mediaItem = MediaItem(
+        localId: item.localId,
+        fileHash: item.fileHash,
+        telegramMessageId: item.telegramMessageId,
+        telegramFileId: item.telegramFileId,
+        filePath: '', // Will be populated when file is downloaded
+        fileName: item.fileName ?? 'unknown',
+        mimeType: item.mimeType ?? 'application/octet-stream',
+        fileSize: item.fileSize,
+        width: item.width,
+        height: item.height,
+        durationMs: item.durationMs,
+        createdAt: item.createdAt,
+        modifiedAt: item.modifiedAt,
+        scannedAt: DateTime.now(),
+        backedUpAt: item.backedUpAt,
+        status: MediaStatus.uploaded,
+        isFavorite: item.isFavorite,
+        isHidden: item.isHidden,
+        isArchived: item.isArchived,
+        isTrashed: item.isTrashed,
+        trashedAt: item.trashedAt,
+        albumName: item.albumName,
+        deviceFolder: item.deviceFolder,
+        description: item.description,
+        tags: item.tags,
+      );
+
+      // Record in metadata repository
+      await metadataRepository.recordNewItem(mediaItem);
+      galleryItems.add(mediaItem);
+    }
+
+    await galleryRepository.mergeTelegramItems(galleryItems);
+  }
+
+  /// Download thumbnails for all restored items.
+  ///
+  /// Per PRD Section 10.3: thumbnails download first for fast gallery display.
+  ///
+  /// Items whose thumbnail is already in the shared cache are skipped — this
+  /// is what makes a re-run after an interruption (or a plain re-restore)
+  /// differential instead of re-fetching every file. Note the cache key is
+  /// the caption mediaItemId (`msg_<id>` fallback), the same scheme the
+  /// channel scan uses, so a restore that runs over an existing library also
+  /// skips everything the user still has from before.
+  Future<void> _downloadThumbnails(
+    int channelId,
+    List<ChannelMessage> messages,
+    List<PartitionItem> allMetadata,
+  ) async {
+    int downloaded = 0;
+    int skipped = 0;
+    final total = messages.length;
+
+    for (final message in messages) {
+      if (_isCancelled) break;
+      while (_isPaused) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (_isCancelled) break;
+      }
+      if (_isCancelled) break;
+
+      final metadata = message.captionMetadata;
+      final localId = (metadata == null || metadata.mediaItemId.isEmpty)
+          ? 'msg_${message.messageId}'
+          : metadata.mediaItemId;
+
+      final processed = downloaded + skipped;
+      if (await ThumbnailCache.instance.contains(localId)) {
+        skipped++;
+        _updateProgress(
+          completedItems: processed + 1,
+          skippedItems: skipped,
+          overallProgress: (processed + 1) / total,
+          currentFileName: message.fileName,
+        );
+        continue;
+      }
+
+      try {
+        final result = await restoreRepository.downloadFile(
+          messageId: message.messageId,
+          channelId: channelId,
+          fileName: message.fileName,
+          mode: DownloadMode.thumbnail,
+          onProgress: (progress) {
+            _updateProgress(overallProgress: (downloaded + progress) / total);
+          },
+        );
+
+        downloaded++;
+        _updateProgress(
+          completedItems: processed + 1,
+          overallProgress: (processed + 1) / total,
+          currentFileName: message.fileName,
+        );
+
+        // Write the thumbnail into the shared cache under the same key
+        // scheme as the channel scan (caption mediaItemId, or the
+        // msg_<messageId> fallback) so the timeline shows it immediately
+        // instead of re-downloading per tile. These bytes used to be
+        // discarded after download, which left every restored item's tile
+        // stuck on the placeholder.
+        try {
+          final bytes = await File(result.filePath).readAsBytes();
+          await ThumbnailCache.instance.put(localId, bytes);
+        } catch (e) {
+          debugPrint('[RestoreEngine] Thumbnail cache write failed: $e');
+        }
+      } catch (e) {
+        debugPrint('[RestoreEngine] Thumbnail download failed: $e');
+        // Continue with next item - thumbnails are non-critical
+      }
+    }
+  }
+
+  /// Download a full-resolution file on-demand.
+  ///
+  /// Called when a user opens an item whose original hasn't been restored yet.
+  Future<String?> downloadOriginal({
+    required int messageId,
+    required int channelId,
+    required String fileName,
+    void Function(double progress)? onProgress,
+  }) async {
+    final result = await restoreRepository.downloadFile(
+      messageId: messageId,
+      channelId: channelId,
+      fileName: fileName,
+      mode: DownloadMode.original,
+      onProgress: onProgress,
+    );
+
+    return result.filePath;
+  }
+
+  /// Resume interrupted restore by checking what's already been done.
+  ///
+  /// Per PRD Section 10.4: differential restore - skip files already present.
+  ///
+  /// Combines the hashes currently in the gallery with the hashes persisted
+  /// by [RestoreStateStore] from a previous partial run. Failures to load
+  /// persisted state are logged and ignored — they only cost redundant
+  /// downloads, never a failed restore.
+  Future<void> resumeInterruptedRestore() async {
+    final hashes = <String>{
+      for (final item in galleryRepository.mediaItems)
+        if (item.fileHash.isNotEmpty) item.fileHash,
+    };
+
+    final store = restoreStateStore;
+    if (store != null) {
+      try {
+        hashes.addAll(await store.load());
+      } catch (e) {
+        debugPrint('[RestoreEngine] Failed to load restore state: $e');
+      }
+    }
+
+    _existingHashes = hashes;
+  }
+
+  /// Persist the restored hashes for differential resume on the next run.
+  Future<void> _persistRestoredState(List<PartitionItem> allMetadata) async {
+    final store = restoreStateStore;
+    if (store == null) return;
+    try {
+      await store.save({
+        for (final item in allMetadata)
+          if (item.fileHash.isNotEmpty) item.fileHash,
+      });
+    } catch (e) {
+      debugPrint('[RestoreEngine] Failed to persist restore state: $e');
+    }
+  }
+
+  Set<String> _existingHashes = {};
+
+  /// Check if a file hash already exists locally.
+  bool isAlreadyRestored(String fileHash) {
+    return _existingHashes.contains(fileHash);
+  }
+
+  void _updateProgress({
+    RestorePhase? phase,
+    double? overallProgress,
+    int? totalItems,
+    int? completedItems,
+    int? failedItems,
+    int? skippedItems,
+    String? currentFileName,
+    String? currentPhaseDescription,
+    int? totalBytes,
+    int? downloadedBytes,
+    DateTime? startedAt,
+    DateTime? estimatedCompletion,
+    RestoreError? error,
+    bool? isPaused,
+    ManifestInfo? manifestInfo,
+    bool clearError = false,
+    bool clearFileName = false,
+  }) {
+    _progress = _progress.copyWith(
+      phase: phase,
+      overallProgress: overallProgress,
+      totalItems: totalItems,
+      completedItems: completedItems,
+      failedItems: failedItems,
+      skippedItems: skippedItems,
+      currentFileName: currentFileName,
+      currentPhaseDescription: currentPhaseDescription,
+      totalBytes: totalBytes,
+      downloadedBytes: downloadedBytes,
+      startedAt: startedAt ?? (_progress.startedAt ?? DateTime.now()),
+      estimatedCompletion: estimatedCompletion,
+      error: error,
+      isPaused: isPaused,
+      manifestInfo: manifestInfo,
+      clearError: clearError,
+      clearFileName: clearFileName,
+    );
+    _progressController.add(_progress);
+  }
+
+  void _fail(RestoreError error) {
+    _progress = _progress.copyWith(phase: RestorePhase.failed, error: error);
+    _progressController.add(_progress);
+  }
+
+  void dispose() {
+    _progressController.close();
+  }
+}

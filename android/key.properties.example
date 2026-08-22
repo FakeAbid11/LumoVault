@@ -1,0 +1,18 @@
+# Release signing configuration for LumoVault (Android).
+#
+# Copy this file to `android/key.properties` and fill in the real values. The
+# real file is gitignored, as are *.jks / *.keystore — never commit either.
+#
+# Without `android/key.properties`, `flutter build apk --release` produces an
+# UNSIGNED APK and Gradle logs a warning. Debug builds are unaffected.
+#
+# Generate a keystore with:
+#   keytool -genkey -v -keystore ~/lumovault-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias lumovault
+#
+# storeFile is resolved relative to the `android/` directory.
+
+storeFile=lumovault-release.jks
+storePassword=CHANGE_ME
+keyAlias=lumovault
+keyPassword=CHANGE_ME

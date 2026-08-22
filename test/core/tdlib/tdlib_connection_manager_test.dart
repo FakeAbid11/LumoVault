@@ -226,7 +226,6 @@ class _ThrowingTdLibClient implements TdLibClient {
     return {'@type': 'ok'};
   }
 
-
   @override
   Future<bool> isAuthenticated() async => false;
 

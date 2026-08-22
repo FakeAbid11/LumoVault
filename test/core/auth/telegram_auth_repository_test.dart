@@ -71,7 +71,6 @@ class MockTdLibClient implements TdLibClient {
     return {'@type': 'ok'};
   }
 
-
   @override
   Future<bool> isAuthenticated() async =>
       authStateType == 'authorizationStateReady';

@@ -76,7 +76,6 @@ class MockTdLibClientForStorage implements TdLibClient {
     };
   }
 
-
   @override
   Future<bool> isAuthenticated() async => true;
 

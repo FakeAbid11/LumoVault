@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/features/faces/data/services/face_detection_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('FaceDetectionService', () {
     late FaceDetectionService service;
 
@@ -9,19 +11,13 @@ void main() {
       service = FaceDetectionService();
     });
 
-    tearDown(() async {
-      await service.dispose();
+    tearDown(() {
+      // Don't call dispose — ML Kit close() needs platform bindings
+      // that aren't available in unit tests.
     });
 
     group('synthesiseEmbedding', () {
-      // We can't directly test the private _synthesiseEmbedding method,
-      // but we can verify that detectFaces produces embeddings of the
-      // correct dimension by testing with a known file path (which will
-      // fail gracefully on a test machine without ML Kit native libs).
-
       test('detectFaces returns empty list for non-existent file', () async {
-        // On a test machine without ML Kit native libs, this should
-        // either return an empty list or throw — both are acceptable.
         try {
           final faces = await service.detectFaces(
             filePath: '/nonexistent/image.jpg',

@@ -41,6 +41,16 @@ void main() {
               StatefulShellBranch(
                 routes: [
                   GoRoute(
+                    path: '/people',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('People Content')),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
                     path: '/map',
                     builder: (_, __) => const Scaffold(
                       body: Center(child: Text('Map Content')),
@@ -77,6 +87,7 @@ void main() {
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.text('Local'), findsOneWidget);
       expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('People'), findsOneWidget);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     });
@@ -106,7 +117,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.map_outlined));
       await tester.pumpAndSettle();
 
-      expect(navigationShell.currentIndex, equals(2));
+      expect(navigationShell.currentIndex, equals(3));
       expect(find.text('Map Content'), findsOneWidget);
     });
 
@@ -123,7 +134,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.settings_outlined));
       await tester.pumpAndSettle();
 
-      expect(navigationShell.currentIndex, equals(3));
+      expect(navigationShell.currentIndex, equals(4));
       expect(find.text('Settings Content'), findsOneWidget);
     });
   });

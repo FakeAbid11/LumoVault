@@ -92,7 +92,9 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
           IconButton(
             icon: const Icon(Icons.merge),
             tooltip: 'Merge selected',
-            onPressed: _selectedIds.length >= 2 ? () => _showMergeDialog() : null,
+            onPressed: _selectedIds.length >= 2
+                ? () => _showMergeDialog()
+                : null,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -315,7 +317,9 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _selectedIds.length >= 2 ? () => _showMergeDialog() : null,
+                onPressed: _selectedIds.length >= 2
+                    ? () => _showMergeDialog()
+                    : null,
                 icon: const Icon(Icons.merge),
                 label: Text('Merge (${_selectedIds.length})'),
               ),
@@ -353,8 +357,9 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     final allPeople = peopleAsync.valueOrNull;
     if (allPeople == null) return;
 
-    final selectedPeople =
-        allPeople.where((p) => _selectedIds.contains(p.person.id)).toList();
+    final selectedPeople = allPeople
+        .where((p) => _selectedIds.contains(p.person.id))
+        .toList();
 
     final targetId = await showDialog<int>(
       context: context,

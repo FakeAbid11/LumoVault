@@ -14,6 +14,7 @@ import '../../../backup/engine/backup_engine.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/upload_task.dart';
+import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
 import 'location_picker_screen.dart';
 
@@ -91,8 +92,16 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
           '${_currentIndex + 1} / ${widget.assets.length}',
           style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Info & EXIF',
+            onPressed: _showExifDetails,
+          ),
+        ],
       ),
       body: SwipeDismissWrapper(
+        onSwipeUp: _showExifDetails,
         child: PageView.builder(
           controller: _pageController,
           itemCount: widget.assets.length,
@@ -373,6 +382,24 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     } finally {
       if (mounted) setState(() => _inFlight.remove(asset.id));
     }
+  }
+
+  void _showExifDetails() {
+    final asset = _currentAsset;
+    final item = ref.read(galleryRepositoryProvider).getItemById(asset.id);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ExifDetailsSheet(
+        asset: asset,
+        item: item,
+        onLocationChanged: () {
+          ref.invalidate(mapPhotosProvider);
+          ref.invalidate(mediaItemProvider(asset.id));
+        },
+      ),
+    );
   }
 
   void _notify(

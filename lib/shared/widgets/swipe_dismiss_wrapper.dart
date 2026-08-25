@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// A wrapper widget that provides a smooth drag-down-to-dismiss gesture
-/// with interpolating background opacity and scaling.
+/// and a swipe-up callback to reveal metadata/details.
 class SwipeDismissWrapper extends StatefulWidget {
   const SwipeDismissWrapper({
     super.key,
     required this.child,
     this.onDismissed,
+    this.onSwipeUp,
     this.dismissThreshold = 120.0,
+    this.swipeUpThreshold = 60.0,
     this.enabled = true,
   });
 
   final Widget child;
   final VoidCallback? onDismissed;
+  final VoidCallback? onSwipeUp;
   final double dismissThreshold;
+  final double swipeUpThreshold;
   final bool enabled;
 
   @override
@@ -24,6 +28,7 @@ class SwipeDismissWrapper extends StatefulWidget {
 class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
     with SingleTickerProviderStateMixin {
   double _dragOffset = 0.0;
+  double _upDragOffset = 0.0;
   bool _isDragging = false;
 
   late final AnimationController _resetController;
@@ -49,16 +54,20 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
     _resetController.stop();
     setState(() {
       _isDragging = true;
+      _upDragOffset = 0.0;
     });
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
     if (!_isDragging || !widget.enabled) return;
-    // Only permit downward dragging for dismissal
-    if (_dragOffset + details.delta.dy >= 0) {
+    if (details.delta.dy > 0 || _dragOffset > 0) {
+      // Downward drag for dismissal
       setState(() {
-        _dragOffset += details.delta.dy;
+        _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, 400.0);
       });
+    } else if (details.delta.dy < 0) {
+      // Upward drag for EXIF / details sheet
+      _upDragOffset += details.delta.dy.abs();
     }
   }
 
@@ -66,6 +75,17 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
     if (!_isDragging || !widget.enabled) return;
     _isDragging = false;
 
+    // Check for swipe-up action
+    if (_upDragOffset > widget.swipeUpThreshold ||
+        (details.primaryVelocity ?? 0) < -400) {
+      if (widget.onSwipeUp != null) {
+        HapticFeedback.lightImpact();
+        widget.onSwipeUp!();
+        return;
+      }
+    }
+
+    // Check for swipe-down dismissal
     if (_dragOffset > widget.dismissThreshold ||
         (details.primaryVelocity ?? 0) > 800) {
       HapticFeedback.lightImpact();

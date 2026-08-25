@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/channel_scan_providers.dart';
+import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/gallery_save_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../../core/storage/storage_channel_service.dart';
@@ -16,6 +17,7 @@ import '../../../restore/presentation/providers/restore_providers.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/transfer_error.dart';
 import '../../data/repositories/telegram_download_service.dart';
+import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
 
 /// Full-screen viewer for Telegram-only items (backed-up copies with no
@@ -167,15 +169,13 @@ class _TelegramMediaViewerScreenState
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
-            tooltip: 'Backup details',
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              builder: (context) => TelegramItemDetailSheet(item: currentItem),
-            ),
+            tooltip: 'Info & EXIF',
+            onPressed: () => _showExifDetails(currentItem),
           ),
         ],
       ),
       body: SwipeDismissWrapper(
+        onSwipeUp: () => _showExifDetails(currentItem),
         child: PageView.builder(
           controller: _pageController,
           itemCount: widget.items.length,
@@ -188,6 +188,21 @@ class _TelegramMediaViewerScreenState
           itemBuilder: (context, index) =>
               _TelegramPreview(item: widget.items[index]),
         ),
+      ),
+    );
+  }
+
+  void _showExifDetails(MediaItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ExifDetailsSheet(
+        item: item,
+        onLocationChanged: () {
+          ref.invalidate(mapPhotosProvider);
+          ref.invalidate(mediaItemProvider(item.localId));
+        },
       ),
     );
   }

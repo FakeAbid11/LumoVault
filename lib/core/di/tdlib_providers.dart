@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../features/settings/presentation/providers/settings_providers.dart';
 import '../auth/auth_service.dart';
 import '../auth/telegram_auth_repository.dart';
 import '../storage/storage_channel_service.dart';
@@ -90,7 +91,12 @@ final authServiceProvider = Provider<AuthService>((ref) {
 /// Storage channel service provider.
 final storageChannelServiceProvider = Provider<StorageChannelService>((ref) {
   final manager = ref.read(tdLibConnectionManagerProvider);
-  return StorageChannelService(client: manager.client);
+  final service = StorageChannelService(client: manager.client);
+  final settings = ref.read(appSettingsProvider);
+  if (settings.storageChannelId != null && settings.storageChannelId != 0) {
+    service.setCachedChannelId(settings.storageChannelId!);
+  }
+  return service;
 });
 
 /// Whether the user is currently authenticated.

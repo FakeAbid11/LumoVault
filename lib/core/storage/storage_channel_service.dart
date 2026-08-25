@@ -190,6 +190,34 @@ class StorageChannelService {
   /// session — and would create a fresh duplicate channel every time
   /// [cachedChannelId]/the persisted channel id isn't available yet.
   Future<StorageChannelResult> _searchExistingChannel() async {
+    // Fast path: search directly via TDLib searchChats query
+    try {
+      final searchResult = await _sendRequest(
+        method: 'searchChats',
+        params: {'query': TdLibConfig.storageChannelName, 'limit': 10},
+      );
+      final chatIds = (searchResult['chat_ids'] as List<dynamic>?) ?? [];
+      for (final chatId in chatIds) {
+        final chatInfo = await _sendRequest(
+          method: 'getChat',
+          params: {'chat_id': chatId},
+        );
+        final title = chatInfo['title'] as String?;
+        if (title == TdLibConfig.storageChannelName) {
+          final chatType = chatInfo['type'] as Map<String, dynamic>?;
+          final typeStr = chatType?['@type'] as String?;
+          if (typeStr == 'chatTypeBasicGroup' ||
+              typeStr == 'chatTypeSupergroup') {
+            final isChannel = chatType?['is_channel'] as bool? ?? false;
+            if (!isChannel) continue;
+          }
+          return StorageChannelFound(channelId: chatId as int);
+        }
+      }
+    } catch (_) {
+      // searchChats error: continue to list scan
+    }
+
     for (final chatList in const [
       {'@type': 'chatListMain'},
       {'@type': 'chatListArchive'},

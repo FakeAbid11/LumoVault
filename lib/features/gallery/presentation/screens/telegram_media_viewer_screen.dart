@@ -14,6 +14,7 @@ import '../../../../core/storage/storage_channel_service.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../../restore/presentation/providers/restore_providers.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/transfer_error.dart';
 import '../../data/repositories/telegram_download_service.dart';
@@ -74,19 +75,7 @@ class _TelegramMediaViewerScreenState
       final taskId =
           'save_${item.localId}_${DateTime.now().millisecondsSinceEpoch}';
 
-      final storageChannelService = ref.read(storageChannelServiceProvider);
-      var channelId = storageChannelService.cachedChannelId;
-      if (channelId == null) {
-        final result = await storageChannelService.findExistingChannel();
-        if (result is! StorageChannelFound) {
-          if (!mounted) return;
-          messenger.showSnackBar(
-            const SnackBar(content: Text('Storage channel not found')),
-          );
-          return;
-        }
-        channelId = result.channelId;
-      }
+      final channelId = await _resolveStorageChannelId(ref);
 
       final messageId = int.tryParse(item.telegramMessageId ?? '');
       if (messageId == null) {
@@ -282,15 +271,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
       throw StateError('No Telegram message id for ${widget.item.localId}');
     }
 
-    final storageChannelService = ref.read(storageChannelServiceProvider);
-    var channelId = storageChannelService.cachedChannelId;
-    if (channelId == null) {
-      final result = await storageChannelService.findExistingChannel();
-      if (result is! StorageChannelFound) {
-        throw StateError('Storage channel not found');
-      }
-      channelId = result.channelId;
-    }
+    final channelId = await _resolveStorageChannelId(ref);
 
     return _downloadService.downloadFile(
       taskId: _taskId,
@@ -579,4 +560,40 @@ class TelegramItemDetailSheet extends StatelessWidget {
     final remainingSeconds = seconds % 60;
     return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
+}
+
+/// Resolves the storage channel ID through cache, persisted settings, discovery, or creation.
+Future<int> _resolveStorageChannelId(WidgetRef ref) async {
+  final storageChannelService = ref.read(storageChannelServiceProvider);
+  final cached = storageChannelService.cachedChannelId;
+  if (cached != null && cached != 0) return cached;
+
+  final settingsChannelId = ref.read(appSettingsProvider).storageChannelId;
+  if (settingsChannelId != null && settingsChannelId != 0) {
+    storageChannelService.setCachedChannelId(settingsChannelId);
+    return settingsChannelId;
+  }
+
+  final result = await storageChannelService.findExistingChannel();
+  if (result is StorageChannelFound) {
+    storageChannelService.setCachedChannelId(result.channelId);
+    return result.channelId;
+  }
+
+  final fallback = await storageChannelService.findOrCreateChannel();
+  if (fallback is StorageChannelFound) {
+    storageChannelService.setCachedChannelId(fallback.channelId);
+    return fallback.channelId;
+  }
+  if (fallback is StorageChannelCreated) {
+    storageChannelService.setCachedChannelId(fallback.channelId);
+    return fallback.channelId;
+  }
+  if (fallback is StorageChannelError) {
+    throw StateError(fallback.message);
+  }
+
+  throw StateError(
+    'Storage channel not found. Please verify Telegram connection.',
+  );
 }

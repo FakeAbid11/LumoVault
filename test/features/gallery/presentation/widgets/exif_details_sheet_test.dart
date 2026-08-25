@@ -41,47 +41,45 @@ void main() {
   );
 
   testWidgets(
-      'ExifDetailsSheet renders technical details, backup status and mini map',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: ExifDetailsSheet(item: testItemWithLocation),
+    'ExifDetailsSheet renders technical details, backup status and mini map',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(body: ExifDetailsSheet(item: testItemWithLocation)),
           ),
         ),
-      ),
-    );
+      );
 
-    // Date and time
-    expect(find.textContaining('Oct 24, 2024'), findsOneWidget);
-    expect(find.textContaining('3:45 PM'), findsOneWidget);
+      // Date and time
+      expect(find.textContaining('Oct 24, 2024'), findsOneWidget);
+      expect(find.textContaining('3:45 PM'), findsOneWidget);
 
-    // File name
-    expect(find.text('IMG_20241024_154500.jpg'), findsOneWidget);
+      // File name
+      expect(find.text('IMG_20241024_154500.jpg'), findsOneWidget);
 
-    // Technical specs (Megapixels & dimensions)
-    expect(find.textContaining('12.2MP'), findsOneWidget);
-    expect(find.textContaining('4032 × 3024'), findsOneWidget);
+      // Technical specs (Megapixels & dimensions)
+      expect(find.textContaining('12.2MP'), findsOneWidget);
+      expect(find.textContaining('4032 × 3024'), findsOneWidget);
 
-    // Backup status
-    expect(find.text('Backed up to Telegram'), findsOneWidget);
-    expect(find.text('Message #12345'), findsOneWidget);
+      // Backup status
+      expect(find.text('Backed up to Telegram'), findsOneWidget);
+      expect(find.text('Message #12345'), findsOneWidget);
 
-    // Location header & coordinates
-    expect(find.text('Location'), findsOneWidget);
-    expect(find.textContaining('37.7749° N'), findsOneWidget);
-    expect(find.textContaining('122.4194° W'), findsOneWidget);
-  });
+      // Location header & coordinates
+      expect(find.text('Location'), findsOneWidget);
+      expect(find.textContaining('37.7749° N'), findsOneWidget);
+      expect(find.textContaining('122.4194° W'), findsOneWidget);
+    },
+  );
 
-  testWidgets('ExifDetailsSheet renders Add location when no coordinates',
-      (tester) async {
+  testWidgets('ExifDetailsSheet renders Add location when no coordinates', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          home: Scaffold(
-            body: ExifDetailsSheet(item: testItemWithoutLocation),
-          ),
+          home: Scaffold(body: ExifDetailsSheet(item: testItemWithoutLocation)),
         ),
       ),
     );

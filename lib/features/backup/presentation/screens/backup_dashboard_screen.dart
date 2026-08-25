@@ -50,41 +50,51 @@ class BackupDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                BackupProgressCard(
-                  stats: stats,
-                  engineState: engineState,
-                  onPause: () {
-                    ref.read(backupEngineProvider.notifier).pauseBackup();
-                  },
-                  onResume: () {
-                    ref.read(backupEngineProvider.notifier).resumeBackup();
-                  },
-                  onRetryFailed: () {
-                    ref.read(backupEngineProvider.notifier).retryFailed();
-                  },
-                ),
-                const SizedBox(height: 24),
-                _SectionLabel(label: 'Queue', count: tasks.length),
-                const SizedBox(height: 8),
-                UploadQueueList(
-                  tasks: tasks,
-                  onRetry: (taskId) {
-                    ref.read(backupEngineProvider.notifier).retryTask(taskId);
-                  },
-                  onCancel: (taskId) {
-                    ref.read(backupEngineProvider.notifier).cancelTask(taskId);
-                  },
-                ),
-              ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(backupStatsProvider);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        },
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  BackupProgressCard(
+                    stats: stats,
+                    engineState: engineState,
+                    onPause: () {
+                      ref.read(backupEngineProvider.notifier).pauseBackup();
+                    },
+                    onResume: () {
+                      ref.read(backupEngineProvider.notifier).resumeBackup();
+                    },
+                    onRetryFailed: () {
+                      ref.read(backupEngineProvider.notifier).retryFailed();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  if (tasks.isNotEmpty) ...[
+                    _SectionLabel(label: 'Queue', count: tasks.length),
+                    const SizedBox(height: 8),
+                  ],
+                  UploadQueueList(
+                    tasks: tasks,
+                    onRetry: (taskId) {
+                      ref.read(backupEngineProvider.notifier).retryTask(taskId);
+                    },
+                    onCancel: (taskId) {
+                      ref
+                          .read(backupEngineProvider.notifier)
+                          .cancelTask(taskId);
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

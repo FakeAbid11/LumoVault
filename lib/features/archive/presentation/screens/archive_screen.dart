@@ -24,14 +24,21 @@ class ArchiveScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Archive')),
-      body: archived.when(
-        data: (items) => deviceAssets.when(
-          data: (assets) => _buildBody(context, ref, items, assets),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(archivedItemsProvider);
+          ref.invalidate(deviceAssetsProvider);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        },
+        child: archived.when(
+          data: (items) => deviceAssets.when(
+            data: (assets) => _buildBody(context, ref, items, assets),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => _buildBody(context, ref, items, const []),
+          ),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, s) => _buildBody(context, ref, items, const []),
+          error: (e, s) => Center(child: Text('$e')),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('$e')),
       ),
     );
   }

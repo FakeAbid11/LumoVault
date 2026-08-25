@@ -27,93 +27,99 @@ class StorageStatsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Storage Usage')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.cloud_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    backedUpText,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(backupStatsProvider);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.cloud_outlined,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$deviceMediaText on device',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 16),
+                    Text(
+                      backedUpText,
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                  ),
-                  if (lastBackup != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Last backup: '
-                      '${_formatDateTime(lastBackup)}',
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$deviceMediaText on device',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (lastBackup != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Last backup: '
+                        '${_formatDateTime(lastBackup)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Total',
-                  value: '${stats.totalMediaItems}',
-                  icon: Icons.photo_library_outlined,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    label: 'Total',
+                    value: '${stats.totalMediaItems}',
+                    icon: Icons.photo_library_outlined,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  label: 'Backed Up',
-                  value: '${stats.backedUpCount}',
-                  icon: Icons.cloud_done_outlined,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _StatCard(
+                    label: 'Backed Up',
+                    value: '${stats.backedUpCount}',
+                    icon: Icons.cloud_done_outlined,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Pending',
-                  value: '${stats.pendingCount}',
-                  icon: Icons.schedule,
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    label: 'Pending',
+                    value: '${stats.pendingCount}',
+                    icon: Icons.schedule,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  label: 'Failed',
-                  value: '${stats.failedCount}',
-                  icon: Icons.error_outline,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _StatCard(
+                    label: 'Failed',
+                    value: '${stats.failedCount}',
+                    icon: Icons.error_outline,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

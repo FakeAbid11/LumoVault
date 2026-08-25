@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../shared/widgets/empty_state.dart';
 import '../providers/people_providers.dart';
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
@@ -86,101 +87,114 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           ),
         ],
       ),
-      body: personAsync.when(
-        data: (person) {
-          if (person == null) {
-            return const Center(child: Text('Person not found'));
-          }
-          return Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer,
-                      child: Text(
-                        (person.name ?? 'P')[0].toUpperCase(),
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _isEditing
-                          ? TextField(
-                              controller: _nameController,
-                              autofocus: true,
-                              decoration: const InputDecoration(
-                                hintText: 'Enter name',
-                                border: OutlineInputBorder(),
-                              ),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  person.name ?? 'Unnamed Person',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                mediaIdsAsync.when(
-                                  data: (ids) => Text(
-                                    '${ids.length} ${ids.length == 1 ? "photo" : "photos"}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                  ),
-                                  loading: () => const Text('Loading...'),
-                                  error: (_, __) => const Text(''),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
-              Expanded(
-                child: mediaIdsAsync.when(
-                  data: (mediaIds) {
-                    if (mediaIds.isEmpty) {
-                      return const Center(child: Text('No photos found'));
-                    }
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(8),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 2,
-                            mainAxisSpacing: 2,
-                          ),
-                      itemCount: mediaIds.length,
-                      itemBuilder: (context, index) =>
-                          _buildPhotoTile(context, mediaIds[index]),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Error: $e')),
-                ),
-              ),
-            ],
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(personProvider(widget.personId));
+          ref.invalidate(personMediaIdsProvider(widget.personId));
+          await Future<void>.delayed(const Duration(milliseconds: 300));
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        child: personAsync.when(
+          data: (person) {
+            if (person == null) {
+              return const EmptyState(
+                icon: Icons.person_off_outlined,
+                title: 'Person not found',
+                message: 'This person may have been deleted.',
+              );
+            }
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        child: Text(
+                          (person.name ?? 'P')[0].toUpperCase(),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _isEditing
+                            ? TextField(
+                                controller: _nameController,
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                  hintText: 'Enter name',
+                                  border: OutlineInputBorder(),
+                                ),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    person.name ?? 'Unnamed Person',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                  mediaIdsAsync.when(
+                                    data: (ids) => Text(
+                                      '${ids.length} ${ids.length == 1 ? "photo" : "photos"}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    loading: () => const Text('Loading...'),
+                                    error: (_, __) => const Text(''),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: mediaIdsAsync.when(
+                    data: (mediaIds) {
+                      if (mediaIds.isEmpty) {
+                        return const Center(child: Text('No photos found'));
+                      }
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 2,
+                              mainAxisSpacing: 2,
+                            ),
+                        itemCount: mediaIds.length,
+                        itemBuilder: (context, index) =>
+                            _buildPhotoTile(context, mediaIds[index]),
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+        ),
       ),
     );
   }

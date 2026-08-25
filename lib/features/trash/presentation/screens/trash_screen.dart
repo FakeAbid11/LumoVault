@@ -74,14 +74,21 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                 ),
               ],
             ),
-      body: trashed.when(
-        data: (items) => deviceAssets.when(
-          data: (assets) => _buildBody(items, assets),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(trashedItemsProvider);
+          ref.invalidate(deviceAssetsProvider);
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        },
+        child: trashed.when(
+          data: (items) => deviceAssets.when(
+            data: (assets) => _buildBody(items, assets),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => _buildBody(items, const []),
+          ),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, s) => _buildBody(items, const []),
+          error: (e, s) => Center(child: Text('$e')),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('$e')),
       ),
     );
   }

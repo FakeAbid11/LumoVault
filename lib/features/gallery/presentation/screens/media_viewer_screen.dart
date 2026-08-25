@@ -240,11 +240,17 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       // was trashed). Leave the viewer as-is.
       if (!trashed.contains(asset.id)) return;
 
+      // Mark the item as trashed in the app database so the Trash screen
+      // shows it. PhotoManager.moveToTrash handles the OS-level trash;
+      // this handles the app-level tracking.
+      await repository.moveToTrash(asset.id);
+
       // The asset is gone from the device gallery now. Refresh the providers
       // that list device assets so the deleted item drops out of the grid and
       // the map, then close the viewer — the asset it was showing is gone.
       ref.invalidate(deviceAssetsProvider);
       ref.invalidate(mapPhotosProvider);
+      ref.invalidate(trashedItemsProvider);
       _notify(context, 'Moved to your phone’s trash · deletes in 30 days');
       context.pop();
     } on PlatformException {

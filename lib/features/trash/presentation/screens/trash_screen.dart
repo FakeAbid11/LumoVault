@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/constants/app_constants.dart';
@@ -12,10 +11,11 @@ import '../../../settings/presentation/providers/settings_providers.dart';
 
 /// Trash screen — view, restore, or permanently delete trashed media.
 ///
-/// Rendering matches the timeline: resolve each trashed item's
-/// [MediaItem.localId] to a device [AssetEntity] so [AssetTile] shows the
-/// real thumbnail. Long-press enters multi-select to restore or permanently
-/// delete in bulk; the app bar's Empty action permanently deletes everything.
+/// Resolves each trashed item's [MediaItem.localId] to a device
+/// [AssetEntity] via [AssetEntity.fromId] directly, rather than requiring
+/// the asset to be in [deviceAssetsProvider]. This is necessary because
+/// items trashed from the media viewer are moved to Android's system trash
+/// and no longer appear in the normal device asset listing.
 class TrashScreen extends ConsumerStatefulWidget {
   const TrashScreen({super.key});
 
@@ -30,7 +30,6 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   @override
   Widget build(BuildContext context) {
     final trashed = ref.watch(trashedItemsProvider);
-    final deviceAssets = ref.watch(deviceAssetsProvider);
 
     return Scaffold(
       appBar: _isMultiSelect
@@ -77,15 +76,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(trashedItemsProvider);
-          ref.invalidate(deviceAssetsProvider);
           await Future<void>.delayed(const Duration(milliseconds: 300));
         },
         child: trashed.when(
-          data: (items) => deviceAssets.when(
-            data: (assets) => _buildBody(items, assets),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, s) => _buildBody(items, const []),
-          ),
+          data: (items) => _buildBody(items),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, s) => Center(child: Text('$e')),
         ),
@@ -93,20 +87,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
   }
 
-  Widget _buildBody(List<MediaItem> items, List<AssetEntity> allAssets) {
+  Widget _buildBody(List<MediaItem> items) {
     if (items.isEmpty) return _buildEmptyState();
-
-    final byId = {for (final a in allAssets) a.id: a};
-    final resolved = <MediaItem>[];
-    final assets = <AssetEntity>[];
-    for (final item in items) {
-      final asset = byId[item.localId];
-      if (asset == null) continue;
-      resolved.add(item);
-      assets.add(asset);
-    }
-
-    if (resolved.isEmpty) return _buildEmptyState();
 
     return Column(
       children: [
@@ -134,12 +116,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
               crossAxisSpacing: 2,
               mainAxisSpacing: 2,
             ),
-            itemCount: resolved.length,
+            itemCount: items.length,
             itemBuilder: (context, index) {
-              final item = resolved[index];
-              final asset = assets[index];
-              return AssetTile(
-                asset: asset,
+              final item = items[index];
+              return _TrashedTile(
+                item: item,
                 isSelected: _selected.contains(item.localId),
                 onTap: () {
                   if (_isMultiSelect) {
@@ -150,10 +131,6 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                     });
                     return;
                   }
-                  context.push(
-                    '/gallery/media/${asset.id}',
-                    extra: (assets: assets, initialIndex: index),
-                  );
                 },
                 onLongPress: () {
                   setState(() => _selected.add(item.localId));
@@ -270,6 +247,82 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A grid tile for a trashed item that resolves its [AssetEntity] via
+/// [AssetEntity.fromId] instead of relying on [deviceAssetsProvider].
+///
+/// Items trashed from the media viewer are in Android's system trash and
+/// won't appear in the normal device asset listing, so we resolve them
+/// individually. If resolution fails (e.g. the file was purged from system
+/// trash), a placeholder icon is shown.
+class _TrashedTile extends StatelessWidget {
+  const _TrashedTile({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final MediaItem item;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AssetEntity?>(
+      future: AssetEntity.fromId(item.localId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+        final asset = snapshot.data;
+        if (asset == null) {
+          return _buildPlaceholder(context);
+        }
+        return AssetTile(
+          asset: asset,
+          isSelected: isSelected,
+          onTap: onTap,
+          onLongPress: onLongPress,
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaceholder(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 32,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.fileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

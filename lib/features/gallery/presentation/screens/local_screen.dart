@@ -493,8 +493,15 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       if (!mounted) return;
       if (trashed.isEmpty) return;
 
+      // Mark each trashed item in the app database so the Trash screen
+      // shows them. PhotoManager.moveToTrash handles the OS-level trash.
+      for (final id in trashed) {
+        await repository.moveToTrash(id);
+      }
+
       ref.invalidate(deviceAssetsProvider);
       ref.invalidate(mapPhotosProvider);
+      ref.invalidate(trashedItemsProvider);
       setState(_multiSelected.clear);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

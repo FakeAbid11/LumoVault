@@ -109,7 +109,9 @@ jobs:
       - name: Set app version
         if: ${{ github.event.inputs.app_version != '' }}
         run: |
-          VERSION="${{ github.event.inputs.app_version }}"
+          RAW_VERSION="${{ github.event.inputs.app_version }}"
+          # Replace any accidental commas with dots (e.g. 1.1,2 -> 1.1.2) and strip whitespace
+          VERSION=$(printf '%s' "$RAW_VERSION" | tr ',' '.' | tr -d '[:space:]')
           echo "Setting app version to: $VERSION"
           # pubspec.yaml line looks like:  version: 1.0.0+1
           sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml

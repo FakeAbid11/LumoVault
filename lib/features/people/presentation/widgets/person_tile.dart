@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/daos/face_dao.dart';
+import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../providers/people_providers.dart';
 
 class PersonTile extends ConsumerWidget {
@@ -39,12 +40,18 @@ class PersonTile extends ConsumerWidget {
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Theme.of(context).colorScheme.primaryContainer,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                   ),
                   child: ClipOval(
                     child: thumbnailAsync.when(
                       data: (path) => _buildThumbnail(context, path),
-                      loading: () => _buildPlaceholder(context),
+                      loading: () => const ShimmerPlaceholder(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: 100,
+                      ),
                       error: (_, __) => _buildPlaceholder(context),
                     ),
                   ),

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    LumoVault cloud-backup rules.
+
+    The app's data (drift database, TDLib session files, thumbnail cache,
+    flutter_secure_storage preferences, SharedPreferences) is local-only and
+    must never be cloud-backed up or device-transferred:
+
+      * The TDLib database is encrypted with a key held in the Android
+        Keystore. Keystore keys are non-exportable, so restoring that
+        ciphertext onto a new device yields an unreadable session — the app
+        would fail to reopen its Telegram login.
+      * The PIN hash and app settings live in secure storage; same problem.
+      * A device-transfer of the local media database would let a restored
+        app claim items are "backed up" without their real Telegram message
+        IDs, breaking deduplication against the actual channel.
+
+    allowBackup="false" already disables the legacy (pre-12) transport;
+    these rules cover Android 12+ cloud backup and device-to-device transfer.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,158 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:lumovault/shared/widgets/app_shell.dart';
+
+void main() {
+  group('AppShell', () {
+    late StatefulNavigationShell navigationShell;
+
+    Widget buildTestWidget({double width = 400}) {
+      final router = GoRouter(
+        initialLocation: '/local',
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, shell) {
+              navigationShell = shell;
+              return AppShell(navigationShell: shell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/local',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('Local Content')),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/timeline',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('Timeline Content')),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/map',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('Map Content')),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/people',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('People Content')),
+                    ),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/settings',
+                    builder: (_, __) => const Scaffold(
+                      body: Center(child: Text('Settings Content')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      return MaterialApp.router(routerConfig: router);
+    }
+
+    testWidgets('renders bottom navigation on phone', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildTestWidget(width: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.text('Local'), findsOneWidget);
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Map'), findsOneWidget);
+      expect(find.text('People'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+    });
+
+    testWidgets('renders navigation rail on tablet', (tester) async {
+      tester.view.physicalSize = const Size(700, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildTestWidget(width: 700));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('switches tabs when destination tapped', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildTestWidget(width: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Local Content'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.map_outlined));
+      await tester.pumpAndSettle();
+
+      expect(navigationShell.currentIndex, equals(2));
+      expect(find.text('Map Content'), findsOneWidget);
+    });
+
+    testWidgets('displays correct tab content on settings tap', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildTestWidget(width: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Local Content'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      expect(navigationShell.currentIndex, equals(4));
+      expect(find.text('Settings Content'), findsOneWidget);
+    });
+
+    testWidgets('displays correct tab content on people tap', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildTestWidget(width: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Local Content'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.people_outline));
+      await tester.pumpAndSettle();
+
+      expect(navigationShell.currentIndex, equals(3));
+      expect(find.text('People Content'), findsOneWidget);
+    });
+  });
+}

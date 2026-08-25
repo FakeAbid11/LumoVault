@@ -1,0 +1,269 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
+
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/di/gallery_providers.dart';
+import '../../../gallery/data/models/media_item.dart';
+import '../../../gallery/presentation/widgets/asset_tile.dart';
+import '../../../settings/data/models/app_settings.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
+
+/// Trash screen — view, restore, or permanently delete trashed media.
+///
+/// Rendering matches the timeline: resolve each trashed item's
+/// [MediaItem.localId] to a device [AssetEntity] so [AssetTile] shows the
+/// real thumbnail. Long-press enters multi-select to restore or permanently
+/// delete in bulk; the app bar's Empty action permanently deletes everything.
+class TrashScreen extends ConsumerStatefulWidget {
+  const TrashScreen({super.key});
+
+  @override
+  ConsumerState<TrashScreen> createState() => _TrashScreenState();
+}
+
+class _TrashScreenState extends ConsumerState<TrashScreen> {
+  final Set<String> _selected = {};
+  bool get _isMultiSelect => _selected.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final trashed = ref.watch(trashedItemsProvider);
+    final deviceAssets = ref.watch(deviceAssetsProvider);
+
+    return Scaffold(
+      appBar: _isMultiSelect
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(_selected.clear),
+                tooltip: 'Cancel selection',
+              ),
+              title: Text('${_selected.length} selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.restore),
+                  tooltip: 'Restore',
+                  onPressed: () => _restoreSelected(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_forever),
+                  tooltip: 'Delete permanently',
+                  onPressed: () => _confirmDelete(
+                    count: _selected.length,
+                    onConfirm: () => _deleteSelected(),
+                  ),
+                ),
+              ],
+            )
+          : AppBar(
+              title: const Text('Trash'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    final items = trashed.valueOrNull;
+                    if (items == null || items.isEmpty) return;
+                    _confirmDelete(
+                      count: items.length,
+                      emptyAll: true,
+                      onConfirm: () => _emptyTrash(items),
+                    );
+                  },
+                  child: const Text('Empty'),
+                ),
+              ],
+            ),
+      body: trashed.when(
+        data: (items) => deviceAssets.when(
+          data: (assets) => _buildBody(items, assets),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => _buildBody(items, const []),
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('$e')),
+      ),
+    );
+  }
+
+  Widget _buildBody(List<MediaItem> items, List<AssetEntity> allAssets) {
+    if (items.isEmpty) return _buildEmptyState();
+
+    final byId = {for (final a in allAssets) a.id: a};
+    final resolved = <MediaItem>[];
+    final assets = <AssetEntity>[];
+    for (final item in items) {
+      final asset = byId[item.localId];
+      if (asset == null) continue;
+      resolved.add(item);
+      assets.add(asset);
+    }
+
+    if (resolved.isEmpty) return _buildEmptyState();
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Text(
+            'Items are permanently deleted after '
+            '${AppConstants.trashRetentionDays} days. '
+            'Long-press to select.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: galleryCrossAxisCount(
+                ref.watch(settingsGridSizeProvider),
+                ref.watch(settingsCompactModeProvider),
+              ),
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: resolved.length,
+            itemBuilder: (context, index) {
+              final item = resolved[index];
+              final asset = assets[index];
+              return AssetTile(
+                asset: asset,
+                isSelected: _selected.contains(item.localId),
+                onTap: () {
+                  if (_isMultiSelect) {
+                    setState(() {
+                      if (!_selected.remove(item.localId)) {
+                        _selected.add(item.localId);
+                      }
+                    });
+                    return;
+                  }
+                  context.push(
+                    '/gallery/media/${asset.id}',
+                    extra: (assets: assets, initialIndex: index),
+                  );
+                },
+                onLongPress: () {
+                  setState(() => _selected.add(item.localId));
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _restoreSelected() async {
+    final repository = ref.read(galleryRepositoryProvider);
+    final ids = List<String>.from(_selected);
+    setState(_selected.clear);
+    for (final id in ids) {
+      await repository.restoreFromTrash(id);
+    }
+    ref.invalidate(trashedItemsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${ids.length} restored')));
+  }
+
+  Future<void> _deleteSelected() async {
+    final repository = ref.read(galleryRepositoryProvider);
+    final ids = List<String>.from(_selected);
+    setState(_selected.clear);
+    await repository.deletePermanentlyBatch(ids);
+    ref.invalidate(trashedItemsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${ids.length} permanently deleted')),
+    );
+  }
+
+  Future<void> _emptyTrash(List<MediaItem> items) async {
+    final repository = ref.read(galleryRepositoryProvider);
+    await repository.deletePermanentlyBatch(
+      items.map((i) => i.localId).toList(),
+    );
+    ref.invalidate(trashedItemsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Trash emptied')));
+  }
+
+  void _confirmDelete({
+    required int count,
+    required VoidCallback onConfirm,
+    bool emptyAll = false,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.delete_forever,
+          color: Theme.of(context).colorScheme.error,
+          size: 48,
+        ),
+        title: Text(emptyAll ? 'Empty trash?' : 'Delete permanently?'),
+        content: Text(
+          emptyAll
+              ? 'All $count items will be permanently deleted. '
+                    'This can\'t be undone.'
+              : '$count ${count == 1 ? 'item' : 'items'} will be permanently '
+                    'deleted. This can\'t be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              onConfirm();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.delete_outline,
+            size: 80,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Trash is empty',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Items moved to trash will be\npermanently deleted after '
+            '${AppConstants.trashRetentionDays} days.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

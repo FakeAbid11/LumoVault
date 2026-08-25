@@ -6,22 +6,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
 
-/// Immich-style photo map: plots every device photo that carries GPS EXIF as a
+/// Immich & Google Photos style photo map: plots every device photo that carries GPS EXIF as a
 /// clustered marker over OpenStreetMap tiles. Locations are read straight from
 /// the gallery (see `mapPhotosProvider`), so a photo appears here as soon as
-/// it's on the device — it does not have to be backed up or scanned first.
+/// it's on the device.
 ///
-/// Tapping a pin opens it in the media viewer; a floating button recenters on
-/// the device's current location (the only thing geolocator is used for —
-/// photo coordinates come from photo_manager EXIF, not geolocator).
+/// Tapping a pin opens it in the media viewer; floating buttons recenter on
+/// the device's current location or fit all photos within view.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -63,9 +62,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           options: MapOptions(
             initialCenter: points.first,
             initialZoom: 4,
-            // Fit all located photos in view on first render. A single photo
-            // has no bounds to fit, so it just centers (handled by initialCenter
-            // above); multiple photos get a padded bounding box.
             initialCameraFit: points.length > 1
                 ? CameraFit.bounds(
                     bounds: LatLngBounds.fromPoints(points),
@@ -88,23 +84,51 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ],
         ),
+        // Floating map controls: Fit All Photos & My Location
         Positioned(
           right: 16,
           bottom: 16,
-          child: FloatingActionButton(
-            onPressed: _locating ? null : _goToMyLocation,
-            tooltip: 'My location',
-            child: _locating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.small(
+                heroTag: 'fit_bounds_fab',
+                onPressed: () => _fitAllPoints(points),
+                tooltip: 'Fit all photos in view',
+                child: const Icon(Icons.zoom_out_map),
+              ),
+              const SizedBox(height: 12),
+              FloatingActionButton(
+                heroTag: 'my_location_fab',
+                onPressed: _locating ? null : _goToMyLocation,
+                tooltip: 'My location',
+                child: _locating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  void _fitAllPoints(List<LatLng> points) {
+    HapticFeedback.lightImpact();
+    if (points.length == 1) {
+      _mapController.move(points.first, 14);
+    } else if (points.length > 1) {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(48),
+        ),
+      );
+    }
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
@@ -115,7 +139,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
         maxClusterRadius: 45,
-        size: const Size(44, 44),
+        size: const Size(48, 48),
         padding: const EdgeInsets.all(48),
         markers: [
           for (final photo in photos)
@@ -125,7 +149,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               height: 48,
               child: _PhotoMarker(
                 item: photo,
-                onTap: () => _openItem(context, photo),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _openItem(context, photo);
+                },
               ),
             ),
         ],
@@ -146,33 +173,101 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     List<MediaItem> clusterPhotos,
   ) {
     final scheme = Theme.of(context).colorScheme;
+    final topPhoto = clusterPhotos.firstOrNull;
+
     return GestureDetector(
       onTap: () {
+        HapticFeedback.selectionClick();
         if (clusterPhotos.isNotEmpty) {
           _showClusterPreview(context, clusterPhotos);
         }
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: scheme.primary,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.center,
-        child: Text(
-          '$count',
-          style: TextStyle(
-            color: scheme.onPrimary,
-            fontWeight: FontWeight.bold,
+        children: [
+          // Circular photo thumbnail preview
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black38,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+              color: scheme.primaryContainer,
+            ),
+            child: ClipOval(
+              child: topPhoto != null
+                  ? FutureBuilder<Uint8List?>(
+                      future: MediaTile.defaultThumbnailLoader(topPhoto),
+                      builder: (context, snapshot) {
+                        final bytes = snapshot.data;
+                        if (bytes != null) {
+                          return Image.memory(
+                            bytes,
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          );
+                        }
+                        return Container(
+                          color: scheme.primary,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.photo_library,
+                            size: 22,
+                            color: scheme.onPrimary,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: scheme.primary,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.photo_library,
+                        size: 22,
+                        color: scheme.onPrimary,
+                      ),
+                    ),
+            ),
           ),
-        ),
+          // Badge indicator with count
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+              alignment: Alignment.center,
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  color: scheme.onPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -223,7 +318,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           mediaItem: item,
                           onTap: () {
                             Navigator.pop(context);
-                            _openItem(context, item);
+                            _openClusterItems(context, items, index);
                           },
                         ),
                       );
@@ -269,17 +364,45 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  /// Open a photo in the media viewer, mirroring the timeline's local-item
-  /// path: resolve the [AssetEntity] by id, then push the viewer.
+  /// Open a single photo in the media viewer.
   void _openItem(BuildContext context, MediaItem item) {
     AssetEntity.fromId(item.localId).then((asset) {
       if (asset != null && context.mounted) {
         context.push(
           '/gallery/media/${asset.id}',
-          extra: (assets: [asset], initialIndex: 0),
+          extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: true),
         );
       }
     });
+  }
+
+  /// Open cluster photos in media viewer with full album swipe.
+  Future<void> _openClusterItems(
+    BuildContext context,
+    List<MediaItem> items,
+    int initialIndex,
+  ) async {
+    final validAssets = <AssetEntity>[];
+    int targetIndex = 0;
+    for (int i = 0; i < items.length; i++) {
+      final asset = await AssetEntity.fromId(items[i].localId);
+      if (asset != null) {
+        if (i == initialIndex) {
+          targetIndex = validAssets.length;
+        }
+        validAssets.add(asset);
+      }
+    }
+    if (validAssets.isNotEmpty && context.mounted) {
+      context.push(
+        '/gallery/media/${validAssets[targetIndex].id}',
+        extra: (
+          assets: validAssets,
+          initialIndex: targetIndex,
+          allowDeviceDelete: true,
+        ),
+      );
+    }
   }
 
   Future<void> _goToMyLocation() async {

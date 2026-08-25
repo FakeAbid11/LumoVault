@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/storage/thumbnail_cache.dart';
 import '../../../../core/theme/status_color.dart';
+import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
 
 class MediaTile extends StatefulWidget {
@@ -190,18 +191,19 @@ class _MediaTileState extends State<MediaTile> {
       future: _thumbnailFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          );
+          return const ShimmerPlaceholder();
         }
         final bytes = snapshot.data;
         if (bytes != null) {
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildPlaceholder(context),
+          return Hero(
+            tag: 'media_${widget.mediaItem.localId}',
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildPlaceholder(context),
+            ),
           );
         }
         return _buildPlaceholder(context);

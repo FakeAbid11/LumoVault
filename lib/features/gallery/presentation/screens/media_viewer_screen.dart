@@ -11,6 +11,7 @@ import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../backup/engine/backup_engine.dart';
+import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/upload_task.dart';
 import '../widgets/inline_video_player.dart';
@@ -91,12 +92,19 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
           style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.assets.length,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
-        itemBuilder: (context, index) =>
-            _AssetPreview(asset: widget.assets[index]),
+      body: SwipeDismissWrapper(
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: widget.assets.length,
+          onPageChanged: (index) {
+            if (_currentIndex != index) {
+              HapticFeedback.selectionClick();
+              setState(() => _currentIndex = index);
+            }
+          },
+          itemBuilder: (context, index) =>
+              _AssetPreview(asset: widget.assets[index]),
+        ),
       ),
       // Actions live at the bottom, thumb-reachable, like most gallery apps.
       // The backup action only appears while there's something to do — back
@@ -539,7 +547,12 @@ class _AssetPreview extends StatelessWidget {
         return InteractiveViewer(
           minScale: 1,
           maxScale: 4,
-          child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
+          child: Center(
+            child: Hero(
+              tag: 'asset_${asset.id}',
+              child: Image.memory(bytes, fit: BoxFit.contain),
+            ),
+          ),
         );
       },
     );

@@ -11,6 +11,7 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
@@ -37,11 +38,53 @@ class LocalScreen extends ConsumerStatefulWidget {
 class _LocalScreenState extends ConsumerState<LocalScreen> {
   final Set<String> _multiSelected = {};
   bool get _isMultiSelectMode => _multiSelected.isNotEmpty;
+  final ScrollController _scrollController = ScrollController();
+  double _lastPinchScale = 1.0;
 
   @override
   void initState() {
     super.initState();
     _checkPermissions();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handlePinchScale(double scale) {
+    if ((scale - _lastPinchScale).abs() < 0.25) return;
+    _lastPinchScale = scale;
+
+    final currentGrid = ref.read(settingsGridSizeProvider);
+    if (scale > 1.25) {
+      // Zoom in -> larger thumbnails, fewer columns
+      if (currentGrid == GridSize.small) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
+        HapticFeedback.lightImpact();
+      } else if (currentGrid == GridSize.medium) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.large));
+        HapticFeedback.lightImpact();
+      }
+    } else if (scale < 0.75) {
+      // Zoom out -> smaller thumbnails, more columns
+      if (currentGrid == GridSize.large) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
+        HapticFeedback.lightImpact();
+      } else if (currentGrid == GridSize.medium) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.small));
+        HapticFeedback.lightImpact();
+      }
+    }
   }
 
   Future<void> _checkPermissions() async {
@@ -330,62 +373,83 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       ref.watch(settingsCompactModeProvider),
     );
 
-    return CustomScrollView(
-      slivers: [
-        for (int i = 0; i < dateKeys.length; i++) ...[
-          SliverToBoxAdapter(
-            child: DateHeader(
-              dateText: dateKeys[i],
-              itemCount: groupedAssets[dateKeys[i]]?.length,
-            ),
-          ),
-          SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-            ),
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final assets = groupedAssets[dateKeys[i]]!;
-              final asset = assets[index];
-              final item = repository.getItemById(asset.id);
-              // Not selected for backup by default, same as a freshly
-              // scanned item — matches the scanners' opt-in default.
-              final isSelectedForBackup = !(item?.isExcluded ?? true);
+    return GestureDetector(
+      onScaleUpdate: (details) {
+        if (details.pointerCount >= 2) {
+          _handlePinchScale(details.scale);
+        }
+      },
+      child: FastScrollScrubber(
+        scrollController: _scrollController,
+        dateResolver: (progress) {
+          if (dateKeys.isEmpty) return '';
+          final index = (progress * (dateKeys.length - 1)).round().clamp(
+            0,
+            dateKeys.length - 1,
+          );
+          return dateKeys[index];
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            for (int i = 0; i < dateKeys.length; i++) ...[
+              SliverToBoxAdapter(
+                child: DateHeader(
+                  dateText: dateKeys[i],
+                  itemCount: groupedAssets[dateKeys[i]]?.length,
+                ),
+              ),
+              SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final assets = groupedAssets[dateKeys[i]]!;
+                  final asset = assets[index];
+                  final item = repository.getItemById(asset.id);
+                  // Not selected for backup by default, same as a freshly
+                  // scanned item — matches the scanners' opt-in default.
+                  final isSelectedForBackup = !(item?.isExcluded ?? true);
 
-              return AssetTile(
-                asset: asset,
-                status: item?.status,
-                isSelectedForBackup: isSelectedForBackup,
-                isSelected: _multiSelected.contains(asset.id),
-                onTap: () {
-                  if (_isMultiSelectMode) {
-                    setState(() {
-                      if (!_multiSelected.remove(asset.id)) {
-                        _multiSelected.add(asset.id);
+                  return AssetTile(
+                    asset: asset,
+                    status: item?.status,
+                    isSelectedForBackup: isSelectedForBackup,
+                    isSelected: _multiSelected.contains(asset.id),
+                    onTap: () {
+                      if (_isMultiSelectMode) {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          if (!_multiSelected.remove(asset.id)) {
+                            _multiSelected.add(asset.id);
+                          }
+                        });
+                        return;
                       }
-                    });
-                    return;
-                  }
-                  final globalIndex = allAssets.indexOf(asset);
-                  context.push(
-                    '/gallery/media/${asset.id}',
-                    extra: (
-                      assets: allAssets,
-                      initialIndex: globalIndex,
-                      allowDeviceDelete: true,
-                    ),
+                      final globalIndex = allAssets.indexOf(asset);
+                      context.push(
+                        '/gallery/media/${asset.id}',
+                        extra: (
+                          assets: allAssets,
+                          initialIndex: globalIndex,
+                          allowDeviceDelete: true,
+                        ),
+                      );
+                    },
+                    onLongPress: () {
+                      HapticFeedback.mediumImpact();
+                      setState(() => _multiSelected.add(asset.id));
+                    },
                   );
-                },
-                onLongPress: () {
-                  setState(() => _multiSelected.add(asset.id));
-                },
-              );
-            }, childCount: groupedAssets[dateKeys[i]]?.length ?? 0),
-          ),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
+                }, childCount: groupedAssets[dateKeys[i]]?.length ?? 0),
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        ),
+      ),
     );
   }
 

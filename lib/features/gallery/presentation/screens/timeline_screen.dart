@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -9,6 +10,7 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/lumo_loading.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/date_header.dart';
@@ -20,11 +22,59 @@ import '../widgets/media_tile.dart';
 /// Local items (from device scan) and Telegram-only items (from channel scan)
 /// are merged and grouped by date. Tapping a local item opens the media
 /// viewer; tapping a Telegram-only item shows the detail info.
-class TimelineScreen extends ConsumerWidget {
+class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TimelineScreen> createState() => _TimelineScreenState();
+}
+
+class _TimelineScreenState extends ConsumerState<TimelineScreen> {
+  final ScrollController _scrollController = ScrollController();
+  double _lastPinchScale = 1.0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handlePinchScale(double scale) {
+    if ((scale - _lastPinchScale).abs() < 0.25) return;
+    _lastPinchScale = scale;
+
+    final currentGrid = ref.read(settingsGridSizeProvider);
+    if (scale > 1.25) {
+      // Zoom in -> larger thumbnails, fewer columns
+      if (currentGrid == GridSize.small) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
+        HapticFeedback.lightImpact();
+      } else if (currentGrid == GridSize.medium) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.large));
+        HapticFeedback.lightImpact();
+      }
+    } else if (scale < 0.75) {
+      // Zoom out -> smaller thumbnails, more columns
+      if (currentGrid == GridSize.large) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
+        HapticFeedback.lightImpact();
+      } else if (currentGrid == GridSize.medium) {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(gridSize: GridSize.small));
+        HapticFeedback.lightImpact();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Watch backup stats for live refresh on upload completion.
     ref.watch(backupStatsProvider);
     // Watch gallery changes (channel scan adds items here).
@@ -57,20 +107,19 @@ class TimelineScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: _buildBody(context, ref, uploadedItems, isScanning, scanned, total),
+      body: _buildBody(context, uploadedItems, isScanning, scanned, total),
     );
   }
 
   Widget _buildBody(
     BuildContext context,
-    WidgetRef ref,
     List<MediaItem> uploadedItems,
     bool isScanning,
     int scanned,
     int total,
   ) {
     if (uploadedItems.isEmpty && !isScanning) {
-      return _buildEmptyState(context, ref);
+      return _buildEmptyState(context);
     }
 
     if (uploadedItems.isEmpty && isScanning) {
@@ -81,11 +130,11 @@ class TimelineScreen extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        // Re-trigger channel scan on pull-to-refresh.
+        HapticFeedback.mediumImpact();
         final scanNotifier = ref.read(channelScanStateProvider.notifier);
         await scanNotifier.scan(forceRescan: true);
       },
-      child: _buildGrid(context, ref, uploadedItems, grouped),
+      child: _buildGrid(context, uploadedItems, grouped),
     );
   }
 
@@ -112,7 +161,6 @@ class TimelineScreen extends ConsumerWidget {
 
   Widget _buildGrid(
     BuildContext context,
-    WidgetRef ref,
     List<MediaItem> allItems,
     Map<String, List<MediaItem>> groupedItems,
   ) {
@@ -139,43 +187,64 @@ class TimelineScreen extends ConsumerWidget {
       thumbnailGeneration,
     );
 
-    return CustomScrollView(
-      slivers: [
-        for (int i = 0; i < dateKeys.length; i++) ...[
-          SliverToBoxAdapter(
-            child: DateHeader(
-              dateText: dateKeys[i],
-              itemCount: groupedItems[dateKeys[i]]?.length,
-            ),
-          ),
-          SliverGrid(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-            ),
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final items = groupedItems[dateKeys[i]]!;
-              final item = items[index];
+    return GestureDetector(
+      onScaleUpdate: (details) {
+        if (details.pointerCount >= 2) {
+          _handlePinchScale(details.scale);
+        }
+      },
+      child: FastScrollScrubber(
+        scrollController: _scrollController,
+        dateResolver: (progress) {
+          if (dateKeys.isEmpty) return '';
+          final index = (progress * (dateKeys.length - 1)).round().clamp(
+            0,
+            dateKeys.length - 1,
+          );
+          return dateKeys[index];
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            for (int i = 0; i < dateKeys.length; i++) ...[
+              SliverToBoxAdapter(
+                child: DateHeader(
+                  dateText: dateKeys[i],
+                  itemCount: groupedItems[dateKeys[i]]?.length,
+                ),
+              ),
+              SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final items = groupedItems[dateKeys[i]]!;
+                  final item = items[index];
 
-              return MediaTile(
-                mediaItem: item,
-                showStatus: true,
-                reloadGeneration: reloadGeneration,
-                telegramThumbnailFetcher: telegramFetcher.fetch,
-                onTap: () => _onItemTap(context, ref, item, allItems),
-              );
-            }, childCount: groupedItems[dateKeys[i]]?.length ?? 0),
-          ),
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-      ],
+                  return MediaTile(
+                    mediaItem: item,
+                    showStatus: true,
+                    reloadGeneration: reloadGeneration,
+                    telegramThumbnailFetcher: telegramFetcher.fetch,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _onItemTap(context, item, allItems);
+                    },
+                  );
+                }, childCount: groupedItems[dateKeys[i]]?.length ?? 0),
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
+        ),
+      ),
     );
   }
 
   void _onItemTap(
     BuildContext context,
-    WidgetRef ref,
     MediaItem item,
     List<MediaItem> allItems,
   ) {
@@ -212,7 +281,7 @@ class TimelineScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
+  Widget _buildEmptyState(BuildContext context) {
     return EmptyState(
       icon: Icons.cloud_done_outlined,
       title: 'No backed up photos yet',
@@ -227,6 +296,3 @@ class TimelineScreen extends ConsumerWidget {
     );
   }
 }
-
-/// Re-export backupStatsProvider so the timeline can watch it for refresh.
-/// This is already defined in backup_providers.dart; the import handles it.

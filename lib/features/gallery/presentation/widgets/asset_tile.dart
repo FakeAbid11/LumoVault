@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/theme/status_color.dart';
+import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
 
 /// Grid tile for the timeline, backed directly by a device [AssetEntity]
@@ -121,20 +122,21 @@ class _AssetTileState extends State<AssetTile>
       future: _thumbnailFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          );
+          return const ShimmerPlaceholder();
         }
         final bytes = snapshot.data;
         if (bytes == null) {
           return _buildPlaceholder(context);
         }
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (context, error, stackTrace) =>
-              _buildPlaceholder(context),
+        return Hero(
+          tag: 'asset_${widget.asset.id}',
+          child: Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildPlaceholder(context),
+          ),
         );
       },
     );

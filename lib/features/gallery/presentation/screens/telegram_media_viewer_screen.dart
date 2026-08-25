@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
@@ -11,6 +11,7 @@ import '../../../../core/di/gallery_save_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../../core/storage/storage_channel_service.dart';
 import '../../../../core/utils/format_utils.dart';
+import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../../restore/presentation/providers/restore_providers.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/transfer_error.dart';
@@ -174,12 +175,19 @@ class _TelegramMediaViewerScreenState
           ),
         ],
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.items.length,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
-        itemBuilder: (context, index) =>
-            _TelegramPreview(item: widget.items[index]),
+      body: SwipeDismissWrapper(
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: widget.items.length,
+          onPageChanged: (index) {
+            if (_currentIndex != index) {
+              HapticFeedback.selectionClick();
+              setState(() => _currentIndex = index);
+            }
+          },
+          itemBuilder: (context, index) =>
+              _TelegramPreview(item: widget.items[index]),
+        ),
       ),
     );
   }
@@ -307,7 +315,12 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
         return InteractiveViewer(
           minScale: 1,
           maxScale: 4,
-          child: Center(child: Image.file(File(filePath), fit: BoxFit.contain)),
+          child: Center(
+            child: Hero(
+              tag: 'media_${widget.item.localId}',
+              child: Image.file(File(filePath), fit: BoxFit.contain),
+            ),
+          ),
         );
       },
     );

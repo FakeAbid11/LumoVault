@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,6 +108,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
+    final photoByPoint = {
+      for (final p in photos) LatLng(p.latitude!, p.longitude!): p,
+    };
+
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
         maxClusterRadius: 45,
@@ -126,24 +129,112 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
         ],
-        builder: (context, markers) => _buildCluster(context, markers.length),
+        builder: (context, markers) {
+          final clusterPhotos = [
+            for (final m in markers)
+              if (photoByPoint[m.point] != null) photoByPoint[m.point]!,
+          ];
+          return _buildCluster(context, markers.length, clusterPhotos);
+        },
       ),
     );
   }
 
-  Widget _buildCluster(BuildContext context, int count) {
+  Widget _buildCluster(
+    BuildContext context,
+    int count,
+    List<MediaItem> clusterPhotos,
+  ) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.primary,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+    return GestureDetector(
+      onTap: () {
+        if (clusterPhotos.isNotEmpty) {
+          _showClusterPreview(context, clusterPhotos);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$count',
+          style: TextStyle(
+            color: scheme.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      alignment: Alignment.center,
-      child: Text(
-        '$count',
-        style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.bold),
-      ),
+    );
+  }
+
+  void _showClusterPreview(BuildContext context, List<MediaItem> items) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Photos at this location (${items.length})',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 110,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return SizedBox(
+                        width: 110,
+                        height: 110,
+                        child: MediaTile(
+                          mediaItem: item,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _openItem(context, item);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

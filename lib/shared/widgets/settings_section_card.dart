@@ -36,7 +36,7 @@ class SettingsSectionCard extends StatelessWidget {
           Material(
             clipBehavior: Clip.antiAlias,
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24),
             child: Column(children: _withDividers(context, children)),
           ),
         ],

@@ -104,8 +104,7 @@ void main() {
 
       // Visible section headers (top of list)
       expect(find.text('Account'), findsNWidgets(2));
-      expect(find.text('General'), findsOneWidget);
-      expect(find.text('Backup'), findsOneWidget);
+      expect(find.text('Backup & Storage'), findsOneWidget);
     });
 
     testWidgets('renders Settings title in app bar', (tester) async {
@@ -139,6 +138,11 @@ void main() {
       await tester.pumpWidget(_buildTestWidget());
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('English'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('English'), findsOneWidget);
     });
 

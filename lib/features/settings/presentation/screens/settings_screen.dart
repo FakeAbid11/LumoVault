@@ -6,7 +6,7 @@ import '../../../../shared/widgets/settings_section_card.dart';
 import '../../data/models/app_settings.dart';
 import '../providers/settings_providers.dart';
 
-/// Main settings screen — navigation hub for all settings categories.
+/// Main settings screen — modern Material 3 navigation hub.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -17,8 +17,9 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: const EdgeInsets.only(top: 4, bottom: 32),
         children: [
-          const SizedBox(height: 4),
+          // ── Account Section ──
           SettingsSectionCard(
             title: 'Account',
             children: [
@@ -31,20 +32,10 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          // ── Backup & Storage Section ──
           SettingsSectionCard(
-            title: 'General',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: const Text('Language'),
-                subtitle: Text(_languageName(settings.languageCode)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/settings/general'),
-              ),
-            ],
-          ),
-          SettingsSectionCard(
-            title: 'Backup',
+            title: 'Backup & Storage',
             children: [
               SwitchListTile(
                 secondary: const Icon(Icons.backup),
@@ -78,18 +69,28 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.storage),
                 title: const Text('Storage Usage'),
+                subtitle: const Text('Device cache and storage cleanup'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/storage'),
               ),
             ],
           ),
+
+          // ── Vault & Privacy Section ──
           SettingsSectionCard(
-            title: 'Media',
+            title: 'Vault & Privacy',
             children: [
               ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('Privacy & App Lock'),
+                subtitle: Text(_privacyStatus(settings)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/privacy'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.folder),
-                title: const Text('Media Settings'),
-                subtitle: const Text('Folders, albums, and backup options'),
+                title: const Text('Media Folders'),
+                subtitle: const Text('Included folders and albums'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/media'),
               ),
@@ -113,8 +114,10 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          // ── Preferences Section ──
           SettingsSectionCard(
-            title: 'Appearance',
+            title: 'Preferences',
             children: [
               ListTile(
                 leading: const Icon(Icons.palette),
@@ -123,23 +126,13 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/appearance'),
               ),
-            ],
-          ),
-          SettingsSectionCard(
-            title: 'Privacy',
-            children: [
               ListTile(
-                leading: const Icon(Icons.lock),
-                title: const Text('Privacy'),
-                subtitle: Text(_privacyStatus(settings)),
+                leading: const Icon(Icons.language),
+                title: const Text('Language'),
+                subtitle: Text(_languageName(settings.languageCode)),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/settings/privacy'),
+                onTap: () => context.push('/settings/general'),
               ),
-            ],
-          ),
-          SettingsSectionCard(
-            title: 'Notifications',
-            children: [
               ListTile(
                 leading: const Icon(Icons.notifications),
                 title: const Text('Notifications'),
@@ -148,9 +141,17 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          // ── About & System Section ──
           SettingsSectionCard(
-            title: 'Developer',
+            title: 'About & System',
             children: [
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('About LumoVault'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/about'),
+              ),
               ListTile(
                 leading: const Icon(Icons.code),
                 title: const Text('Developer Options'),
@@ -160,18 +161,6 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
-          SettingsSectionCard(
-            title: 'About',
-            children: [
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('About LumoVault'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/settings/about'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
         ],
       ),
     );

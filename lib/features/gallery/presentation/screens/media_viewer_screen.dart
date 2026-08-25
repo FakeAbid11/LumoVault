@@ -120,7 +120,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                       progress: task?.progress ?? 0,
                       onPressed: isUploading
                           ? null
-                          : () => _backUpCurrentAsset(context),
+                          : () => _backUpCurrentAsset(),
                     ),
                   ),
                 Expanded(
@@ -130,14 +130,14 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                         : Icons.location_on_outlined,
                     label: hasLocation ? 'Location' : 'Location',
                     color: hasLocation ? Colors.blueAccent : Colors.white,
-                    onPressed: () => _openLocationPicker(context),
+                    onPressed: () => _openLocationPicker(),
                   ),
                 ),
                 Expanded(
                   child: _BottomAction(
                     icon: Icons.share_outlined,
                     label: 'Share',
-                    onPressed: () => _shareCurrentAsset(context),
+                    onPressed: () => _shareCurrentAsset(),
                   ),
                 ),
                 // No "Download" action here: this viewer only ever shows
@@ -156,7 +156,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                       icon: Icons.delete_outline,
                       label: 'Trash',
                       color: Colors.redAccent,
-                      onPressed: () => _trashFromDevice(context),
+                      onPressed: () => _trashFromDevice(),
                     ),
                   ),
               ],
@@ -167,12 +167,12 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     );
   }
 
-  Future<void> _shareCurrentAsset(BuildContext context) async {
+  Future<void> _shareCurrentAsset() async {
     final asset = _currentAsset;
     // originFile is the real file bytes on disk — the same path backup uses.
     // Thumbnails would share a downscaled copy, so share the original.
     final file = await asset.originFile;
-    if (!context.mounted) return;
+    if (!mounted) return;
     if (file == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Couldn't load file to share")),
@@ -190,7 +190,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   /// phone's Trash until then. This removes only the on-device copy — a
   /// Telegram backup, if any, is deliberately left untouched, since "delete
   /// from phone" is not the same as removing the cloud backup.
-  Future<void> _trashFromDevice(BuildContext context) async {
+  Future<void> _trashFromDevice() async {
     final asset = _currentAsset;
     final noun = asset.type == AssetType.video ? 'video' : 'photo';
     final repository = ref.read(galleryRepositoryProvider);
@@ -228,13 +228,13 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       ),
     );
 
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return;
 
     try {
       // Android shows the user its own trash-confirmation dialog and returns
       // the ids it actually trashed — empty if the user cancels there.
       final trashed = await PhotoManager.editor.android.moveToTrash([asset]);
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       // Empty result = the user backed out of the system dialog (or nothing
       // was trashed). Leave the viewer as-is.
@@ -245,6 +245,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       // this handles the app-level tracking.
       await repository.moveToTrash(asset.id);
 
+      if (!mounted) return;
       // The asset is gone from the device gallery now. Refresh the providers
       // that list device assets so the deleted item drops out of the grid and
       // the map, then close the viewer — the asset it was showing is gone.
@@ -256,16 +257,16 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     } on PlatformException {
       // moveToTrash is Android 11+ (API 30) only — older versions have no
       // MediaStore trash, so there's no 30-day-recovery delete to offer.
-      if (!context.mounted) return;
+      if (!mounted) return;
       _notify(context, 'Deleting to trash needs Android 11 or newer');
     } catch (_) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       _notify(context, 'Couldn’t delete this $noun');
     }
   }
 
   /// Open the map picker to set or edit this photo's GPS location.
-  Future<void> _openLocationPicker(BuildContext context) async {
+  Future<void> _openLocationPicker() async {
     final asset = _currentAsset;
     final repository = ref.read(galleryRepositoryProvider);
     final currentItem = repository.getItemById(asset.id);
@@ -296,7 +297,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     ref.invalidate(mapPhotosProvider);
     ref.invalidate(mediaItemProvider(asset.id));
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.isRemove ? 'Location removed' : 'Location saved'),
@@ -310,10 +311,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   /// The button used to only flip an include/exclude flag, which meant the
   /// upload didn't happen until the user separately went to the backup screen
   /// and pressed Start Backup. This uploads this one file directly.
-  Future<void> _backUpCurrentAsset(
-    BuildContext context, {
-    bool allowMobileData = false,
-  }) async {
+  Future<void> _backUpCurrentAsset({bool allowMobileData = false}) async {
     final asset = _currentAsset;
     final repository = ref.read(galleryRepositoryProvider);
 
@@ -331,7 +329,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
 
       final item = repository.getItemById(asset.id);
       if (item == null) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         _notify(context, "Couldn't read this file to back it up");
         return;
       }
@@ -340,7 +338,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
           .read(backupEngineProvider.notifier)
           .backupItemNow(item, allowMobileData: allowMobileData);
 
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       switch (result.outcome) {
         case SingleBackupOutcome.uploaded:
@@ -357,8 +355,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
             'Wi-Fi only is on and you’re on mobile data',
             action: SnackBarAction(
               label: 'Back up anyway',
-              onPressed: () =>
-                  _backUpCurrentAsset(context, allowMobileData: true),
+              onPressed: () => _backUpCurrentAsset(allowMobileData: true),
             ),
             duration: const Duration(seconds: 6),
           );

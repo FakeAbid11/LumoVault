@@ -58,7 +58,7 @@ class _TelegramMediaViewerScreenState
     super.dispose();
   }
 
-  Future<void> _downloadToGallery(BuildContext context) async {
+  Future<void> _downloadToGallery() async {
     final item = widget.items[_currentIndex];
     final messenger = ScaffoldMessenger.of(context);
 
@@ -76,7 +76,7 @@ class _TelegramMediaViewerScreenState
       if (channelId == null) {
         final result = await storageChannelService.findExistingChannel();
         if (result is! StorageChannelFound) {
-          if (!context.mounted) return;
+          if (!mounted) return;
           messenger.showSnackBar(
             const SnackBar(content: Text('Storage channel not found')),
           );
@@ -87,7 +87,7 @@ class _TelegramMediaViewerScreenState
 
       final messageId = int.tryParse(item.telegramMessageId ?? '');
       if (messageId == null) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Could not save this file')),
         );
@@ -103,7 +103,7 @@ class _TelegramMediaViewerScreenState
 
       final downloadedFile = File(downloadResult.filePath);
       if (!await downloadedFile.exists()) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         messenger.showSnackBar(
           const SnackBar(content: Text('Download failed')),
         );
@@ -128,7 +128,7 @@ class _TelegramMediaViewerScreenState
         );
       }
 
-      if (!context.mounted) return;
+      if (!mounted) return;
       if (saved != null) {
         messenger.showSnackBar(
           const SnackBar(content: Text('Saved to gallery')),
@@ -139,7 +139,7 @@ class _TelegramMediaViewerScreenState
         );
       }
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not save to gallery')),
       );
@@ -162,7 +162,7 @@ class _TelegramMediaViewerScreenState
           IconButton(
             icon: const Icon(Icons.download_outlined),
             tooltip: 'Save to gallery',
-            onPressed: () => _downloadToGallery(context),
+            onPressed: () => _downloadToGallery(),
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),

@@ -503,6 +503,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       ref.invalidate(mapPhotosProvider);
       ref.invalidate(trashedItemsProvider);
       setState(_multiSelected.clear);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

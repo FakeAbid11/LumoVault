@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 /// Responsive shell that adapts navigation layout based on screen size.
 ///
-/// - Phone (< 600px): Bottom navigation bar
+/// - Phone (< 600px): Bottom floating capsule navigation bar (Google Photos style)
 /// - Tablet (600-840px): Navigation rail
 /// - Large Tablet (> 840px): Navigation drawer
 class AppShell extends StatelessWidget {
@@ -14,6 +15,7 @@ class AppShell extends StatelessWidget {
   int get _currentIndex => navigationShell.currentIndex;
 
   void _onTap(int index) {
+    HapticFeedback.selectionClick();
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -38,44 +40,77 @@ class AppShell extends StatelessWidget {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
+      extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTap,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.smartphone_outlined),
-            selectedIcon: Icon(Icons.smartphone),
-            label: 'Local',
-            tooltip: 'All photos on this device',
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(36),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 16,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+              width: 0.8,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.cloud_done_outlined),
-            selectedIcon: Icon(Icons.cloud_done),
-            label: 'Timeline',
-            tooltip: 'Photos backed up to Telegram',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: NavigationBar(
+              height: 64,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedIndex: _currentIndex,
+              onDestinationSelected: _onTap,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              indicatorShape: const StadiumBorder(),
+              indicatorColor: colorScheme.secondaryContainer,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.smartphone_outlined, size: 22),
+                  selectedIcon: Icon(Icons.smartphone, size: 22),
+                  label: 'Local',
+                  tooltip: 'All photos on this device',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.cloud_done_outlined, size: 22),
+                  selectedIcon: Icon(Icons.cloud_done, size: 22),
+                  label: 'Timeline',
+                  tooltip: 'Photos backed up to Telegram',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.map_outlined, size: 22),
+                  selectedIcon: Icon(Icons.map, size: 22),
+                  label: 'Map',
+                  tooltip: 'Photos on a map by location',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.people_outline, size: 22),
+                  selectedIcon: Icon(Icons.people, size: 22),
+                  label: 'People',
+                  tooltip: 'Photos grouped by person',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined, size: 22),
+                  selectedIcon: Icon(Icons.settings, size: 22),
+                  label: 'Settings',
+                  tooltip: 'App settings and preferences',
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
-            tooltip: 'Photos on a map by location',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'People',
-            tooltip: 'Photos grouped by person',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-            tooltip: 'App settings and preferences',
-          ),
-        ],
+        ),
       ),
     );
   }

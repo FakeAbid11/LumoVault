@@ -236,7 +236,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 }, childCount: groupedItems[dateKeys[i]]?.length ?? 0),
               ),
             ],
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),

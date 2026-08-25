@@ -445,7 +445,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                 }, childCount: groupedAssets[dateKeys[i]]?.length ?? 0),
               ),
             ],
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),

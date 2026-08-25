@@ -256,7 +256,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         ref.invalidate(faceCountProvider);
       },
       child: GridView.builder(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 96),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 8,

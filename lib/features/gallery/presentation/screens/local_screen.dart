@@ -12,7 +12,6 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
-import '../../data/models/media_item.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
 
@@ -509,46 +508,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     if (selected.isEmpty) return;
 
     final repository = ref.read(galleryRepositoryProvider);
-    final notBackedUp = selected
-        .where(
-          (a) => repository.getItemById(a.id)?.status != MediaStatus.uploaded,
-        )
-        .length;
-    final count = selected.length;
-    final noun = count == 1 ? 'item' : 'items';
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(
-          Icons.delete_outline,
-          color: Colors.redAccent,
-          size: 40,
-        ),
-        title: Text('Move $count $noun to trash?'),
-        content: Text(
-          notBackedUp == 0
-              ? 'They move to your phone’s trash and are permanently deleted '
-                    'after 30 days. Your backups stay safe in Telegram.'
-              : '$notBackedUp of these aren’t backed up yet. Everything moves '
-                    'to your phone’s trash and is permanently deleted after 30 '
-                    'days — restore from your phone’s trash before then.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Move to trash'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
 
     try {
       // One system dialog covers the whole batch; the returned ids are the

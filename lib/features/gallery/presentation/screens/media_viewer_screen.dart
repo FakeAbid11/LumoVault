@@ -211,41 +211,6 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     final asset = _currentAsset;
     final noun = asset.type == AssetType.video ? 'video' : 'photo';
     final repository = ref.read(galleryRepositoryProvider);
-    final isBackedUp =
-        repository.getItemById(asset.id)?.status == MediaStatus.uploaded;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: const Icon(
-          Icons.delete_outline,
-          color: Colors.redAccent,
-          size: 40,
-        ),
-        title: Text('Move this $noun to trash?'),
-        content: Text(
-          isBackedUp
-              ? 'It moves to your phone’s trash and is permanently deleted '
-                    'after 30 days. Your backup stays safe in Telegram.'
-              : 'It isn’t backed up yet. It moves to your phone’s trash and is '
-                    'permanently deleted after 30 days — restore it from your '
-                    'phone’s trash before then.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Move to trash'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
 
     try {
       // Android shows the user its own trash-confirmation dialog and returns

@@ -484,22 +484,42 @@ class _BottomAction extends StatelessWidget {
   }
 }
 
-class _AssetPreview extends StatelessWidget {
+class _AssetPreview extends StatefulWidget {
   const _AssetPreview({required this.asset});
 
   final AssetEntity asset;
 
   @override
+  State<_AssetPreview> createState() => _AssetPreviewState();
+}
+
+class _AssetPreviewState extends State<_AssetPreview> {
+  late final Future<Uint8List?> _thumbnailFuture;
+  late final Future<File?> _fileFuture;
+  late final bool _isVideo;
+
+  @override
+  void initState() {
+    super.initState();
+    _isVideo = widget.asset.type == AssetType.video;
+    if (_isVideo) {
+      _fileFuture = widget.asset.file;
+    } else {
+      _thumbnailFuture = widget.asset.thumbnailDataWithSize(
+        const ThumbnailSize(1600, 1600),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (asset.type == AssetType.video) return _buildVideo(context);
+    if (_isVideo) return _buildVideo(context);
     return _buildImage(context);
   }
 
   Widget _buildVideo(BuildContext context) {
     return FutureBuilder<File?>(
-      // The real file on disk — the same bytes backup and share use — is what
-      // video_player needs. Thumbnails are only decodable as still images.
-      future: asset.file,
+      future: _fileFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(
@@ -519,11 +539,7 @@ class _AssetPreview extends StatelessWidget {
 
   Widget _buildImage(BuildContext context) {
     return FutureBuilder<Uint8List?>(
-      // A large-but-bounded size renders quickly (photo_manager's cached
-      // thumbnail pipeline) rather than needing the slow, timeout-prone
-      // originFile() path just to preview something — that one's reserved
-      // for backup, where the real file bytes are actually needed.
-      future: asset.thumbnailDataWithSize(const ThumbnailSize(1600, 1600)),
+      future: _thumbnailFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(
@@ -541,7 +557,7 @@ class _AssetPreview extends StatelessWidget {
           maxScale: 4,
           child: Center(
             child: Hero(
-              tag: 'asset_${asset.id}',
+              tag: 'asset_${widget.asset.id}',
               child: Image.memory(bytes, fit: BoxFit.contain),
             ),
           ),

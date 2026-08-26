@@ -323,17 +323,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  height: 110,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
                   child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
+                    shrinkWrap: true,
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final item = items[index];
                       return SizedBox(
-                        width: 110,
-                        height: 110,
+                        height: 80,
                         child: MediaTile(
                           mediaItem: item,
                           onTap: () {

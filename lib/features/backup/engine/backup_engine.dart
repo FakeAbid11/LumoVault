@@ -234,6 +234,15 @@ class BackupEngine {
   Timer? _retryTimer;
   DateTime? _retryWakeAt;
 
+  /// Auto-resume when the scheduler pauses mid-batch (e.g. Wi-Fi drops).
+  /// After a short delay the engine re-checks the scheduler and resumes
+  /// if conditions improved, instead of sitting idle until the user opens
+  /// the app or a new WorkManager task fires.
+  Timer? _autoResumeTimer;
+  int _autoResumeRetries = 0;
+  static const _maxAutoResumeRetries = 3;
+  static const _autoResumeDelay = Duration(seconds: 30);
+
   UploadQueue get queue => _queue;
   BackupEngineState get state => _state;
   BackupStats get stats => _stats;
@@ -344,6 +353,7 @@ class BackupEngine {
   /// Pause the backup.
   void pauseBackup() {
     _isPaused = true;
+    _autoResumeTimer?.cancel();
     _queue.pauseAll();
     _setState(BackupEngineState.paused);
   }
@@ -351,6 +361,8 @@ class BackupEngine {
   /// Resume the backup.
   Future<void> resumeBackup() async {
     _isPaused = false;
+    _autoResumeRetries = 0;
+    _autoResumeTimer?.cancel();
     _queue.resumeAll();
     _setState(BackupEngineState.idle);
     await startBackup();
@@ -559,6 +571,7 @@ class BackupEngine {
           '[BackupEngine] Paused mid-batch: ${schedulerResult.reason}',
         );
         _setState(BackupEngineState.paused);
+        _scheduleAutoResume();
         return;
       }
 
@@ -604,6 +617,36 @@ class BackupEngine {
       if (!_isPaused && !_disposed) {
         unawaited(startBackup());
       }
+    });
+  }
+
+  /// Schedule an auto-resume after a short delay when the scheduler pauses
+  /// the backup mid-batch (e.g. Wi-Fi dropped). Retries up to
+  /// [_maxAutoResumeRetries] times before giving up — the user can then
+  /// resume manually or wait for the next WorkManager task / foreground sync.
+  void _scheduleAutoResume() {
+    if (_disposed) return;
+    _autoResumeTimer?.cancel();
+
+    if (_autoResumeRetries >= _maxAutoResumeRetries) {
+      debugPrint(
+        '[BackupEngine] Auto-resume exhausted ($_maxAutoResumeRetries retries). '
+        'Waiting for manual resume or next sync.',
+      );
+      return;
+    }
+
+    _autoResumeRetries++;
+    debugPrint(
+      '[BackupEngine] Scheduling auto-resume '
+      '(attempt $_autoResumeRetries/$_maxAutoResumeRetries) '
+      'in ${_autoResumeDelay.inSeconds}s',
+    );
+
+    _autoResumeTimer = Timer(_autoResumeDelay, () {
+      _autoResumeTimer = null;
+      if (_disposed || _isPaused) return;
+      unawaited(startBackup());
     });
   }
 
@@ -722,6 +765,7 @@ class BackupEngine {
           completedAt: DateTime.now(),
         ),
       );
+      _autoResumeRetries = 0;
     } on TransferError catch (e) {
       // Retry budget: a task gets at most UploadTask.maxAttempts attempts
       // (checked against the pre-increment retryCount). This is independent
@@ -933,6 +977,7 @@ class BackupEngine {
     if (_disposed) return;
     _disposed = true;
     _retryTimer?.cancel();
+    _autoResumeTimer?.cancel();
     _progressSubscription?.cancel();
     _stateController.close();
     _statsController.close();

@@ -35,9 +35,20 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
     return query.get();
   }
 
-  /// Get all unassigned faces (not yet clustered).
+  /// Get all unassigned faces (not yet clustered), oldest first.
+  ///
+  /// The ordering is load-bearing: [FaceRepository.clusterFaces] drains this
+  /// backlog in fixed-size slices, and SQLite guarantees no order without an
+  /// explicit ORDER BY — so without this the slice boundary could shift between
+  /// passes and starve the tail of the backlog.
   Future<List<FaceRow>> unassignedFaces() {
-    return (select(faces)..where((t) => t.personId.isNull())).get();
+    return (select(faces)
+          ..where((t) => t.personId.isNull())
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.createdAt),
+            (t) => OrderingTerm.asc(t.id),
+          ]))
+        .get();
   }
 
   /// Assign a face to a person.

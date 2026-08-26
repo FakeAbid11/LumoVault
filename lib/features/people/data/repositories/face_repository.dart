@@ -235,6 +235,19 @@ class FaceRepository {
   }
 
   Future<int> clusterFaces() async {
+    // Repair first. Databases written before the absorb-then-create ordering
+    // below can already hold several tiles for one face, and nothing else in
+    // the app ever merges them back.
+    await consolidateDuplicatePeople();
+
+    // Absorb before creating. This used to run *after* new people were minted
+    // (see the tail of this method), which meant every pass created a fresh
+    // person for any cluster of three or more unassigned faces — even when the
+    // grid already had a tile for that face. Only the sub-three leftovers were
+    // ever matched against an existing centroid, so one burst of photos inside
+    // a single 50-photo pass was enough to duplicate somebody.
+    await reclusterOrphans();
+
     final unassigned = await faceDao.unassignedFaces();
     if (unassigned.isEmpty) return 0;
     final allWithEmb = unassigned.where((f) => f.embedding.isNotEmpty).toList();
@@ -286,11 +299,39 @@ class FaceRepository {
       '[FaceRepository] created $newPersons persons '
       '(${clusters.length - newPersons} clusters below min size)',
     );
-    // Absorb leftovers into people that already exist, so the unassigned
-    // backlog does not keep growing pass after pass.
-    await reclusterOrphans();
+    // The people just created are new absorption anchors, so the faces that
+    // failed to match anything at the top of this method get one more chance
+    // against them. Skipped when nothing was created: the leading pass already
+    // tried every anchor that exists, and re-walking the whole orphan backlog
+    // against them costs O(orphans × people) for no possible gain.
+    if (newPersons > 0) {
+      await reclusterOrphans();
+    }
     return newPersons;
   }
+
+  /// Whether [name] is a real user-supplied name rather than an auto-created
+  /// person's placeholder.
+  static bool _hasName(String? name) => name != null && name.trim().isNotEmpty;
+
+  /// Cosine similarity an orphan face must reach to join the person named
+  /// [personName].
+  ///
+  /// A user-named person is an explicit identity claim, so joining one takes
+  /// the stricter [FaceClusteringService.namedThreshold]. An auto-created,
+  /// still-unnamed person gets [FaceClusteringService.defaultThreshold] — the
+  /// same bar the clustering pass used to group its faces in the first place.
+  ///
+  /// Holding unnamed people to the strict bar is what produced duplicate tiles:
+  /// a face 0.50 similar to an existing unnamed person was too dissimilar to
+  /// join it, yet three such faces cleared the 0.45 bar *between themselves*
+  /// and became a second person for the same face. The threshold constant is
+  /// documented as the orphan-to-*named*-person bar; it was being applied to
+  /// everyone.
+  @visibleForTesting
+  static double absorbThreshold(String? personName) => _hasName(personName)
+      ? FaceClusteringService.namedThreshold
+      : FaceClusteringService.defaultThreshold;
 
   Future<void> reclusterOrphans() async {
     final orphans = await faceDao.unassignedFaces();
@@ -298,28 +339,104 @@ class FaceRepository {
     final orphanEmb = orphans.where((f) => f.embedding.isNotEmpty).toList();
     if (orphanEmb.isEmpty) return;
     final peopleRows = await faceDao.allPeopleRows();
-    final anchors = <int, List<double>>{};
-    for (final p in peopleRows) {
-      if (p.centroidEmbedding.isNotEmpty) anchors[p.id] = p.centroidEmbedding;
-    }
+    final anchors = peopleRows
+        .where((p) => p.centroidEmbedding.isNotEmpty)
+        .toList();
     if (anchors.isEmpty) return;
     for (final orphan in orphanEmb) {
       var bestId = -1;
       var bestSim = 0.0;
-      for (final e in anchors.entries) {
+      for (final person in anchors) {
         final sim = faceClusteringService.cosineSimilarity(
           orphan.embedding,
-          e.value,
+          person.centroidEmbedding,
         );
+        // Each candidate is held to its own bar before competing, so a 0.52
+        // match against an unnamed person wins over a 0.54 match against a
+        // named one that fails its stricter 0.55 threshold.
+        if (sim < absorbThreshold(person.name)) continue;
         if (sim > bestSim) {
           bestSim = sim;
-          bestId = e.key;
+          bestId = person.id;
         }
       }
-      if (bestId >= 0 && bestSim >= FaceClusteringService.namedThreshold) {
+      if (bestId >= 0) {
         await faceDao.assignFaceToPerson(orphan.id, bestId);
       }
     }
+  }
+
+  /// Merges people that are duplicates of one another.
+  ///
+  /// Repairs libraries scanned before [clusterFaces] learned to absorb before
+  /// creating, where one burst of photos of someone already in the grid minted
+  /// a second tile for them. Runs at the top of every clustering pass, so an
+  /// existing install heals on its next scan without a schema migration.
+  ///
+  /// A named person is only ever a merge *target*, never a source: two people
+  /// the user named separately is an explicit statement that they are different
+  /// people, and no similarity score overrides that.
+  ///
+  /// Returns the number of people merged away.
+  Future<int> consolidateDuplicatePeople() async {
+    final people = await faceDao.allPeople();
+    final candidates = people
+        .where((p) => p.person.centroidEmbedding.isNotEmpty)
+        .toList();
+    if (candidates.length < 2) return 0;
+
+    // Named people first, then the largest clusters. The tile a user is most
+    // likely to recognise absorbs the strays, rather than a three-face
+    // fragment swallowing their main one and inheriting its thumbnail.
+    candidates.sort((a, b) {
+      final aNamed = _hasName(a.person.name);
+      final bNamed = _hasName(b.person.name);
+      if (aNamed != bNamed) return aNamed ? -1 : 1;
+      return b.faceCount.compareTo(a.faceCount);
+    });
+
+    final centroids = <int, List<double>>{
+      for (final c in candidates) c.person.id: c.person.centroidEmbedding,
+    };
+    final merged = <int>{};
+    var mergedAway = 0;
+
+    for (var i = 0; i < candidates.length; i++) {
+      final target = candidates[i].person;
+      if (merged.contains(target.id)) continue;
+      final threshold = absorbThreshold(target.name);
+
+      for (var j = i + 1; j < candidates.length; j++) {
+        final source = candidates[j].person;
+        if (merged.contains(source.id) || _hasName(source.name)) continue;
+
+        final sim = faceClusteringService.cosineSimilarity(
+          centroids[target.id]!,
+          centroids[source.id]!,
+        );
+        if (sim < threshold) continue;
+
+        await faceDao.mergePersons(source.id, target.id);
+        merged.add(source.id);
+        mergedAway++;
+
+        // Recompute before the next comparison: the target now covers both
+        // clusters, and matching later candidates against its stale centroid
+        // would leave a chain of near-duplicates unmerged.
+        await recomputeCentroid(target.id);
+        final refreshed = await faceDao.personById(target.id);
+        if (refreshed != null && refreshed.centroidEmbedding.isNotEmpty) {
+          centroids[target.id] = refreshed.centroidEmbedding;
+        }
+      }
+    }
+
+    if (mergedAway > 0) {
+      debugPrint(
+        '[FaceRepository] consolidated $mergedAway duplicate person(s)',
+      );
+    }
+    return mergedAway;
   }
 
   Future<void> recomputeCentroid(int personId) async {

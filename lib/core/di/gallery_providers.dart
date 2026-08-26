@@ -104,22 +104,21 @@ final timelineProvider = FutureProvider.autoDispose<List<MediaItem>>((
 
 /// Media items to plot on the Map tab.
 ///
-/// The map reflects the *gallery*, not just what a backup scan has hashed. It
-/// unions two sources:
-///  1. Scanned library items that already carry a resolved location — instant,
-///     their coordinates are persisted, and hidden/trashed are already dropped
-///     by [GalleryRepository.getTimelineItems].
-///  2. Device photos not yet scanned, whose GPS EXIF is read directly (no
-///     hashing — see [resolveAssetLocations]) so they show up immediately,
-///     exactly like the Local tab lists them before any scan. Coordinates
-///     already known from source 1 are skipped so a fix is never re-read.
+/// Emits twice via [StreamProvider] so the map renders instantly:
+///  1. First emission (synchronous): scanned library items that already carry a
+///     resolved location — coordinates are persisted, hidden/trashed items are
+///     already dropped by [GalleryRepository.getTimelineItems].
+///  2. Second emission (background): device photos not yet scanned, whose GPS
+///     EXIF is read directly (no hashing — see [resolveAssetLocations]) so
+///     they appear a few seconds later. Coordinates already known from source 1
+///     are skipped so a fix is never re-read.
 ///
 /// Items the user has hidden or trashed are suppressed from source 2: those
 /// flags only live on scanned items (which getTimelineItems has filtered out),
 /// so without this guard a raw device read would resurrect them onto the map.
-final mapPhotosProvider = FutureProvider.autoDispose<List<MediaItem>>((
+final mapPhotosProvider = StreamProvider.autoDispose<List<MediaItem>>((
   ref,
-) async {
+) async* {
   final repository = ref.watch(galleryRepositoryProvider);
 
   final located = <String, MediaItem>{
@@ -127,6 +126,11 @@ final mapPhotosProvider = FutureProvider.autoDispose<List<MediaItem>>((
       if (item.hasLocation) item.localId: item,
   };
 
+  // First emission: show already-scanned items instantly.
+  yield located.values.toList()
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  // Background: resolve GPS for device photos not yet in the database.
   final suppressed = <String>{
     for (final item in repository.mediaItems)
       if (item.isHidden || item.isTrashed) item.localId,
@@ -143,7 +147,8 @@ final mapPhotosProvider = FutureProvider.autoDispose<List<MediaItem>>((
     located[item.localId] = item;
   }
 
-  return located.values.toList()
+  // Second emission: merged list with newly-resolved items.
+  yield located.values.toList()
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 });
 

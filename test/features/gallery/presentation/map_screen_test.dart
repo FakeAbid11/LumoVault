@@ -9,7 +9,9 @@ import 'package:lumovault/features/gallery/presentation/screens/map_screen.dart'
 void main() {
   Widget wrap(List<MediaItem> photos) {
     return ProviderScope(
-      overrides: [mapPhotosProvider.overrideWith((ref) async => photos)],
+      overrides: [
+        mapPhotosProvider.overrideWith((ref) => Stream.value(photos)),
+      ],
       child: const MaterialApp(home: MapScreen()),
     );
   }

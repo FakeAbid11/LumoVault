@@ -38,7 +38,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Map')),
       body: photosAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => _buildMapOnly(),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -47,6 +47,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
         data: (photos) => _buildBody(context, photos),
       ),
+    );
+  }
+
+  /// Map tiles only — shown while the first stream emission arrives.
+  Widget _buildMapOnly() {
+    return FlutterMap(
+      mapController: _mapController,
+      options: const MapOptions(initialCenter: LatLng(0, 0), initialZoom: 2),
+      children: [
+        const OsmTileLayer(),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(
+              'OpenStreetMap contributors',
+              onTap: () =>
+                  launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

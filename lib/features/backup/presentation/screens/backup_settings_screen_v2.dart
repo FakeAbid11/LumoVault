@@ -213,14 +213,14 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
                   onSelectAll: () {
                     ref
                         .read(backupSettingsProvider.notifier)
-                        .updateIncludedFolders([]);
+                        .updateIncludedFolders(
+                          folders.map((f) => f.path).toList(),
+                        );
                   },
                   onDeselectAll: () {
                     ref
                         .read(backupSettingsProvider.notifier)
-                        .updateIncludedFolders(
-                          folders.map((f) => f.path).toList(),
-                        );
+                        .updateIncludedFolders([]);
                   },
                 ),
                 loading: () => const Padding(

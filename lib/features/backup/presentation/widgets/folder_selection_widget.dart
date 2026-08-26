@@ -7,7 +7,9 @@ import '../../../../core/utils/format_utils.dart';
 /// Folder selection widget for choosing which device folders are backed up.
 ///
 /// Uses an inclusion model: the user selects which folders to back up.
-/// An empty [BackupSettings.includedFolders] list means all folders are included.
+/// An empty [BackupSettings.includedFolders] list means *no* folders are
+/// backed up (backup is off). An [onSelectAll] callback sets the list to
+/// every available folder path.
 class FolderSelectionWidget extends StatelessWidget {
   const FolderSelectionWidget({
     super.key,
@@ -24,7 +26,8 @@ class FolderSelectionWidget extends StatelessWidget {
   final VoidCallback onSelectAll;
   final VoidCallback onDeselectAll;
 
-  bool get _allIncluded => settings.allFoldersIncluded;
+  bool get _allIncluded =>
+      settings.includedFolders.length == folders.length && folders.isNotEmpty;
 
   bool _isFolderIncluded(String folderPath) =>
       _allIncluded || settings.includedFolders.contains(folderPath);

@@ -41,15 +41,11 @@ class BackupSettings {
   final DateTime? lastBackupAt;
   final DateTime? lastScanAt;
 
-  /// Whether all folders are included — only true when the user explicitly
-  /// selected every folder. An empty [includedFolders] list means *no* folders
-  /// are backed up (backup is effectively off).
-  bool get allFoldersIncluded => false;
-
   /// Whether a specific folder is included for backup.
   ///
-  /// Returns `false` when [includedFolders] is empty (no folders selected =
-  /// backup off).
+  /// An empty [includedFolders] list means *no* folders are backed up (backup
+  /// is effectively off). Callers that need an "all folders" toggle should
+  /// compare `includedFolders.length` against the total device folder count.
   bool isFolderIncluded(String folderPath) {
     return includedFolders.contains(folderPath);
   }

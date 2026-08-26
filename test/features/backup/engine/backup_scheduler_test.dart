@@ -441,11 +441,6 @@ void main() {
   });
 
   group('BackupSettings', () {
-    test('allFoldersIncluded returns false when list is empty', () {
-      const settings = BackupSettings();
-      expect(settings.allFoldersIncluded, isFalse);
-    });
-
     test('isFolderIncluded returns false when no folders selected', () {
       const settings = BackupSettings();
       expect(settings.isFolderIncluded('/DCIM/Camera'), isFalse);

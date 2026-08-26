@@ -189,10 +189,11 @@ class _FolderTiles extends StatelessWidget {
   final AppSettings settings;
   final WidgetRef ref;
 
-  bool get _allIncluded => settings.includedFolders.isEmpty;
+  bool get _allIncluded =>
+      settings.includedFolders.length == folders.length && folders.isNotEmpty;
 
   bool _isFolderIncluded(String folderPath) =>
-      _allIncluded || settings.includedFolders.contains(folderPath);
+      settings.includedFolders.contains(folderPath);
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +221,9 @@ class _FolderTiles extends StatelessWidget {
             ref
                 .read(appSettingsProvider.notifier)
                 .updateField(
-                  (s) => s.copyWith(includedFolders: value ? [] : allPaths),
+                  (s) => s.copyWith(
+                    includedFolders: value ? allPaths : <String>[],
+                  ),
                 );
           },
         ),

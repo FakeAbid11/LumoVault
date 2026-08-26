@@ -279,9 +279,7 @@ class BackupEngine {
       // twice, and avoids re-triggering the same freeze-prone full-album
       // fetch path independently of whatever the timeline screen is doing.
       await galleryRepository.scanDeviceIncremental(
-        includedFolders: settings.allFoldersIncluded
-            ? null
-            : settings.includedFolders,
+        includedFolders: settings.includedFolders,
       );
 
       final items = galleryRepository.getTimelineItems();

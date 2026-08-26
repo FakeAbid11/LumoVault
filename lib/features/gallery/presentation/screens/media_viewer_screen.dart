@@ -67,6 +67,8 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     super.dispose();
   }
 
+  bool _isZoomed = false;
+
   AssetEntity get _currentAsset => widget.assets[_currentIndex];
 
   @override
@@ -101,18 +103,31 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         ],
       ),
       body: SwipeDismissWrapper(
+        enabled: !_isZoomed,
         onSwipeUp: _showExifDetails,
         child: PageView.builder(
           controller: _pageController,
+          physics: _isZoomed
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
           itemCount: widget.assets.length,
           onPageChanged: (index) {
             if (_currentIndex != index) {
               HapticFeedback.selectionClick();
-              setState(() => _currentIndex = index);
+              setState(() {
+                _currentIndex = index;
+                _isZoomed = false;
+              });
             }
           },
-          itemBuilder: (context, index) =>
-              _AssetPreview(asset: widget.assets[index]),
+          itemBuilder: (context, index) => _AssetPreview(
+            asset: widget.assets[index],
+            onZoomChanged: (zoomed) {
+              if (_isZoomed != zoomed) {
+                setState(() => _isZoomed = zoomed);
+              }
+            },
+          ),
         ),
       ),
       // Actions live at the bottom, thumb-reachable, like most gallery apps.
@@ -145,7 +160,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                     icon: hasLocation
                         ? Icons.location_on
                         : Icons.location_on_outlined,
-                    label: hasLocation ? 'Location' : 'Location',
+                    label: hasLocation ? 'Location' : 'Add Location',
                     color: hasLocation ? Colors.blueAccent : Colors.white,
                     onPressed: () => _openLocationPicker(),
                   ),
@@ -485,18 +500,26 @@ class _BottomAction extends StatelessWidget {
 }
 
 class _AssetPreview extends StatefulWidget {
-  const _AssetPreview({required this.asset});
+  const _AssetPreview({required this.asset, this.onZoomChanged});
 
   final AssetEntity asset;
+  final ValueChanged<bool>? onZoomChanged;
 
   @override
   State<_AssetPreview> createState() => _AssetPreviewState();
 }
 
-class _AssetPreviewState extends State<_AssetPreview> {
+class _AssetPreviewState extends State<_AssetPreview>
+    with SingleTickerProviderStateMixin {
   late final Future<Uint8List?> _thumbnailFuture;
   late final Future<File?> _fileFuture;
   late final bool _isVideo;
+
+  final TransformationController _transformationController =
+      TransformationController();
+  late final AnimationController _zoomAnimationController;
+  Animation<Matrix4>? _zoomAnimation;
+  bool _isZoomed = false;
 
   @override
   void initState() {
@@ -509,6 +532,60 @@ class _AssetPreviewState extends State<_AssetPreview> {
         const ThumbnailSize(1600, 1600),
       );
     }
+    _zoomAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _transformationController.addListener(_onTransformationChanged);
+  }
+
+  @override
+  void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
+    _transformationController.dispose();
+    _zoomAnimationController.dispose();
+    super.dispose();
+  }
+
+  void _onTransformationChanged() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isZoomed = scale > 1.05;
+    if (isZoomed != _isZoomed) {
+      _isZoomed = isZoomed;
+      widget.onZoomChanged?.call(isZoomed);
+    }
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    if (_zoomAnimationController.isAnimating) return;
+
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final Matrix4 endMatrix;
+
+    if (currentScale > 1.05) {
+      endMatrix = Matrix4.identity();
+    } else {
+      final position = details.localPosition;
+      final x = -position.dx * (2.5 - 1.0);
+      final y = -position.dy * (2.5 - 1.0);
+      endMatrix = Matrix4.diagonal3Values(2.5, 2.5, 1.0)
+        ..setTranslationRaw(x, y, 0.0);
+    }
+
+    _zoomAnimation =
+        Matrix4Tween(
+          begin: _transformationController.value,
+          end: endMatrix,
+        ).animate(
+          CurvedAnimation(
+            parent: _zoomAnimationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
+    _zoomAnimationController.forward(from: 0.0).then((_) {
+      _transformationController.value = endMatrix;
+    });
   }
 
   @override
@@ -552,14 +629,31 @@ class _AssetPreviewState extends State<_AssetPreview> {
             child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
           );
         }
-        return InteractiveViewer(
-          minScale: 1,
-          maxScale: 4,
-          child: Center(
-            child: Hero(
-              tag: 'asset_${widget.asset.id}',
-              child: Image.memory(bytes, fit: BoxFit.contain),
-            ),
+        return GestureDetector(
+          onDoubleTapDown: _handleDoubleTap,
+          onDoubleTap: () {},
+          child: AnimatedBuilder(
+            animation: _zoomAnimationController,
+            builder: (context, child) {
+              if (_zoomAnimationController.isAnimating &&
+                  _zoomAnimation != null) {
+                _transformationController.value = _zoomAnimation!.value;
+              }
+              return InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 1.0,
+                maxScale: 4.5,
+                panEnabled: true,
+                scaleEnabled: true,
+                clipBehavior: Clip.none,
+                child: Center(
+                  child: Hero(
+                    tag: 'asset_${widget.asset.id}',
+                    child: Image.memory(bytes, fit: BoxFit.contain),
+                  ),
+                ),
+              );
+            },
           ),
         );
       },

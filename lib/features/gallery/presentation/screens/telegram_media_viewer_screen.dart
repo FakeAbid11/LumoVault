@@ -138,6 +138,8 @@ class _TelegramMediaViewerScreenState
     }
   }
 
+  bool _isZoomed = false;
+
   @override
   Widget build(BuildContext context) {
     final currentItem = widget.items[_currentIndex];
@@ -164,18 +166,31 @@ class _TelegramMediaViewerScreenState
         ],
       ),
       body: SwipeDismissWrapper(
+        enabled: !_isZoomed,
         onSwipeUp: () => _showExifDetails(currentItem),
         child: PageView.builder(
           controller: _pageController,
+          physics: _isZoomed
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
           itemCount: widget.items.length,
           onPageChanged: (index) {
             if (_currentIndex != index) {
               HapticFeedback.selectionClick();
-              setState(() => _currentIndex = index);
+              setState(() {
+                _currentIndex = index;
+                _isZoomed = false;
+              });
             }
           },
-          itemBuilder: (context, index) =>
-              _TelegramPreview(item: widget.items[index]),
+          itemBuilder: (context, index) => _TelegramPreview(
+            item: widget.items[index],
+            onZoomChanged: (zoomed) {
+              if (_isZoomed != zoomed) {
+                setState(() => _isZoomed = zoomed);
+              }
+            },
+          ),
         ),
       ),
     );
@@ -198,20 +213,28 @@ class _TelegramMediaViewerScreenState
 }
 
 class _TelegramPreview extends ConsumerStatefulWidget {
-  const _TelegramPreview({required this.item});
+  const _TelegramPreview({required this.item, this.onZoomChanged});
 
   final MediaItem item;
+  final ValueChanged<bool>? onZoomChanged;
 
   @override
   ConsumerState<_TelegramPreview> createState() => _TelegramPreviewState();
 }
 
-class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
+class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
+    with SingleTickerProviderStateMixin {
   late final DownloadService _downloadService;
   late String _taskId;
   Future<DownloadResult>? _downloadFuture;
   StreamSubscription<DownloadProgress>? _progressSubscription;
   double _progress = 0;
+
+  final TransformationController _transformationController =
+      TransformationController();
+  late final AnimationController _zoomAnimationController;
+  Animation<Matrix4>? _zoomAnimation;
+  bool _isZoomed = false;
 
   /// Videos don't download until the user taps play; this flips once they do.
   bool _playRequested = false;
@@ -221,6 +244,11 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
     super.initState();
     _downloadService = ref.read(downloadServiceProvider);
     _taskId = _newTaskId();
+    _zoomAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _transformationController.addListener(_onTransformationChanged);
     // Images resolve their original eagerly; videos wait for a play tap so a
     // large file isn't pulled just by swiping past it.
     if (!widget.item.isVideo) {
@@ -231,6 +259,9 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
   @override
   void dispose() {
     _progressSubscription?.cancel();
+    _transformationController.removeListener(_onTransformationChanged);
+    _transformationController.dispose();
+    _zoomAnimationController.dispose();
     // Cancel any in-flight download kicked off here — cancelling only the
     // progress subscription leaves TDLib still pulling the file's bytes for a
     // viewer page the user has already swiped away from, wasting bandwidth and
@@ -240,6 +271,47 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
       unawaited(_downloadService.cancelDownload(_taskId));
     }
     super.dispose();
+  }
+
+  void _onTransformationChanged() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final isZoomed = scale > 1.05;
+    if (isZoomed != _isZoomed) {
+      _isZoomed = isZoomed;
+      widget.onZoomChanged?.call(isZoomed);
+    }
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    if (_zoomAnimationController.isAnimating) return;
+
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final Matrix4 endMatrix;
+
+    if (currentScale > 1.05) {
+      endMatrix = Matrix4.identity();
+    } else {
+      final position = details.localPosition;
+      final x = -position.dx * (2.5 - 1.0);
+      final y = -position.dy * (2.5 - 1.0);
+      endMatrix = Matrix4.diagonal3Values(2.5, 2.5, 1.0)
+        ..setTranslationRaw(x, y, 0.0);
+    }
+
+    _zoomAnimation =
+        Matrix4Tween(
+          begin: _transformationController.value,
+          end: endMatrix,
+        ).animate(
+          CurvedAnimation(
+            parent: _zoomAnimationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
+    _zoomAnimationController.forward(from: 0.0).then((_) {
+      _transformationController.value = endMatrix;
+    });
   }
 
   String _newTaskId() =>
@@ -308,14 +380,31 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview> {
         if (snapshot.hasError || filePath.isEmpty) {
           return _buildError(context, snapshot.error);
         }
-        return InteractiveViewer(
-          minScale: 1,
-          maxScale: 4,
-          child: Center(
-            child: Hero(
-              tag: 'media_${widget.item.localId}',
-              child: Image.file(File(filePath), fit: BoxFit.contain),
-            ),
+        return GestureDetector(
+          onDoubleTapDown: _handleDoubleTap,
+          onDoubleTap: () {},
+          child: AnimatedBuilder(
+            animation: _zoomAnimationController,
+            builder: (context, child) {
+              if (_zoomAnimationController.isAnimating &&
+                  _zoomAnimation != null) {
+                _transformationController.value = _zoomAnimation!.value;
+              }
+              return InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 1.0,
+                maxScale: 4.5,
+                panEnabled: true,
+                scaleEnabled: true,
+                clipBehavior: Clip.none,
+                child: Center(
+                  child: Hero(
+                    tag: 'media_${widget.item.localId}',
+                    child: Image.file(File(filePath), fit: BoxFit.contain),
+                  ),
+                ),
+              );
+            },
           ),
         );
       },

@@ -30,6 +30,7 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
   double _dragOffset = 0.0;
   double _upDragOffset = 0.0;
   bool _isDragging = false;
+  int _pointerCount = 0;
 
   late final AnimationController _resetController;
   late Animation<double> _resetAnimation;
@@ -49,8 +50,31 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
     super.dispose();
   }
 
+  void _onPointerDown(PointerDownEvent event) {
+    _pointerCount++;
+    if (_pointerCount > 1 && _isDragging) {
+      _cancelDrag();
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    _pointerCount = (_pointerCount - 1).clamp(0, 10);
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _pointerCount = (_pointerCount - 1).clamp(0, 10);
+  }
+
+  void _cancelDrag() {
+    setState(() {
+      _isDragging = false;
+      _dragOffset = 0.0;
+      _upDragOffset = 0.0;
+    });
+  }
+
   void _onVerticalDragStart(DragStartDetails details) {
-    if (!widget.enabled) return;
+    if (!widget.enabled || _pointerCount > 1) return;
     _resetController.stop();
     setState(() {
       _isDragging = true;
@@ -59,7 +83,7 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (!_isDragging || !widget.enabled) return;
+    if (!_isDragging || !widget.enabled || _pointerCount > 1) return;
     if (details.delta.dy > 0 || _dragOffset > 0) {
       // Downward drag for dismissal
       setState(() {
@@ -113,16 +137,22 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
     final opacity = (1.0 - progress * 0.7).clamp(0.0, 1.0);
     final scale = (1.0 - progress * 0.15).clamp(0.85, 1.0);
 
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onVerticalDragStart: _onVerticalDragStart,
-      onVerticalDragUpdate: _onVerticalDragUpdate,
-      onVerticalDragEnd: _onVerticalDragEnd,
-      child: Container(
-        color: Colors.black.withValues(alpha: opacity),
-        child: Transform.translate(
-          offset: Offset(0, _dragOffset),
-          child: Transform.scale(scale: scale, child: widget.child),
+      onPointerDown: _onPointerDown,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragStart: _onVerticalDragStart,
+        onVerticalDragUpdate: _onVerticalDragUpdate,
+        onVerticalDragEnd: _onVerticalDragEnd,
+        child: Container(
+          color: Colors.black.withValues(alpha: opacity),
+          child: Transform.translate(
+            offset: Offset(0, _dragOffset),
+            child: Transform.scale(scale: scale, child: widget.child),
+          ),
         ),
       ),
     );

@@ -33,10 +33,6 @@ class _FolderSelectionScreenState extends ConsumerState<FolderSelectionScreen> {
       final folders = await ref.read(deviceFoldersProvider.future);
       if (!mounted) return;
       ref.read(onboardingProvider.notifier).setDeviceFolders(folders);
-      // Auto-select all folders by default.
-      ref
-          .read(onboardingProvider.notifier)
-          .selectAllFolders(folders.map((f) => f.path).toList());
     } catch (e) {
       debugPrint('[FolderSelectionScreen] Failed to load folders: $e');
       // The failure is already surfaced by the .when(error:) branch in

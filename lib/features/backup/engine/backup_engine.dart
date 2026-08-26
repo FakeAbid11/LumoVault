@@ -266,6 +266,12 @@ class BackupEngine {
     _setState(BackupEngineState.scanning);
 
     try {
+      // No folders selected — nothing to back up.
+      if (settings.includedFolders.isEmpty) {
+        _setState(BackupEngineState.idle);
+        return;
+      }
+
       // Was scanDevice() — a full re-scan that re-reads and re-hashes every
       // file on the device again, even though the timeline screen already
       // scanned everything moments earlier via scanDeviceIncremental. Using

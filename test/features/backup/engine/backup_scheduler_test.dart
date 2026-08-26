@@ -441,14 +441,20 @@ void main() {
   });
 
   group('BackupSettings', () {
-    test('allFoldersIncluded returns true when list is empty', () {
+    test('allFoldersIncluded returns false when list is empty', () {
       const settings = BackupSettings();
-      expect(settings.allFoldersIncluded, isTrue);
+      expect(settings.allFoldersIncluded, isFalse);
     });
 
-    test('isFolderIncluded returns true when all folders included', () {
+    test('isFolderIncluded returns false when no folders selected', () {
       const settings = BackupSettings();
+      expect(settings.isFolderIncluded('/DCIM/Camera'), isFalse);
+    });
+
+    test('isFolderIncluded returns true for explicitly included folder', () {
+      const settings = BackupSettings(includedFolders: ['/DCIM/Camera']);
       expect(settings.isFolderIncluded('/DCIM/Camera'), isTrue);
+      expect(settings.isFolderIncluded('/DCIM/Screenshots'), isFalse);
     });
 
     test('isFolderExcluded returns true when folder in excluded list', () {

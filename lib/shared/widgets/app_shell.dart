@@ -47,7 +47,7 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         child: Container(
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
@@ -73,7 +73,7 @@ class AppShell extends StatelessWidget {
               elevation: 0,
               selectedIndex: _currentIndex,
               onDestinationSelected: _onTap,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
               indicatorShape: const StadiumBorder(),
               indicatorColor: colorScheme.secondaryContainer,
               destinations: const [

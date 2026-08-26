@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../../core/di/backup_providers.dart';
+import '../../../core/di/database_providers.dart';
 import '../../../core/di/gallery_providers.dart';
 import '../../../core/di/production_providers.dart';
 import '../../../core/logging/app_logger.dart';
@@ -13,6 +14,8 @@ import '../../../core/storage/isolate_run_lock.dart';
 import '../../../core/storage/thumbnail_cache.dart';
 import '../../metadata/data/repositories/metadata_validator.dart';
 import '../../metadata/presentation/providers/metadata_providers.dart';
+import '../../people/data/repositories/face_repository.dart';
+import '../../people/presentation/providers/people_providers.dart';
 import '../../settings/presentation/providers/settings_providers.dart';
 import '../data/models/backup_settings.dart';
 import 'backup_engine.dart';
@@ -23,6 +26,7 @@ const String kUploadWorkerTask = 'com.lumovault.upload_worker';
 const String kBackupSchedulerTask = 'com.lumovault.backup_scheduler';
 const String kMetadataRepairTask = 'com.lumovault.metadata_repair';
 const String kThumbnailRebuildTask = 'com.lumovault.thumbnail_rebuild';
+const String kFaceScanTask = 'com.lumovault.face_scanner';
 
 /// Name of the cross-isolate lock guarding the backup path.
 const String kBackupRunLockName = 'backup_run';
@@ -121,6 +125,7 @@ class BackgroundBackupService implements BackupTaskScheduler {
       debugPrint('[BackgroundBackupService] Auto-backup off, backup tasks off');
     }
 
+    await registerFaceScan();
     await registerMetadataRepair();
     await registerThumbnailRebuild();
   }
@@ -229,6 +234,22 @@ class BackgroundBackupService implements BackupTaskScheduler {
     debugPrint('[BackgroundBackupService] Registered thumbnail rebuild');
   }
 
+  /// Register periodic face scanning for new photos.
+  ///
+  /// Runs every 30 minutes. Only scans photos not yet processed —
+  /// already-scanned photos are skipped via the face_scans table.
+  Future<void> registerFaceScan() async {
+    await _workmanager.registerPeriodicTask(
+      kFaceScanTask,
+      kFaceScanTask,
+      frequency: const Duration(minutes: 30),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      backoffPolicy: BackoffPolicy.exponential,
+      initialDelay: const Duration(minutes: 5),
+    );
+    debugPrint('[BackgroundBackupService] Registered face scan');
+  }
+
   /// Cancel all registered background tasks.
   @override
   Future<void> cancelAll() async {
@@ -291,6 +312,8 @@ class BackgroundTaskRunner {
         return _guard(task, _handleMetadataRepair);
       case kThumbnailRebuildTask:
         return _guard(task, _handleThumbnailRebuild);
+      case kFaceScanTask:
+        return _guard(task, _handleFaceScan);
       default:
         debugPrint('[BackgroundBackup] Unknown task: $task');
         // An unknown name is a code bug, not a transient failure — retrying
@@ -366,6 +389,54 @@ class BackgroundTaskRunner {
       '${await cache.getDiskCacheCount()} entr(ies)',
     );
     return true;
+  }
+
+  /// Scan new device photos for faces and cluster them into people.
+  ///
+  /// Only processes photos not yet in the face_scans table — the incremental
+  /// scan naturally skips already-scanned ones. Runs silently in the
+  /// background; no notifications or foreground service needed.
+  Future<bool> _handleFaceScan() async {
+    return _withContainer((container) async {
+      try {
+        final faceDao = container.read(appDatabaseProvider).faceDao;
+        final faceDetectionService = container.read(
+          faceDetectionServiceProvider,
+        );
+        final faceClusteringService = container.read(
+          faceClusteringServiceProvider,
+        );
+        final repository = FaceRepository(
+          faceDao: faceDao,
+          faceDetectionService: faceDetectionService,
+          faceClusteringService: faceClusteringService,
+        );
+
+        // Wait for face detection models to initialize.
+        await faceDetectionService.ensureInitialized();
+
+        final scannerService = container.read(mediaScannerServiceProvider);
+        final assets = await scannerService.listAllAssets();
+        if (assets.isEmpty) return true;
+
+        final scannedIds = await faceDao.scannedMediaItemIds();
+        final toScan = assets.where((a) => !scannedIds.contains(a.id)).toList();
+        if (toScan.isEmpty) {
+          debugPrint('[BackgroundBackup] Face scan: nothing new to scan');
+          return true;
+        }
+
+        debugPrint('[BackgroundBackup] Face scan: ${toScan.length} new photos');
+        await repository.scanMediaItems(toScan);
+        await repository.clusterFaces();
+        debugPrint('[BackgroundBackup] Face scan complete');
+        return true;
+      } catch (e, stackTrace) {
+        debugPrint('[BackgroundBackup] Face scan failed: $e');
+        debugPrint('$stackTrace');
+        return true; // Don't retry — face scan is best-effort.
+      }
+    });
   }
 
   /// Drive the engine, reporting progress and the outcome via notifications.

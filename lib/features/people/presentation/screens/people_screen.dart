@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:photo_manager/photo_manager.dart';
 
-import '../../../../core/di/gallery_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../providers/people_providers.dart';
 import '../widgets/person_tile.dart';
@@ -19,24 +17,6 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   final Set<int> _selectedIds = {};
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    _startFaceScanningIfNeeded();
-  }
-
-  Future<void> _startFaceScanningIfNeeded() async {
-    final controller = ref.read(faceScanControllerProvider);
-    if (controller.isScanning) return;
-
-    final faceCount = await ref.read(faceCountProvider.future);
-    if (!mounted || controller.isScanning) return;
-
-    if (faceCount == 0) {
-      controller.start();
-    }
-  }
 
   void _exitSelection() {
     setState(() => _selectedIds.clear());
@@ -63,7 +43,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   Widget build(BuildContext context) {
     final peopleAsync = ref.watch(peopleProvider);
     final scanProgress = ref.watch(faceScanProgressProvider);
-    final deviceAssets = ref.watch(deviceAssetsProvider);
+    final unscannedAsync = ref.watch(hasUnscannedPhotosProvider);
 
     return PopScope(
       canPop: !_selectionMode,
@@ -72,7 +52,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       },
       child: Scaffold(
         appBar: _buildAppBar(scanProgress),
-        body: _buildBody(context, ref, peopleAsync, scanProgress, deviceAssets),
+        body: _buildBody(
+          context,
+          ref,
+          peopleAsync,
+          scanProgress,
+          unscannedAsync,
+        ),
         bottomNavigationBar: _selectionMode
             ? _buildActionBar(context, ref)
             : null,
@@ -129,7 +115,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     WidgetRef ref,
     AsyncValue<List<dynamic>> peopleAsync,
     FaceScanProgress scanProgress,
-    AsyncValue<List<AssetEntity>> deviceAssets,
+    AsyncValue<bool> unscannedAsync,
   ) {
     return Column(
       children: [
@@ -181,12 +167,12 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
           child: peopleAsync.when(
             data: (people) {
               if (people.isEmpty && !scanProgress.isScanning) {
-                return _buildEmptyState(context, ref, deviceAssets);
+                return _buildEmptyState(context, ref, unscannedAsync);
               }
               if (people.isEmpty) {
                 return _buildScanningState(scanProgress);
               }
-              return _buildPeopleGrid(context, ref, people);
+              return _buildPeopleGrid(context, ref, people, unscannedAsync);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) =>
@@ -230,13 +216,15 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   Widget _buildEmptyState(
     BuildContext context,
     WidgetRef ref,
-    AsyncValue<List<AssetEntity>> deviceAssets,
+    AsyncValue<bool> unscannedAsync,
   ) {
+    final hasUnscanned = unscannedAsync.valueOrNull ?? false;
     return EmptyState(
       icon: Icons.people_outline,
       title: 'No people found',
-      message:
-          'Faces in your photos will be grouped here.\nTap below to start scanning.',
+      message: hasUnscanned
+          ? 'Faces in your photos will be grouped here.\nTap below to start scanning.'
+          : 'Scan your photos to discover and group people.',
       action: FilledButton.icon(
         onPressed: () => ref.read(faceScanControllerProvider).start(),
         icon: const Icon(Icons.person_search),
@@ -249,38 +237,67 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     BuildContext context,
     WidgetRef ref,
     List<dynamic> people,
+    AsyncValue<bool> unscannedAsync,
   ) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(peopleProvider);
-        ref.invalidate(faceCountProvider);
-      },
-      child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 96),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.8,
-        ),
-        itemCount: people.length,
-        itemBuilder: (context, index) {
-          final personWithCount = people[index];
-          final personId = personWithCount.person.id;
-          return PersonTile(
-            personWithCount: personWithCount,
-            selected: _selectedIds.contains(personId),
-            onTap: () {
-              if (_selectionMode) {
-                _toggleSelection(personId);
-              } else {
-                context.push('/people/$personId');
-              }
+    final hasUnscanned = unscannedAsync.valueOrNull ?? false;
+    return Column(
+      children: [
+        if (hasUnscanned && !ref.read(faceScanControllerProvider).isScanning)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Card(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              child: ListTile(
+                leading: const Icon(Icons.person_add_outlined),
+                title: const Text('New photos to scan'),
+                subtitle: const Text('Tap to find new faces'),
+                trailing: FilledButton.tonal(
+                  onPressed: () => ref.read(faceScanControllerProvider).start(),
+                  child: const Text('Scan'),
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(peopleProvider);
+              ref.invalidate(faceCountProvider);
+              ref.invalidate(hasUnscannedPhotosProvider);
             },
-            onLongPress: () => _enterSelection(personId),
-          );
-        },
-      ),
+            child: GridView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 96),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: people.length,
+              itemBuilder: (context, index) {
+                final personWithCount = people[index];
+                final personId = personWithCount.person.id;
+                return PersonTile(
+                  personWithCount: personWithCount,
+                  selected: _selectedIds.contains(personId),
+                  onTap: () {
+                    if (_selectionMode) {
+                      _toggleSelection(personId);
+                    } else {
+                      context.push('/people/$personId');
+                    }
+                  },
+                  onLongPress: () => _enterSelection(personId),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 

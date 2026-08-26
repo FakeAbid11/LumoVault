@@ -72,6 +72,17 @@ final faceCountProvider = FutureProvider.autoDispose<int>((ref) async {
   return repository.getFaceCount();
 });
 
+/// Whether there are device photos that haven't been face-scanned yet.
+final hasUnscannedPhotosProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) async {
+  final repository = ref.watch(faceRepositoryProvider);
+  final assets = await ref.watch(deviceAssetsProvider.future);
+  if (assets.isEmpty) return false;
+  final scannedIds = await repository.faceDao.scannedMediaItemIds();
+  return assets.any((a) => !scannedIds.contains(a.id));
+});
+
 /// Provider to get the thumbnail path for a person's representative face.
 final personThumbnailProvider = FutureProvider.autoDispose.family<String?, int>(
   (ref, personId) async {

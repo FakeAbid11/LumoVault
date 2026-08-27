@@ -40,6 +40,18 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   final ScrollController _scrollController = ScrollController();
   double _lastPinchScale = 1.0;
 
+  bool _areAllVisibleSelected(AsyncValue<List<AssetEntity>> deviceAssets) {
+    final assets = deviceAssets.valueOrNull;
+    if (assets == null || assets.isEmpty) return false;
+    final repository = ref.read(galleryRepositoryProvider);
+    for (final asset in assets) {
+      final item = repository.getItemById(asset.id);
+      if (item?.isHidden == true || item?.isTrashed == true) continue;
+      if (!_multiSelected.contains(asset.id)) return false;
+    }
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -144,15 +156,36 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               ),
               title: Text('${_multiSelected.length} selected'),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.cloud_upload),
-                  tooltip: 'Select for backup',
-                  onPressed: () => _selectForBackup(deviceAssets),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Move to trash',
-                  onPressed: () => _trashSelected(deviceAssets),
+                TextButton(
+                  onPressed: () {
+                    final assets = deviceAssets.valueOrNull;
+                    if (assets == null) return;
+                    final repository = ref.read(galleryRepositoryProvider);
+                    final visibleCount = assets.where((asset) {
+                      final item = repository.getItemById(asset.id);
+                      return !(item?.isHidden ?? false) &&
+                          !(item?.isTrashed ?? false);
+                    }).length;
+                    setState(() {
+                      if (_multiSelected.length == visibleCount) {
+                        _multiSelected.clear();
+                      } else {
+                        final allIds = assets
+                            .where((asset) {
+                              final item = repository.getItemById(asset.id);
+                              return !(item?.isHidden ?? false) &&
+                                  !(item?.isTrashed ?? false);
+                            })
+                            .map((a) => a.id);
+                        _multiSelected.addAll(allIds);
+                      }
+                    });
+                  },
+                  child: Text(
+                    _areAllVisibleSelected(deviceAssets)
+                        ? 'Deselect all'
+                        : 'Select all',
+                  ),
                 ),
               ],
             )
@@ -211,6 +244,13 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               icon: const Icon(Icons.cloud_upload),
               label: const Text('Backup'),
             ),
+      bottomNavigationBar: _isMultiSelectMode
+          ? _SelectionBar(
+              selectedCount: _multiSelected.length,
+              onBackup: () => _selectForBackup(deviceAssets),
+              onTrash: () => _trashSelected(deviceAssets),
+            )
+          : null,
       body: permissionStatus.when(
         data: (status) {
           if (status == PermissionStatus.denied ||
@@ -583,6 +623,103 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               label: const Text('Try Again'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.selectedCount,
+    required this.onBackup,
+    required this.onTrash,
+  });
+
+  final int selectedCount;
+  final VoidCallback onBackup;
+  final VoidCallback onTrash;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SelectionActionButton(
+                  icon: Icons.cloud_upload_outlined,
+                  label: 'Backup',
+                  onTap: onBackup,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SelectionActionButton(
+                  icon: Icons.delete_outline,
+                  label: 'Trash',
+                  color: Theme.of(context).colorScheme.error,
+                  onTap: onTrash,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionActionButton extends StatelessWidget {
+  const _SelectionActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: effectiveColor, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: effectiveColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -91,15 +91,7 @@ class _AssetTileState extends State<AssetTile>
       child: Container(
         width: widget.size,
         height: widget.size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: widget.isSelected
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 3,
-                )
-              : null,
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Stack(
@@ -109,7 +101,10 @@ class _AssetTileState extends State<AssetTile>
               if (widget.asset.type == AssetType.video)
                 _buildVideoIndicator(context),
               if (widget.isSelectedForBackup) _buildStatusIndicator(context)!,
-              if (widget.isSelected) _buildSelectionOverlay(context),
+              if (widget.isSelected) ...[
+                _buildDimOverlay(context),
+                _buildSelectionOverlay(context),
+              ],
             ],
           ),
         ),
@@ -220,18 +215,28 @@ class _AssetTileState extends State<AssetTile>
     );
   }
 
+  Widget _buildDimOverlay(BuildContext context) {
+    return Positioned.fill(
+      child: Container(color: Colors.black.withOpacity(0.3)),
+    );
+  }
+
   Widget _buildSelectionOverlay(BuildContext context) {
     return Positioned(
-      top: 4,
-      right: 4,
+      bottom: 4,
+      left: 4,
       child: Container(
         width: 24,
         height: 24,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+        decoration: const BoxDecoration(
+          color: Colors.white,
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.check, color: Colors.white, size: 16),
+        child: Icon(
+          Icons.check,
+          color: Theme.of(context).colorScheme.primary,
+          size: 16,
+        ),
       ),
     );
   }

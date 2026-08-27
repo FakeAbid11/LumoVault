@@ -136,10 +136,7 @@ class MediaDao extends DatabaseAccessor<AppDatabase> with _$MediaDaoMixin {
     ).get();
     return rows
         .map(
-          (r) => (
-            hash: r.read<String>('file_hash'),
-            count: r.read<int>('cnt'),
-          ),
+          (r) => (hash: r.read<String>('file_hash'), count: r.read<int>('cnt')),
         )
         .toList();
   }

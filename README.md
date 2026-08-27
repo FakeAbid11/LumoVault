@@ -30,7 +30,7 @@
   <img src="https://github.com/FakeAbid11/LumoVault/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/Flutter-3.44.6-02569B?logo=flutter&logoColor=white" alt="Flutter">
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Tests-843%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-953%20passing-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -44,11 +44,12 @@
 | ⚡ **Incremental scanning + dedup** | SHA-256 hashing means only new or changed files are uploaded. |
 | 🔄 **Background, periodic backup** | WorkManager keeps the queue moving, with progress notifications. |
 | 📅 **Unified timeline** | Date-grouped view merging local items with items in your channel. |
-| 🖼️ **Local gallery** | Albums, search, and a full-screen media viewer with video playback. |
+| 🖼️ **Local gallery** | Local, Timeline, Map, Search, media viewer with video playback. |
 | 📥 **Restore** | Scan your Telegram channel and download items back to the device. |
 | 🧬 **Metadata sync** | Albums, captions, and state mirrored as JSON manifests/partitions. |
 | 🗑️ **Trash with auto-purge** | Deleted items rest for 30 days before permanent removal. |
 | 🙈 **Hidden album &amp; Archive** | Keep sensitive or old items out of the main views. |
+| 👤 **People (Faces)** | ONNX-powered face detection, clustering, and person grouping. |
 | 🔒 **App lock** | PIN plus optional biometric unlock. |
 | 🩺 **Crash reporting** | Sentry in release builds (opt-in via `SENTRY_DSN`). |
 
@@ -164,6 +165,12 @@ flutter run --dart-define-from-file=.env.json
 | 🔐 Secure storage | flutter_secure_storage |
 | ✅ Permissions | permission_handler |
 | ▶️ Video playback | video_player |
+| 🗺️ Mapping | flutter_map (OpenStreetMap), latlong2, geolocator |
+| 👤 Face detection | flutter_onnxruntime (SCRFD + ArcFace) |
+| 🔐 Biometric auth | local_auth |
+| 🔋 Battery state | battery_plus |
+| 🔔 Notifications | flutter_local_notifications |
+| 🎨 Dynamic theming | dynamic_color (Material You) |
 | 🩺 Crash reporting | sentry_flutter |
 
 > **Platform:** Android only (minSdk 23, target/compile 36). There is no iOS
@@ -182,13 +189,14 @@ lib/
 ├── core/            # DI, drift DB, storage, security, router, errors, TDLib, logging
 ├── features/
 │   ├── onboarding/  # Welcome → permissions → folders → Telegram connect
-│   ├── gallery/     # Local tab, Timeline, Albums, Search, media viewer
+│   ├── gallery/     # Local, Timeline, Map, Search, media viewer
 │   ├── backup/      # Dashboard, upload queue, engine, scheduler
 │   ├── restore/     # Channel scan, restore engine, progress
 │   ├── metadata/    # Manifests/partitions, sync coordinator, search index
 │   ├── app_lock/    # PIN + biometric gate
 │   ├── hidden/      # Hidden album
 │   ├── archive/     # Archived items
+│   ├── people/      # Face detection, clustering, person grouping
 │   ├── trash/       # Trash with 30-day retention
 │   └── settings/    # Storage, privacy, notifications, appearance, …
 ├── shared/          # Lumo design-system widgets, shared providers
@@ -202,14 +210,14 @@ test/                          # Unit + widget tests (mirrors lib/)
 ### Testing & quality
 
 ```sh
-flutter test          # 843 tests (unit + widget)
+flutter test          # 953 tests (unit + widget)
 dart format --output=none --set-exit-if-changed .
 dart analyze
 ```
 
 ### CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on push/PR to `main` and `develop`:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on manual dispatch (`workflow_dispatch`):
 
 1. **Analyze** — format check + `dart analyze --fatal-infos`
 2. **Test** — `flutter test --coverage`, uploaded to Codecov

@@ -333,7 +333,7 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       child: Column(
                         children: [
                           Icon(
-                            Symbols.send,
+                            Icons.telegram,
                             size: 48,
                             color: colorScheme.onPrimaryContainer,
                           ),

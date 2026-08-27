@@ -153,9 +153,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
-    final photoByPoint = {
-      for (final p in photos) LatLng(p.latitude!, p.longitude!): p,
-    };
+    String latLngKey(double lat, double lng) =>
+        '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
+
+    final photosByPoint = <String, List<MediaItem>>{};
+    for (final p in photos) {
+      final key = latLngKey(p.latitude!, p.longitude!);
+      (photosByPoint[key] ??= []).add(p);
+    }
 
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
@@ -178,10 +183,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
         ],
         builder: (context, markers) {
-          final clusterPhotos = [
-            for (final m in markers)
-              if (photoByPoint[m.point] != null) photoByPoint[m.point]!,
-          ];
+          final clusterPhotos = <MediaItem>[];
+          for (final m in markers) {
+            final key = latLngKey(m.point.latitude, m.point.longitude);
+            if (photosByPoint[key] != null) {
+              clusterPhotos.addAll(photosByPoint[key]!);
+            }
+          }
           return _buildCluster(context, markers.length, clusterPhotos);
         },
       ),

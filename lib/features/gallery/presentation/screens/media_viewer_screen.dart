@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/geocoding_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../backup/engine/backup_engine.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
@@ -86,6 +87,20 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     final isQueued = task?.status == UploadStatus.queued;
     final hasLocation = currentItem?.hasLocation ?? false;
 
+    final geoLabel = hasLocation
+        ? ref.watch(
+            reverseGeocodeProvider((
+              currentItem!.latitude!,
+              currentItem.longitude!,
+            )),
+          )
+        : null;
+    final locationLabel = geoLabel?.valueOrNull?.displayName;
+    final displayLocationLabel =
+        (locationLabel != null && locationLabel.isNotEmpty)
+        ? locationLabel
+        : (hasLocation ? 'Location' : 'Add Location');
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -161,7 +176,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                     icon: hasLocation
                         ? Symbols.location_on
                         : Symbols.location_on,
-                    label: hasLocation ? 'Location' : 'Add Location',
+                    label: displayLocationLabel,
                     color: hasLocation ? Colors.blueAccent : Colors.white,
                     onPressed: () => _openLocationPicker(),
                   ),

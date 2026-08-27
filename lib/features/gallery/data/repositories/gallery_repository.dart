@@ -753,6 +753,24 @@ class GalleryRepository {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
+  /// Groups of items sharing the same file content (SHA-256 hash).
+  ///
+  /// Returns only groups with 2+ items, sorted by group size descending.
+  /// Empty hashes and trashed items are excluded.
+  Map<String, List<MediaItem>> getDuplicateGroups() {
+    final groups = <String, List<MediaItem>>{};
+    for (final item in _mediaItems) {
+      if (item.fileHash.isEmpty || item.isTrashed) continue;
+      groups.putIfAbsent(item.fileHash, () => []).add(item);
+    }
+    groups.removeWhere((_, items) => items.length < 2);
+    final sorted = SplayTreeMap<String, List<MediaItem>>(
+      (a, b) => groups[b]!.length.compareTo(groups[a]!.length),
+    );
+    sorted.addAll(groups);
+    return sorted;
+  }
+
   /// Merge Telegram-backed-up items into the in-memory read model.
   ///
   /// Called by [ChannelScanService] after scanning an existing backup channel.

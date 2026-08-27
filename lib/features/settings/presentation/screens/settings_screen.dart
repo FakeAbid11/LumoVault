@@ -113,6 +113,13 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/trash'),
               ),
+              ListTile(
+                leading: const Icon(Symbols.content_copy),
+                title: const Text('Find Duplicates'),
+                subtitle: const Text('Find and remove duplicate photos'),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push('/settings/duplicates'),
+              ),
             ],
           ),
 

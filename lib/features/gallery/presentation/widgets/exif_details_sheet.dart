@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/geocoding_providers.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../data/models/media_item.dart';
 import '../screens/location_picker_screen.dart';
@@ -214,7 +215,10 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
               const SizedBox(height: 16),
 
               // Location Section
-              _buildLocationSection(context, lat, lng, hasLocation),
+              if (hasLocation)
+                _buildLocationSectionWithGeo(context, lat, lng)
+              else
+                _buildLocationSection(context, lat, lng, hasLocation),
             ],
           ),
         );
@@ -313,6 +317,103 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+
+        // Mini Map Preview
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 140,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: point,
+                initialZoom: 14,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.none,
+                ),
+              ),
+              children: [
+                const OsmTileLayer(),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: point,
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 4),
+                          ],
+                        ),
+                        child: const Icon(
+                          Symbols.location_on,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _formatCoordinates(lat, lng),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationSectionWithGeo(
+    BuildContext context,
+    double? lat,
+    double? lng,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    if (lat == null || lng == null) {
+      return _buildLocationSection(context, lat, lng, false);
+    }
+    final geoAsync = ref.watch(reverseGeocodeProvider((lat, lng)));
+    final geo = geoAsync.valueOrNull;
+    final point = LatLng(lat, lng);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Location',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _openLocationPicker(lat, lng),
+              icon: const Icon(Symbols.edit_location_alt, size: 16),
+              label: const Text('Edit'),
+            ),
+          ],
+        ),
+        if (geo != null && geo.displayName.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            geo.displayName,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
 
         // Mini Map Preview

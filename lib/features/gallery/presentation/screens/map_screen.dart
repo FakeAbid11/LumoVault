@@ -10,7 +10,9 @@ import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/geocoding_providers.dart';
 import '../../data/models/media_item.dart';
+import '../../data/repositories/geocoding_service.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -303,6 +305,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _showClusterPreview(BuildContext context, List<MediaItem> items) {
     HapticFeedback.lightImpact();
+    final firstWithLoc = items.firstWhere(
+      (i) => i.latitude != null && i.longitude != null,
+      orElse: () => items.first,
+    );
+    final lat = firstWithLoc.latitude;
+    final lng = firstWithLoc.longitude;
+    final geoFuture = (lat != null && lng != null)
+        ? ref.read(geocodingServiceProvider).reverseGeocode(lat, lng)
+        : Future.value(null);
+
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -315,21 +327,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Photos at this location (${items.length})',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Symbols.close),
-                      onPressed: () => Navigator.pop(context),
-                      tooltip: 'Close',
-                    ),
-                  ],
+                FutureBuilder<GeoResult?>(
+                  future: geoFuture,
+                  builder: (context, snapshot) {
+                    final geo = snapshot.data;
+                    final locationName = geo?.displayName;
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            locationName != null && locationName.isNotEmpty
+                                ? 'Photos in $locationName (${items.length})'
+                                : 'Photos at this location (${items.length})',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Symbols.close),
+                          onPressed: () => Navigator.pop(context),
+                          tooltip: 'Close',
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 ConstrainedBox(

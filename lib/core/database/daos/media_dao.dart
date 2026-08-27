@@ -113,6 +113,37 @@ class MediaDao extends DatabaseAccessor<AppDatabase> with _$MediaDaoMixin {
     )..where((t) => t.fileHash.equals(fileHash))).getSingleOrNull();
   }
 
+  /// All items matching a given content hash, newest first.
+  Future<List<MediaItemRow>> byFileHash(String fileHash) {
+    return (select(mediaItems)
+          ..where(
+            (t) => t.fileHash.equals(fileHash) & t.isTrashed.equals(false),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
+  /// File hashes that appear more than once (duplicate groups).
+  ///
+  /// Excludes empty hashes and trashed items. Each result contains the hash
+  /// and the number of items sharing that hash.
+  Future<List<({String hash, int count})>> duplicateHashes() async {
+    final rows = await customSelect(
+      'SELECT file_hash, COUNT(*) as cnt FROM media_items '
+      "WHERE file_hash != '' AND is_trashed = 0 "
+      'GROUP BY file_hash HAVING cnt >= 2',
+      readsFrom: {mediaItems},
+    ).get();
+    return rows
+        .map(
+          (r) => (
+            hash: r.read<String>('file_hash'),
+            count: r.read<int>('cnt'),
+          ),
+        )
+        .toList();
+  }
+
   /// Distinct album / device-folder names present in the library.
   Future<List<String>> albumNames() async {
     final query = selectOnly(mediaItems, distinct: true)

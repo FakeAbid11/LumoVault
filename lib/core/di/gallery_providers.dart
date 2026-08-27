@@ -204,6 +204,11 @@ final archivedItemsProvider = FutureProvider.autoDispose<List<MediaItem>>((
   return repository.getArchivedItems();
 });
 
+final duplicateGroupsProvider = Provider<Map<String, List<MediaItem>>>((ref) {
+  final repository = ref.watch(galleryRepositoryProvider);
+  return repository.getDuplicateGroups();
+});
+
 final mediaItemProvider = FutureProvider.autoDispose.family<MediaItem?, String>(
   (ref, localId) async {
     final repository = ref.watch(galleryRepositoryProvider);

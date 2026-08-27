@@ -36,6 +36,7 @@ import '../../features/settings/presentation/screens/privacy_settings_screen.dar
 import '../../features/settings/presentation/screens/notification_settings_screen.dart';
 import '../../features/settings/presentation/screens/developer_settings_screen.dart';
 import '../../features/trash/presentation/screens/trash_screen.dart';
+import '../../features/duplicates/presentation/screens/duplicates_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../theme/app_motion.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -328,6 +329,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/trash',
         pageBuilder: (context, state) =>
             _slideFromRight(const TrashScreen(), state),
+      ),
+      GoRoute(
+        path: '/settings/duplicates',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const DuplicatesScreen(), state),
       ),
       GoRoute(
         path: '/settings/about',

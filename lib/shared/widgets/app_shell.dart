@@ -52,6 +52,7 @@ class AppShell extends StatelessWidget {
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Container(
+            constraints: const BoxConstraints(maxWidth: 480),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(24),

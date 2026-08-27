@@ -48,13 +48,13 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 28),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Container(
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(32),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
                   color: colorScheme.shadow.withValues(alpha: 0.15),
@@ -65,9 +65,9 @@ class AppShell extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
+              borderRadius: BorderRadius.circular(24),
               child: NavigationBar(
-                height: 64,
+                height: 56,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 selectedIndex: _currentIndex,
@@ -77,32 +77,32 @@ class AppShell extends StatelessWidget {
                 indicatorColor: colorScheme.secondaryContainer,
                 destinations: const [
                   NavigationDestination(
-                    icon: Icon(Symbols.smartphone, size: 24),
-                    selectedIcon: Icon(Symbols.smartphone, size: 24),
+                    icon: Icon(Symbols.smartphone, size: 22),
+                    selectedIcon: Icon(Symbols.smartphone, size: 22),
                     label: 'Local',
                     tooltip: 'All photos on this device',
                   ),
                   NavigationDestination(
-                    icon: Icon(Symbols.cloud_done, size: 24),
-                    selectedIcon: Icon(Symbols.cloud_done, size: 24),
+                    icon: Icon(Symbols.cloud_done, size: 22),
+                    selectedIcon: Icon(Symbols.cloud_done, size: 22),
                     label: 'Timeline',
                     tooltip: 'Photos backed up to Telegram',
                   ),
                   NavigationDestination(
-                    icon: Icon(Symbols.map, size: 24),
-                    selectedIcon: Icon(Symbols.map, size: 24),
+                    icon: Icon(Symbols.map, size: 22),
+                    selectedIcon: Icon(Symbols.map, size: 22),
                     label: 'Map',
                     tooltip: 'Photos on a map by location',
                   ),
                   NavigationDestination(
-                    icon: Icon(Symbols.people, size: 24),
-                    selectedIcon: Icon(Symbols.people, size: 24),
+                    icon: Icon(Symbols.people, size: 22),
+                    selectedIcon: Icon(Symbols.people, size: 22),
                     label: 'People',
                     tooltip: 'Photos grouped by person',
                   ),
                   NavigationDestination(
-                    icon: Icon(Symbols.settings, size: 24),
-                    selectedIcon: Icon(Symbols.settings, size: 24),
+                    icon: Icon(Symbols.settings, size: 22),
+                    selectedIcon: Icon(Symbols.settings, size: 22),
                     label: 'Settings',
                     tooltip: 'App settings and preferences',
                   ),

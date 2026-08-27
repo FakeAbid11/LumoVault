@@ -111,7 +111,8 @@ abstract final class AppTheme {
             color: selected
                 ? colorScheme.onSecondaryContainer
                 : colorScheme.onSurfaceVariant,
-            size: 24,
+            size: 22,
+            weight: 600,
           );
         }),
       ),

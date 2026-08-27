@@ -24,9 +24,7 @@ class WorkmanagerAndroid extends WorkmanagerPlatform {
   }) async {
     final callback = PluginUtilities.getCallbackHandle(callbackDispatcher);
     await _api.initialize(
-      InitializeRequest(
-        callbackHandle: callback!.toRawHandle(),
-      ),
+      InitializeRequest(callbackHandle: callback!.toRawHandle()),
     );
   }
 

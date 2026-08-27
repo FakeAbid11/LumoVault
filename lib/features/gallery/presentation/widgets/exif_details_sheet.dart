@@ -34,6 +34,8 @@ class ExifDetailsSheet extends ConsumerStatefulWidget {
 class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
   int? _fileSize;
   String? _filePath;
+  double? _assetLat;
+  double? _assetLng;
 
   @override
   void initState() {
@@ -50,6 +52,19 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
           _fileSize = length;
           _filePath = file.path;
         });
+      }
+      if (widget.item?.latitude == null) {
+        final latlng = await widget.asset!.latlngAsync();
+        if (latlng != null && mounted) {
+          final lat = latlng.latitude;
+          final lng = latlng.longitude;
+          if (lat != 0 || lng != 0) {
+            setState(() {
+              _assetLat = lat;
+              _assetLng = lng;
+            });
+          }
+        }
       }
     } else if (widget.item != null) {
       setState(() {
@@ -77,8 +92,8 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         ? widget.asset!.duration * 1000
         : widget.item?.durationMs;
 
-    final lat = widget.item?.latitude;
-    final lng = widget.item?.longitude;
+    final lat = widget.item?.latitude ?? _assetLat;
+    final lng = widget.item?.longitude ?? _assetLng;
     final hasLocation = lat != null && lng != null;
 
     final megaPixels = (width > 0 && height > 0)

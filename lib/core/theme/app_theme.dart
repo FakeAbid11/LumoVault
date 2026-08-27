@@ -49,6 +49,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      iconTheme: const IconThemeData(weight: 500),
       pageTransitionsTheme: animationsEnabled
           ? const PageTransitionsTheme()
           : const PageTransitionsTheme(

@@ -29,6 +29,8 @@ coverage/
 
 # Android
 android/.gradle/
+# Nested package build caches (e.g. vendored workmanager_android)
+**/.gradle/
 android/app/debug/
 android/app/profile/
 android/app/release/

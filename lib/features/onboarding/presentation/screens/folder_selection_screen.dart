@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../providers/onboarding_provider.dart';
 import '../widgets/onboarding_progress_indicator.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Folder selection screen — choose which folders to back up.
 ///
@@ -72,7 +73,7 @@ class _FolderSelectionScreenState extends ConsumerState<FolderSelectionScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.folder_off, size: 48),
+                      const Icon(Symbols.folder_off, size: 48),
                       const SizedBox(height: 16),
                       Text(
                         'Could not load folders',
@@ -101,7 +102,7 @@ class _FolderSelectionScreenState extends ConsumerState<FolderSelectionScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.folder_off, size: 48),
+                          const Icon(Symbols.folder_off, size: 48),
                           const SizedBox(height: 16),
                           Text(
                             'No folders found',
@@ -171,7 +172,7 @@ class _FolderSelectionScreenState extends ConsumerState<FolderSelectionScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              Icons.folder_outlined,
+                              Symbols.folder,
                               color: isSelected
                                   ? Theme.of(
                                       context,

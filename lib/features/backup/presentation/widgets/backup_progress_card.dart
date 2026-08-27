@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../engine/backup_engine.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../core/utils/format_utils.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Backup progress card showing current backup status per PRD Section 8.3.
 ///
@@ -56,25 +57,25 @@ class BackupProgressCard extends StatelessWidget {
 
     switch (engineState) {
       case BackupEngineState.idle:
-        icon = Icons.cloud_done_outlined;
+        icon = Symbols.cloud_done;
         statusText = stats.pendingCount == 0
             ? 'All backed up'
             : 'Ready to backup (${stats.pendingCount} pending)';
         iconColor = colorScheme.primary;
       case BackupEngineState.scanning:
-        icon = Icons.sync;
+        icon = Symbols.sync;
         statusText = 'Scanning media...';
         iconColor = colorScheme.tertiary;
       case BackupEngineState.uploading:
-        icon = Icons.cloud_upload_outlined;
+        icon = Symbols.cloud_upload;
         statusText = 'Uploading (${stats.progressDisplay})';
         iconColor = colorScheme.primary;
       case BackupEngineState.paused:
-        icon = Icons.pause_circle_outline;
+        icon = Symbols.pause_circle;
         statusText = 'Backup paused';
         iconColor = colorScheme.error;
       case BackupEngineState.error:
-        icon = Icons.error_outline;
+        icon = Symbols.error;
         statusText = 'Backup error';
         iconColor = colorScheme.error;
     }
@@ -211,19 +212,19 @@ class BackupProgressCard extends StatelessWidget {
       if (engineState == BackupEngineState.uploading)
         OutlinedButton.icon(
           onPressed: onPause,
-          icon: const Icon(Icons.pause),
+          icon: const Icon(Symbols.pause),
           label: const Text('Pause'),
         )
       else if (engineState == BackupEngineState.paused)
         FilledButton.icon(
           onPressed: onResume,
-          icon: const Icon(Icons.play_arrow),
+          icon: const Icon(Symbols.play_arrow),
           label: const Text('Resume'),
         ),
       if (stats.failedCount > 0)
         OutlinedButton.icon(
           onPressed: onRetryFailed,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(Symbols.refresh),
           label: const Text('Retry Failed'),
         ),
     ];

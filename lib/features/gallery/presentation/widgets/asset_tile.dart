@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Grid tile for the timeline, backed directly by a device [AssetEntity]
 /// rather than a scanned/hashed [MediaItem].
@@ -141,7 +142,7 @@ class _AssetTileState extends State<AssetTile>
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(
-        widget.asset.type == AssetType.video ? Icons.videocam : Icons.image,
+        widget.asset.type == AssetType.video ? Symbols.videocam : Symbols.image,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
         size: 32,
       ),
@@ -161,7 +162,7 @@ class _AssetTileState extends State<AssetTile>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.play_arrow, color: Colors.white, size: 12),
+            const Icon(Symbols.play_arrow, color: Colors.white, size: 12),
             const SizedBox(width: 2),
             Text(
               _formatDuration(widget.asset.duration),
@@ -188,15 +189,15 @@ class _AssetTileState extends State<AssetTile>
     switch (widget.status) {
       case null:
       case MediaStatus.pending:
-        icon = Icons.cloud_queue;
+        icon = Symbols.cloud_queue;
       case MediaStatus.uploading:
-        icon = Icons.cloud_sync;
+        icon = Symbols.cloud_sync;
       case MediaStatus.uploaded:
-        icon = Icons.cloud_done;
+        icon = Symbols.cloud_done;
       case MediaStatus.failed:
-        icon = Icons.cloud_off;
+        icon = Symbols.cloud_off;
       case MediaStatus.excluded:
-        icon = Icons.block;
+        icon = Symbols.block;
     }
 
     final color = statusColor(context, widget.status);
@@ -233,7 +234,7 @@ class _AssetTileState extends State<AssetTile>
           shape: BoxShape.circle,
         ),
         child: Icon(
-          Icons.check,
+          Symbols.check,
           color: Theme.of(context).colorScheme.primary,
           size: 16,
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// General settings screen — language and basic options.
 class GeneralSettingsScreen extends ConsumerWidget {
@@ -17,10 +18,10 @@ class GeneralSettingsScreen extends ConsumerWidget {
         children: [
           const _SectionHeader(title: 'Language'),
           ListTile(
-            leading: const Icon(Icons.language),
+            leading: const Icon(Symbols.language),
             title: const Text('App Language'),
             subtitle: Text(_languageName(settings.languageCode)),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showLanguagePicker(context, ref, settings),
           ),
 
@@ -28,13 +29,13 @@ class GeneralSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Data'),
           ListTile(
-            leading: const Icon(Icons.restore),
+            leading: const Icon(Symbols.restore),
             title: const Text('Reset Onboarding'),
             subtitle: const Text('Show the onboarding flow again'),
             onTap: () => _confirmResetOnboarding(context, ref),
           ),
           ListTile(
-            leading: const Icon(Icons.restart_alt),
+            leading: const Icon(Symbols.restart_alt),
             title: const Text('Reset All Settings'),
             subtitle: const Text('Restore all settings to defaults'),
             onTap: () => _confirmResetAll(context, ref),

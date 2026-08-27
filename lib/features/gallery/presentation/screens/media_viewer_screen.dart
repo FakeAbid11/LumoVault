@@ -17,6 +17,7 @@ import '../../data/models/upload_task.dart';
 import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
 import 'location_picker_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-screen photo/video viewer.
 ///
@@ -96,7 +97,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline),
+            icon: const Icon(Symbols.info),
             tooltip: 'Info & EXIF',
             onPressed: _showExifDetails,
           ),
@@ -158,8 +159,8 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                 Expanded(
                   child: _BottomAction(
                     icon: hasLocation
-                        ? Icons.location_on
-                        : Icons.location_on_outlined,
+                        ? Symbols.location_on
+                        : Symbols.location_on,
                     label: hasLocation ? 'Location' : 'Add Location',
                     color: hasLocation ? Colors.blueAccent : Colors.white,
                     onPressed: () => _openLocationPicker(),
@@ -167,7 +168,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                 ),
                 Expanded(
                   child: _BottomAction(
-                    icon: Icons.share_outlined,
+                    icon: Symbols.share,
                     label: 'Share',
                     onPressed: () => _shareCurrentAsset(),
                   ),
@@ -185,7 +186,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                 if (widget.allowDeviceDelete)
                   Expanded(
                     child: _BottomAction(
-                      icon: Icons.delete_outline,
+                      icon: Symbols.delete,
                       label: 'Trash',
                       color: Colors.redAccent,
                       onPressed: () => _trashFromDevice(),
@@ -418,7 +419,7 @@ class _BackupAction extends StatelessWidget {
       // Tapping again mid-upload does nothing useful, so the button is
       // disabled and the ring stands in for the icon.
       return _BottomAction(
-        icon: Icons.cloud_sync,
+        icon: Symbols.cloud_sync,
         iconWidget: const SizedBox(
           width: 24,
           height: 24,
@@ -437,11 +438,11 @@ class _BackupAction extends StatelessWidget {
     final String label;
     final Color color;
     if (isQueued) {
-      icon = Icons.cloud_queue;
+      icon = Symbols.cloud_queue;
       label = 'Queued';
       color = AppColors.syncing;
     } else {
-      icon = Icons.backup_outlined;
+      icon = Symbols.backup;
       label = 'Back up';
       color = Colors.white;
     }
@@ -606,7 +607,7 @@ class _AssetPreviewState extends State<_AssetPreview>
         final file = snapshot.data;
         if (file == null) {
           return const Center(
-            child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
+            child: Icon(Symbols.broken_image, color: Colors.white38, size: 64),
           );
         }
         return InlineVideoPlayer(file: file);
@@ -626,7 +627,7 @@ class _AssetPreviewState extends State<_AssetPreview>
         final bytes = snapshot.data;
         if (bytes == null) {
           return const Center(
-            child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
+            child: Icon(Symbols.broken_image, color: Colors.white38, size: 64),
           );
         }
         return GestureDetector(

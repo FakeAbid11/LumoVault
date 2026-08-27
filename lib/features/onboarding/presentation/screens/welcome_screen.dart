@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/onboarding_provider.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/onboarding_progress_indicator.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Welcome screen — first screen in the onboarding flow.
 ///
@@ -46,7 +47,7 @@ class WelcomeScreen extends ConsumerWidget {
                   ],
                 ),
                 child: Icon(
-                  Icons.photo_library,
+                  Symbols.photo_library,
                   size: 48,
                   color: colorScheme.onPrimary,
                 ),
@@ -74,21 +75,21 @@ class WelcomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   children: const [
                     FeatureCard(
-                      icon: Icons.cloud_upload_outlined,
+                      icon: Symbols.cloud_upload,
                       title: 'Automatic Backup',
                       description:
                           'Back up photos and videos automatically in the background',
                     ),
                     SizedBox(height: 12),
                     FeatureCard(
-                      icon: Icons.high_quality_outlined,
+                      icon: Symbols.high_quality,
                       title: 'Original Quality',
                       description:
                           'Never compress your memories — full resolution, always',
                     ),
                     SizedBox(height: 12),
                     FeatureCard(
-                      icon: Icons.shield_outlined,
+                      icon: Symbols.shield,
                       title: 'Private & Secure',
                       description:
                           'Your files stay in a private channel you own — nobody else can see them',

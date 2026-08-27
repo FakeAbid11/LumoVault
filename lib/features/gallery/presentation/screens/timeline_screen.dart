@@ -15,6 +15,7 @@ import '../../../../shared/widgets/lumo_loading.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/date_header.dart';
 import '../widgets/media_tile.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Timeline screen — shows backed-up photos/videos from both the local
 /// device and the Telegram storage channel.
@@ -283,14 +284,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   Widget _buildEmptyState(BuildContext context) {
     return EmptyState(
-      icon: Icons.cloud_done_outlined,
+      icon: Symbols.cloud_done,
       title: 'No backed up photos yet',
       message:
           'Photos and videos will appear here\n'
           'once they\'ve been backed up to Telegram.',
       action: FilledButton.icon(
         onPressed: () => context.push('/settings/backup'),
-        icon: const Icon(Icons.cloud_upload_outlined),
+        icon: const Icon(Symbols.cloud_upload),
         label: const Text('Go to Backup'),
       ),
     );

@@ -8,6 +8,7 @@ import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Trash screen — view, restore, or permanently delete trashed media.
 ///
@@ -35,19 +36,19 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       appBar: _isMultiSelect
           ? AppBar(
               leading: IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Symbols.close),
                 onPressed: () => setState(_selected.clear),
                 tooltip: 'Cancel selection',
               ),
               title: Text('${_selected.length} selected'),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.restore),
+                  icon: const Icon(Symbols.restore),
                   tooltip: 'Restore',
                   onPressed: () => _restoreSelected(),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_forever),
+                  icon: const Icon(Symbols.delete_forever),
                   tooltip: 'Delete permanently',
                   onPressed: () => _confirmDelete(
                     count: _selected.length,
@@ -190,7 +191,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       context: context,
       builder: (context) => AlertDialog(
         icon: Icon(
-          Icons.delete_forever,
+          Symbols.delete_forever,
           color: Theme.of(context).colorScheme.error,
           size: 48,
         ),
@@ -228,7 +229,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.delete_outline,
+            Symbols.delete,
             size: 80,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -307,7 +308,7 @@ class _TrashedTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.image_not_supported_outlined,
+              Symbols.image_not_supported,
               size: 32,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

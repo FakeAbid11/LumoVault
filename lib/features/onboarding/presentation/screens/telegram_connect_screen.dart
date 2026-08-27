@@ -14,6 +14,7 @@ import '../providers/onboarding_provider.dart';
 import '../widgets/country_code.dart';
 import '../widgets/country_code_picker.dart';
 import '../widgets/onboarding_progress_indicator.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Telegram connect screen — links user's Telegram account.
 ///
@@ -332,7 +333,7 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       child: Column(
                         children: [
                           Icon(
-                            Icons.telegram,
+                            Symbols.send,
                             size: 48,
                             color: colorScheme.onPrimaryContainer,
                           ),
@@ -365,7 +366,7 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                         child: Column(
                           children: [
                             Icon(
-                              Icons.error_outline,
+                              Symbols.error,
                               size: 64,
                               color: colorScheme.error,
                             ),
@@ -446,7 +447,10 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(_selectedCountry.dialCode),
-                                    const Icon(Icons.arrow_drop_down, size: 20),
+                                    const Icon(
+                                      Symbols.arrow_drop_down,
+                                      size: 20,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -551,12 +555,12 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                         obscureText: !_passwordVisible,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(Symbols.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _passwordVisible
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
+                                  ? Symbols.visibility_off
+                                  : Symbols.visibility,
                             ),
                             onPressed: () {
                               setState(() {
@@ -591,7 +595,7 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                         child: Column(
                           children: [
                             Icon(
-                              Icons.check_circle_outline,
+                              Symbols.check_circle,
                               size: 64,
                               color: colorScheme.primary,
                             ),

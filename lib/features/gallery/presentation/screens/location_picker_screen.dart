@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../widgets/osm_tile_layer.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Result returned by [LocationPickerScreen].
 ///
@@ -97,7 +98,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       width: 40,
                       height: 40,
                       child: Icon(
-                        Icons.location_pin,
+                        Symbols.location_pin,
                         size: 40,
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -163,7 +164,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           ? FloatingActionButton.extended(
               onPressed: _confirm,
               label: const Text('Confirm'),
-              icon: const Icon(Icons.check),
+              icon: const Icon(Symbols.check),
             )
           : null,
     );

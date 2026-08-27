@@ -77,6 +77,9 @@ dependencies:
   # Image processing (face crops)
   image: ^4.3.0
 
+  # Material Symbols (Google Fonts icons)
+  material_symbols_icons: ^4.2960.0
+
   # Face Detection & Embeddings (People tab)
   flutter_onnxruntime: ^1.8.4
 

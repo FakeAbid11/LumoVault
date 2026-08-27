@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/storage/thumbnail_cache.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/gallery/presentation/widgets/media_tile.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// 1x1 transparent PNG — valid bytes so Image.memory decodes without error.
 final Uint8List kTransparentImage = Uint8List.fromList(const [
@@ -70,7 +71,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should show the placeholder icon (image icon for non-video)
-      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(find.byIcon(Symbols.image), findsOneWidget);
     });
 
     testWidgets('renders video icon for video items', (tester) async {
@@ -86,7 +87,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should show the video placeholder icon
-      expect(find.byIcon(Icons.videocam), findsOneWidget);
+      expect(find.byIcon(Symbols.videocam), findsOneWidget);
     });
 
     testWidgets('shows status indicator when showStatus is true', (
@@ -107,7 +108,7 @@ void main() {
       await tester.pump();
 
       // Should show the cloud done icon for uploaded status
-      expect(find.byIcon(Icons.cloud_done), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_done), findsOneWidget);
     });
 
     testWidgets('hides status indicator when showStatus is false', (
@@ -128,7 +129,7 @@ void main() {
       await tester.pump();
 
       // Should NOT show the cloud done icon
-      expect(find.byIcon(Icons.cloud_done), findsNothing);
+      expect(find.byIcon(Symbols.cloud_done), findsNothing);
     });
 
     testWidgets('calls onTap when tapped', (tester) async {
@@ -167,7 +168,7 @@ void main() {
       await tester.pump();
 
       // Should show the check icon in the selection overlay
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(Symbols.check), findsOneWidget);
     });
 
     testWidgets('applies border when isSelected is true', (tester) async {
@@ -229,7 +230,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byIcon(Icons.cloud_upload_outlined), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_upload), findsOneWidget);
     });
 
     testWidgets('shows uploading status icon', (tester) async {
@@ -247,7 +248,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byIcon(Icons.cloud_sync), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_sync), findsOneWidget);
     });
 
     testWidgets('shows failed status icon', (tester) async {
@@ -265,7 +266,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byIcon(Icons.cloud_off), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_off), findsOneWidget);
     });
 
     testWidgets('shows excluded status icon', (tester) async {
@@ -283,7 +284,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byIcon(Icons.block), findsOneWidget);
+      expect(find.byIcon(Symbols.block), findsOneWidget);
     });
 
     testWidgets('video item shows play indicator', (tester) async {
@@ -298,7 +299,7 @@ void main() {
       await tester.pump();
 
       // Should show the play arrow icon
-      expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+      expect(find.byIcon(Symbols.play_arrow), findsOneWidget);
     });
 
     testWidgets('renders thumbnail image when thumbnail loader returns bytes', (
@@ -319,7 +320,7 @@ void main() {
 
       // Cache-hit path: image bytes render instead of the placeholder.
       expect(find.byType(Image), findsOneWidget);
-      expect(find.byIcon(Icons.image), findsNothing);
+      expect(find.byIcon(Symbols.image), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -336,7 +337,7 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(find.byIcon(Symbols.image), findsOneWidget);
     });
 
     testWidgets('falls back to placeholder when default loader times out '
@@ -356,7 +357,7 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
       await tester.pump();
 
-      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(find.byIcon(Symbols.image), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -436,7 +437,7 @@ void main() {
 
       expect(fetcherCalls, 1);
       expect(find.byType(Image), findsOneWidget);
-      expect(find.byIcon(Icons.image), findsNothing);
+      expect(find.byIcon(Symbols.image), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -456,7 +457,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(find.byIcon(Symbols.image), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -505,7 +506,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.image), findsOneWidget);
+      expect(find.byIcon(Symbols.image), findsOneWidget);
     });
   });
 

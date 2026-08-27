@@ -38,6 +38,7 @@ import '../../features/settings/presentation/screens/developer_settings_screen.d
 import '../../features/trash/presentation/screens/trash_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../theme/app_motion.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 CustomTransitionPage<void> _slideFromRight(Widget child, GoRouterState state) {
   if (!AppMotion.enabled) {
@@ -385,7 +386,7 @@ class _RouterErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+              Icon(Symbols.error, size: 48, color: colorScheme.error),
               const SizedBox(height: 16),
               Text(
                 'Something went wrong',

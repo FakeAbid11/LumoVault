@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Inline video player for the full-screen media viewers.
 ///
@@ -72,7 +73,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return const Center(
-        child: Icon(Icons.broken_image, color: Colors.white38, size: 64),
+        child: Icon(Symbols.broken_image, color: Colors.white38, size: 64),
       );
     }
     if (!_initialized) {
@@ -102,7 +103,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.play_arrow,
+                Symbols.play_arrow,
                 color: Colors.white,
                 size: 48,
               ),

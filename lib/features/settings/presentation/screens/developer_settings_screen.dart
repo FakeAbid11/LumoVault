@@ -7,6 +7,7 @@ import '../../../metadata/data/repositories/metadata_repository.dart'
     show MetadataSyncStatus;
 import '../../../metadata/presentation/providers/metadata_providers.dart';
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Developer settings — debug info, diagnostics, live sync state.
 class DeveloperSettingsScreen extends ConsumerWidget {
@@ -37,17 +38,17 @@ class DeveloperSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Database'),
           ListTile(
-            leading: const Icon(Icons.storage),
+            leading: const Icon(Symbols.storage),
             title: const Text('Database Information'),
             subtitle: const Text('View Drift database details'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showDatabaseInfo(context),
           ),
           ListTile(
-            leading: const Icon(Icons.sync),
+            leading: const Icon(Symbols.sync),
             title: const Text('Sync Status'),
             subtitle: const Text('View metadata sync state'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showSyncStatus(context, ref),
           ),
 
@@ -55,7 +56,7 @@ class DeveloperSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Experimental'),
           SwitchListTile(
-            secondary: const Icon(Icons.science),
+            secondary: const Icon(Symbols.science),
             title: const Text('Debug Mode'),
             subtitle: const Text('Emit verbose diagnostic logs (logcat)'),
             value: debugMode,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/restore_providers.dart';
 import '../../data/models/restore_progress.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Restore progress screen per PRD Section 10.3.
 ///
@@ -256,7 +257,7 @@ class RestoreProgressScreen extends ConsumerWidget {
       child: Row(
         children: [
           Icon(
-            Icons.file_present,
+            Symbols.file_present,
             size: 16,
             color: Theme.of(
               context,
@@ -316,7 +317,7 @@ class RestoreProgressScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.error_outline,
+                    Symbols.error,
                     color: Theme.of(context).colorScheme.onError,
                     size: 20,
                   ),
@@ -400,25 +401,25 @@ class RestoreProgressScreen extends ConsumerWidget {
   IconData _getPhaseIcon(RestorePhase phase) {
     switch (phase) {
       case RestorePhase.detecting:
-        return Icons.search;
+        return Symbols.search;
       case RestorePhase.manifestDownload:
-        return Icons.description;
+        return Symbols.description;
       case RestorePhase.metadataDownload:
-        return Icons.cloud_download;
+        return Symbols.cloud_download;
       case RestorePhase.databaseRebuild:
-        return Icons.storage;
+        return Symbols.storage;
       case RestorePhase.thumbnailDownload:
-        return Icons.photo_library;
+        return Symbols.photo_library;
       case RestorePhase.originalDownload:
-        return Icons.high_quality;
+        return Symbols.high_quality;
       case RestorePhase.completed:
-        return Icons.check_circle;
+        return Symbols.check_circle;
       case RestorePhase.failed:
-        return Icons.error;
+        return Symbols.error;
       case RestorePhase.cancelled:
-        return Icons.cancel;
+        return Symbols.cancel;
       case RestorePhase.paused:
-        return Icons.pause_circle;
+        return Symbols.pause_circle;
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/security/pin_service.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../providers/app_lock_provider.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-screen challenge shown while the app is locked.
 class AppLockScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.lock_outline,
+                    Symbols.lock,
                     size: 64,
                     color: theme.colorScheme.primary,
                   ),
@@ -104,7 +105,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
                           : () => ref
                                 .read(appLockProvider.notifier)
                                 .authenticateWithBiometrics(),
-                      icon: const Icon(Icons.fingerprint),
+                      icon: const Icon(Symbols.fingerprint),
                       label: const Text('Use biometrics'),
                     ),
                   ],

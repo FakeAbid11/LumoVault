@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// About screen — app information, licenses, and links.
 class AboutScreen extends ConsumerWidget {
@@ -24,7 +25,7 @@ class AboutScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           Center(
             child: Icon(
-              Icons.photo_library,
+              Symbols.photo_library,
               size: 72,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -57,9 +58,9 @@ class AboutScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.description),
+            leading: const Icon(Symbols.description),
             title: const Text('Licenses'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => showLicensePage(
               context: context,
               applicationName: 'LumoVault',
@@ -67,16 +68,16 @@ class AboutScreen extends ConsumerWidget {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.privacy_tip),
+            leading: const Icon(Symbols.privacy_tip),
             title: const Text('Privacy Policy'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _launchUrl(context, 'https://lumovault.app/privacy'),
           ),
           ListTile(
-            leading: const Icon(Icons.gavel),
+            leading: const Icon(Symbols.gavel),
             title: const Text('Open Source Licenses'),
             subtitle: const Text('View third-party licenses'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => showLicensePage(
               context: context,
               applicationName: 'LumoVault',
@@ -85,10 +86,10 @@ class AboutScreen extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.code),
+            leading: const Icon(Symbols.code),
             title: const Text('Source Code'),
             subtitle: const Text('github.com/FakeAbid11/LumoVault'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () =>
                 _launchUrl(context, 'https://github.com/FakeAbid11/LumoVault'),
           ),

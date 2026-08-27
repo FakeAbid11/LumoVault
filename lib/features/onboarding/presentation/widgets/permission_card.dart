@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/permissions/permission_service.dart'
     show PermissionStatus;
@@ -115,18 +116,18 @@ class PermissionCard extends StatelessWidget {
                 ),
                 if (_isGranted && !_isLimited)
                   Icon(
-                    Icons.check_circle,
+                    Symbols.check_circle,
                     color: colorScheme.primary,
                     size: 24,
                   ),
                 if (_isLimited)
                   Icon(
-                    Icons.check_circle_outline,
+                    Symbols.check_circle,
                     color: colorScheme.tertiary,
                     size: 24,
                   ),
                 if (_isPermanentlyDenied)
-                  Icon(Icons.error_outline, color: colorScheme.error, size: 24),
+                  Icon(Symbols.error, color: colorScheme.error, size: 24),
               ],
             ),
             if (!_isGranted && !_isPermanentlyDenied) ...[

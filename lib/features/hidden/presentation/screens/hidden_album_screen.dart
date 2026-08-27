@@ -8,6 +8,7 @@ import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Hidden album screen — shows media the user has hidden from the timeline.
 ///
@@ -114,7 +115,7 @@ class HiddenAlbumScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.lock_outline,
+            Symbols.lock,
             size: 80,
             color: Theme.of(context).colorScheme.primary,
           ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../gallery/data/models/upload_task.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../core/utils/format_utils.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Upload queue list widget showing pending/in-progress/failed items.
 ///
@@ -73,7 +74,7 @@ class UploadQueueList extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.cloud_queue,
+            Symbols.cloud_queue,
             size: 64,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -129,7 +130,7 @@ class _UploadQueueItem extends StatelessWidget {
     switch (task.status) {
       case UploadStatus.queued:
         return Icon(
-          Icons.schedule,
+          Symbols.schedule,
           color: colorScheme.onSurfaceVariant,
           size: 24,
         );
@@ -144,12 +145,12 @@ class _UploadQueueItem extends StatelessWidget {
           ),
         );
       case UploadStatus.completed:
-        return const Icon(Icons.check_circle, color: successColor, size: 24);
+        return const Icon(Symbols.check_circle, color: successColor, size: 24);
       case UploadStatus.failed:
-        return Icon(Icons.error_outline, color: colorScheme.error, size: 24);
+        return Icon(Symbols.error, color: colorScheme.error, size: 24);
       case UploadStatus.paused:
         return Icon(
-          Icons.pause_circle_outline,
+          Symbols.pause_circle,
           color: colorScheme.onSurfaceVariant,
           size: 24,
         );
@@ -209,20 +210,20 @@ class _UploadQueueItem extends StatelessWidget {
       case UploadStatus.failed:
         if (task.canRetry) {
           return IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh),
             onPressed: onRetry,
             tooltip: 'Retry',
           );
         }
         return IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Symbols.close),
           onPressed: onCancel,
           tooltip: 'Remove',
         );
       case UploadStatus.queued:
       case UploadStatus.paused:
         return IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Symbols.close),
           onPressed: onCancel,
           tooltip: 'Cancel',
         );

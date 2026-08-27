@@ -6,6 +6,7 @@ import '../../../../core/di/backup_providers.dart';
 import '../../engine/backup_engine.dart';
 import '../widgets/backup_progress_card.dart';
 import '../widgets/upload_queue_list.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Backup dashboard screen — backup status and progress.
 ///
@@ -29,7 +30,7 @@ class BackupDashboardScreen extends ConsumerWidget {
         actions: [
           if (engineState == BackupEngineState.uploading)
             IconButton(
-              icon: const Icon(Icons.pause),
+              icon: const Icon(Symbols.pause),
               onPressed: () {
                 ref.read(backupEngineProvider.notifier).pauseBackup();
               },
@@ -37,14 +38,14 @@ class BackupDashboardScreen extends ConsumerWidget {
             ),
           if (engineState == BackupEngineState.paused)
             IconButton(
-              icon: const Icon(Icons.play_arrow),
+              icon: const Icon(Symbols.play_arrow),
               onPressed: () {
                 ref.read(backupEngineProvider.notifier).resumeBackup();
               },
               tooltip: 'Resume Backup',
             ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Symbols.settings),
             onPressed: () => context.push('/settings/backup/settings'),
             tooltip: 'Backup Settings',
           ),

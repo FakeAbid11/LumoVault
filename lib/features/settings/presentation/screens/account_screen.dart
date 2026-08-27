@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/account_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Account screen — shows the signed-in Telegram account, or a sign-in
 /// prompt if none is connected.
@@ -85,7 +86,7 @@ class _SignedIn extends ConsumerWidget {
         ListTile(
           title: const Text('Storage'),
           subtitle: const Text('0 B used'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(Symbols.chevron_right),
           onTap: () => context.push('/settings/backup/stats'),
         ),
         const Divider(),
@@ -145,7 +146,7 @@ class _SignedOut extends StatelessWidget {
             radius: 48,
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Icon(
-              Icons.person,
+              Symbols.person,
               size: 48,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -192,7 +193,7 @@ class _AccountError extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.error_outline,
+            Symbols.error,
             size: 48,
             color: Theme.of(context).colorScheme.error,
           ),

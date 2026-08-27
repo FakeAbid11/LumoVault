@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/utils/format_utils.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Storage stats screen — view storage usage.
 ///
@@ -41,7 +42,7 @@ class StorageStatsScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.cloud_outlined,
+                      Symbols.cloud,
                       size: 64,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -85,7 +86,7 @@ class StorageStatsScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Total',
                     value: '${stats.totalMediaItems}',
-                    icon: Icons.photo_library_outlined,
+                    icon: Symbols.photo_library,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -93,7 +94,7 @@ class StorageStatsScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Backed Up',
                     value: '${stats.backedUpCount}',
-                    icon: Icons.cloud_done_outlined,
+                    icon: Symbols.cloud_done,
                   ),
                 ),
               ],
@@ -105,7 +106,7 @@ class StorageStatsScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Pending',
                     value: '${stats.pendingCount}',
-                    icon: Icons.schedule,
+                    icon: Symbols.schedule,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -113,7 +114,7 @@ class StorageStatsScreen extends ConsumerWidget {
                   child: _StatCard(
                     label: 'Failed',
                     value: '${stats.failedCount}',
-                    icon: Icons.error_outline,
+                    icon: Symbols.error,
                   ),
                 ),
               ],

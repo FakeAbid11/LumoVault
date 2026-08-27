@@ -13,6 +13,7 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Immich & Google Photos style photo map: plots every device photo that carries GPS EXIF as a
 /// clustered marker over OpenStreetMap tiles. Locations are read straight from
@@ -115,7 +116,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 heroTag: 'fit_bounds_fab',
                 onPressed: () => _fitAllPoints(points),
                 tooltip: 'Fit all photos in view',
-                child: const Icon(Icons.zoom_out_map),
+                child: const Icon(Symbols.zoom_out_map),
               ),
               const SizedBox(height: 12),
               FloatingActionButton(
@@ -128,7 +129,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.my_location),
+                    : const Icon(Symbols.my_location),
               ),
             ],
           ),
@@ -239,7 +240,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           color: scheme.primary,
                           alignment: Alignment.center,
                           child: Icon(
-                            Icons.photo_library,
+                            Symbols.photo_library,
                             size: 22,
                             color: scheme.onPrimary,
                           ),
@@ -250,7 +251,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       color: scheme.primary,
                       alignment: Alignment.center,
                       child: Icon(
-                        Icons.photo_library,
+                        Symbols.photo_library,
                         size: 22,
                         color: scheme.onPrimary,
                       ),
@@ -316,7 +317,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close),
                       onPressed: () => Navigator.pop(context),
                       tooltip: 'Close',
                     ),
@@ -360,7 +361,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.location_off_outlined, size: 64, color: scheme.outline),
+            Icon(Symbols.location_off, size: 64, color: scheme.outline),
             const SizedBox(height: 16),
             Text(
               'No photos with location yet',
@@ -515,7 +516,7 @@ class _PhotoMarkerState extends State<_PhotoMarker> {
 
   Widget _placeholder(BuildContext context) {
     return Icon(
-      widget.item.isVideo ? Icons.videocam : Icons.image,
+      widget.item.isVideo ? Symbols.videocam : Symbols.image,
       size: 20,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     );

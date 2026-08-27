@@ -7,6 +7,7 @@ import 'package:lumovault/core/permissions/permission_service.dart';
 import 'package:lumovault/features/onboarding/presentation/screens/permissions_screen.dart';
 import 'package:lumovault/features/onboarding/presentation/widgets/permission_card.dart';
 import 'package:lumovault/shared/widgets/permission_blocked_widget.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Mock PermissionService for testing.
 class MockPermissionService implements PermissionService {
@@ -79,7 +80,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.denied,
@@ -90,7 +91,7 @@ void main() {
       );
 
       expect(find.text('Grant'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle), findsNothing);
+      expect(find.byIcon(Symbols.check_circle), findsNothing);
     });
 
     testWidgets('shows check icon when status is granted', (tester) async {
@@ -98,7 +99,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.granted,
@@ -109,7 +110,7 @@ void main() {
       );
 
       expect(find.text('Grant'), findsNothing);
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Symbols.check_circle), findsOneWidget);
     });
 
     testWidgets('shows Open Settings when permanently denied', (tester) async {
@@ -117,7 +118,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.permanentlyDenied,
@@ -129,7 +130,7 @@ void main() {
       );
 
       expect(find.text('Open Settings'), findsOneWidget);
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+      expect(find.byIcon(Symbols.error), findsOneWidget);
     });
 
     testWidgets('shows Manage Access when limited', (tester) async {
@@ -137,7 +138,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.limited,
@@ -149,7 +150,7 @@ void main() {
       );
 
       expect(find.text('Manage Access'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+      expect(find.byIcon(Symbols.check_circle), findsOneWidget);
     });
 
     testWidgets('simple factory creates correct states', (tester) async {
@@ -157,7 +158,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard.simple(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               isGranted: true,
@@ -167,7 +168,7 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Symbols.check_circle), findsOneWidget);
     });
   });
 
@@ -336,14 +337,14 @@ void main() {
               status: PermissionStatus.denied,
               onGrantPressed: () {},
               onSettingsPressed: () {},
-              icon: Icons.videocam,
+              icon: Symbols.videocam,
               title: 'Camera access required',
             ),
           ),
         ),
       );
 
-      expect(find.byIcon(Icons.videocam), findsOneWidget);
+      expect(find.byIcon(Symbols.videocam), findsOneWidget);
       expect(find.text('Camera access required'), findsOneWidget);
     });
   });

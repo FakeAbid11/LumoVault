@@ -16,6 +16,7 @@ import 'core/storage/thumbnail_cache.dart';
 import 'features/metadata/presentation/providers/metadata_providers.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'features/settings/presentation/providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -170,7 +171,7 @@ class BootstrapErrorApp extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, size: 48),
+                const Icon(Symbols.error, size: 48),
                 const SizedBox(height: 16),
                 Text(
                   'LumoVault could not start.',

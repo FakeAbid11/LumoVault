@@ -7,6 +7,7 @@ import '../../../settings/presentation/providers/settings_providers.dart';
 import '../widgets/folder_selection_widget.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../data/models/backup_settings.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Enhanced backup settings screen with all production features.
 class BackupSettingsScreenV2 extends ConsumerWidget {
@@ -25,7 +26,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
         actions: [
           if (isBackupActive)
             IconButton(
-              icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+              icon: Icon(isPaused ? Symbols.play_arrow : Symbols.pause),
               tooltip: isPaused ? 'Resume' : 'Pause',
               onPressed: () {
                 final notifier = ref.read(backupEngineProvider.notifier);
@@ -50,7 +51,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           // -- Schedule --
           const _SectionHeader(title: 'Schedule'),
           SwitchListTile(
-            secondary: const Icon(Icons.backup),
+            secondary: const Icon(Symbols.backup),
             title: const Text('Auto Backup'),
             subtitle: const Text('Automatically back up new photos'),
             value: settings.isAutoBackupEnabled,
@@ -59,7 +60,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.wifi),
+            secondary: const Icon(Symbols.wifi),
             title: const Text('Wi-Fi Only'),
             subtitle: const Text('Only upload on Wi-Fi'),
             value: settings.wifiOnly,
@@ -68,7 +69,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.battery_charging_full),
+            secondary: const Icon(Symbols.battery_charging_full),
             title: const Text('Charging Only'),
             subtitle: const Text('Only upload while charging'),
             value: settings.chargingOnly,
@@ -79,7 +80,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.phone_android),
+            secondary: const Icon(Symbols.phone_android),
             title: const Text('Background Backup'),
             subtitle: const Text('Continue backup when app is minimized'),
             // Persisted in AppSettings; backgroundBackupSyncProvider (read
@@ -101,7 +102,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           // -- Content --
           const _SectionHeader(title: 'Content'),
           SwitchListTile(
-            secondary: const Icon(Icons.photo),
+            secondary: const Icon(Symbols.photo),
             title: const Text('Back Up Photos'),
             value: settings.backupPhotos,
             onChanged: (value) {
@@ -111,7 +112,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.videocam),
+            secondary: const Icon(Symbols.videocam),
             title: const Text('Back Up Videos'),
             value: settings.backupVideos,
             onChanged: (value) {
@@ -126,7 +127,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           // -- Manual Actions --
           const _SectionHeader(title: 'Actions'),
           ListTile(
-            leading: const Icon(Icons.play_circle),
+            leading: const Icon(Symbols.play_circle),
             title: const Text('Start Backup Now'),
             subtitle: const Text('Begin backing up pending items'),
             onTap: isBackupActive
@@ -136,7 +137,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
                   },
           ),
           ListTile(
-            leading: const Icon(Icons.refresh),
+            leading: const Icon(Symbols.refresh),
             title: const Text('Retry Failed Uploads'),
             subtitle: Text('${stats.failedCount} failed item(s)'),
             onTap: stats.failedCount > 0
@@ -146,7 +147,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
                 : null,
           ),
           ListTile(
-            leading: const Icon(Icons.delete_sweep),
+            leading: const Icon(Symbols.delete_sweep),
             title: const Text('Clear Finished'),
             subtitle: const Text('Remove completed items from queue'),
             onTap: () {
@@ -159,14 +160,14 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           // -- Limits --
           const _SectionHeader(title: 'Limits'),
           ListTile(
-            leading: const Icon(Icons.file_upload),
+            leading: const Icon(Symbols.file_upload),
             title: const Text('Max File Size'),
             subtitle: Text(
               settings.maxFileSize != null
                   ? _formatBytes(settings.maxFileSize!)
                   : 'No limit',
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showMaxFileSizeDialog(context, ref, settings),
           ),
 
@@ -175,17 +176,17 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           // -- Upload Tuning --
           const _SectionHeader(title: 'Upload Tuning'),
           ListTile(
-            leading: const Icon(Icons.queue),
+            leading: const Icon(Symbols.queue),
             title: const Text('Batch Size'),
             subtitle: Text('${settings.uploadBatchSize} files per batch'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showBatchSizeDialog(context, ref, settings),
           ),
           ListTile(
-            leading: const Icon(Icons.timer),
+            leading: const Icon(Symbols.timer),
             title: const Text('Upload Delay'),
             subtitle: Text('${settings.uploadDelayMs}ms between uploads'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showDelayDialog(context, ref, settings),
           ),
 
@@ -251,7 +252,7 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                isPaused ? Icons.pause_circle : Icons.backup,
+                isPaused ? Symbols.pause_circle : Symbols.backup,
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),

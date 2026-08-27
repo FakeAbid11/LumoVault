@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// A widget that catches errors in its child widget tree and displays
 /// a fallback error UI instead of crashing the app.
@@ -115,11 +116,7 @@ class _DefaultErrorUI extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: theme.colorScheme.error,
-              ),
+              Icon(Symbols.error, size: 64, color: theme.colorScheme.error),
               const SizedBox(height: 16),
               Text(
                 'Something went wrong',
@@ -139,7 +136,7 @@ class _DefaultErrorUI extends StatelessWidget {
               if (onRetry != null)
                 FilledButton.icon(
                   onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
+                  icon: const Icon(Symbols.refresh),
                   label: const Text('Try Again'),
                 ),
               if (kDebugMode) ...[

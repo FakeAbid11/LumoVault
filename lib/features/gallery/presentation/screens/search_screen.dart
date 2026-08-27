@@ -8,6 +8,7 @@ import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/asset_tile.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Search screen — live search over scanned media (file name, description,
 /// album, tags) via [searchProvider]. Results render as a thumbnail grid the
@@ -43,11 +44,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onChanged: (value) => setState(() => _query = value.trim()),
               decoration: InputDecoration(
                 hintText: 'Search photos and videos...',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(Symbols.search),
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(Symbols.clear),
                         onPressed: () {
                           _controller.clear();
                           setState(() => _query = '');
@@ -69,7 +70,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildResults() {
     if (_query.isEmpty) {
       return _buildHint(
-        icon: Icons.search,
+        icon: Symbols.search,
         title: 'Search your library',
         message: 'Find photos and videos by file name,\nalbum, or description.',
       );
@@ -92,7 +93,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildGrid(List<MediaItem> items, List<AssetEntity> allAssets) {
     if (items.isEmpty) {
       return _buildHint(
-        icon: Icons.search_off,
+        icon: Symbols.search_off,
         title: 'No results',
         message: 'Try searching for something else.',
       );
@@ -110,7 +111,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     if (resolved.isEmpty) {
       return _buildHint(
-        icon: Icons.search_off,
+        icon: Symbols.search_off,
         title: 'No results',
         message: 'Try searching for something else.',
       );

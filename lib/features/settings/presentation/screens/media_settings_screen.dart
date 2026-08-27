@@ -6,6 +6,7 @@ import '../../../gallery/data/models/device_folder.dart';
 import '../../data/models/app_settings.dart';
 import '../providers/settings_providers.dart';
 import '../../../../core/utils/format_utils.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Media settings — folders and backup content options.
 ///
@@ -25,7 +26,7 @@ class MediaSettingsScreen extends ConsumerWidget {
         children: [
           const _SectionHeader(title: 'Backup Content'),
           SwitchListTile(
-            secondary: const Icon(Icons.photo),
+            secondary: const Icon(Symbols.photo),
             title: const Text('Backup Photos'),
             subtitle: const Text('Include photos in backups'),
             value: settings.backupPhotos,
@@ -36,7 +37,7 @@ class MediaSettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.videocam),
+            secondary: const Icon(Symbols.videocam),
             title: const Text('Backup Videos'),
             subtitle: const Text('Include videos in backups'),
             value: settings.backupVideos,
@@ -72,10 +73,10 @@ class MediaSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Trash'),
           ListTile(
-            leading: const Icon(Icons.delete_outline),
+            leading: const Icon(Symbols.delete),
             title: const Text('Trash Duration'),
             subtitle: Text('${settings.trashDurationDays} days'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showTrashDuration(context, ref, settings),
           ),
 
@@ -83,10 +84,10 @@ class MediaSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Size Limits'),
           ListTile(
-            leading: const Icon(Icons.file_upload),
+            leading: const Icon(Symbols.file_upload),
             title: const Text('Max File Size'),
             subtitle: Text(_maxFileSizeDisplay(settings.maxFileSizeBytes)),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showMaxFileSize(context, ref, settings),
           ),
         ],

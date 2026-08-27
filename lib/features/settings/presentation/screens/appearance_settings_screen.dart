@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/settings_section_card.dart';
 import '../../data/models/app_settings.dart';
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Appearance settings — theme, grid, animations.
 class AppearanceSettingsScreen extends ConsumerWidget {
@@ -27,7 +28,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 settings,
                 ThemeMode.system,
                 'System default',
-                Icons.brightness_auto,
+                Symbols.brightness_auto,
               ),
               _themeTile(
                 context,
@@ -35,7 +36,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 settings,
                 ThemeMode.light,
                 'Light',
-                Icons.light_mode,
+                Symbols.light_mode,
               ),
               _themeTile(
                 context,
@@ -43,7 +44,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 settings,
                 ThemeMode.dark,
                 'Dark',
-                Icons.dark_mode,
+                Symbols.dark_mode,
               ),
             ],
           ),
@@ -51,7 +52,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             title: 'Colors',
             children: [
               SwitchListTile(
-                secondary: const Icon(Icons.palette),
+                secondary: const Icon(Symbols.palette),
                 title: const Text('Dynamic Color'),
                 subtitle: const Text('Use system wallpaper colors'),
                 value: settings.useDynamicColor,
@@ -67,14 +68,14 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             title: 'Gallery',
             children: [
               ListTile(
-                leading: const Icon(Icons.grid_view),
+                leading: const Icon(Symbols.grid_view),
                 title: const Text('Grid Size'),
                 subtitle: Text(_gridSizeName(settings.gridSize)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => _showGridPicker(context, ref, settings),
               ),
               SwitchListTile(
-                secondary: const Icon(Icons.view_module),
+                secondary: const Icon(Symbols.view_module),
                 title: const Text('Compact Mode'),
                 subtitle: const Text('Show more items on screen'),
                 value: settings.compactMode,
@@ -85,7 +86,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                 },
               ),
               SwitchListTile(
-                secondary: const Icon(Icons.animation),
+                secondary: const Icon(Symbols.animation),
                 title: const Text('Animations'),
                 subtitle: const Text('Enable transition animations'),
                 value: settings.animationsEnabled,
@@ -115,7 +116,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
       leading: Icon(icon),
       title: Text(label),
       trailing: isSelected
-          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+          ? Icon(Symbols.check, color: Theme.of(context).colorScheme.primary)
           : null,
       onTap: () {
         ref

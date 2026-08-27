@@ -9,6 +9,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../providers/people_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class PersonDetailScreen extends ConsumerStatefulWidget {
   const PersonDetailScreen({required this.personId, super.key});
@@ -58,7 +59,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(_isEditing ? Icons.check : Icons.edit),
+            icon: Icon(_isEditing ? Symbols.check : Symbols.edit),
             tooltip: _isEditing ? 'Save name' : 'Edit name',
             onPressed: () {
               if (_isEditing) _saveName();
@@ -77,14 +78,14 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               const PopupMenuItem(
                 value: 'merge',
                 child: ListTile(
-                  leading: Icon(Icons.merge),
+                  leading: Icon(Symbols.merge),
                   title: Text('Merge with...'),
                 ),
               ),
               const PopupMenuItem(
                 value: 'delete',
                 child: ListTile(
-                  leading: Icon(Icons.delete_outline, color: Colors.red),
+                  leading: Icon(Symbols.delete, color: Colors.red),
                   title: Text('Delete Person'),
                 ),
               ),
@@ -103,7 +104,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
           data: (person) {
             if (person == null) {
               return const EmptyState(
-                icon: Icons.person_off_outlined,
+                icon: Symbols.person_off,
                 title: 'Person not found',
                 message: 'This person may have been deleted.',
               );
@@ -190,7 +191,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                                     const SizedBox(height: 6),
                                     ActionChip(
                                       avatar: const Icon(
-                                        Icons.edit_outlined,
+                                        Symbols.edit,
                                         size: 14,
                                       ),
                                       label: const Text('Add name'),
@@ -447,7 +448,7 @@ class _PersonPhotoGridState extends State<_PersonPhotoGrid> {
           }
           return Container(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: const Icon(Icons.broken_image_outlined, size: 28),
+            child: const Icon(Symbols.broken_image, size: 28),
           );
         }
 

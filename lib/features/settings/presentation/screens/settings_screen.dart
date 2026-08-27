@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/settings_section_card.dart';
 import '../../data/models/app_settings.dart';
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Main settings screen — modern Material 3 navigation hub.
 class SettingsScreen extends ConsumerWidget {
@@ -24,10 +25,10 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Account',
             children: [
               ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.person)),
+                leading: const CircleAvatar(child: Icon(Symbols.person)),
                 title: const Text('Account'),
                 subtitle: const Text('Manage your Telegram account'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/account'),
               ),
             ],
@@ -38,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Backup & Storage',
             children: [
               SwitchListTile(
-                secondary: const Icon(Icons.backup),
+                secondary: const Icon(Symbols.backup),
                 title: const Text('Auto Backup'),
                 subtitle: const Text('Automatically back up new photos'),
                 value: settings.autoBackupEnabled,
@@ -49,7 +50,7 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               SwitchListTile(
-                secondary: const Icon(Icons.wifi),
+                secondary: const Icon(Symbols.wifi),
                 title: const Text('Wi-Fi Only'),
                 subtitle: const Text('Only upload on Wi-Fi'),
                 value: settings.wifiOnly,
@@ -60,17 +61,17 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.settings),
+                leading: const Icon(Symbols.settings),
                 title: const Text('Backup Settings'),
                 subtitle: const Text('Advanced backup configuration'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/backup'),
               ),
               ListTile(
-                leading: const Icon(Icons.storage),
+                leading: const Icon(Symbols.storage),
                 title: const Text('Storage Usage'),
                 subtitle: const Text('Device cache and storage cleanup'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/storage'),
               ),
             ],
@@ -81,35 +82,35 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Vault & Privacy',
             children: [
               ListTile(
-                leading: const Icon(Icons.lock),
+                leading: const Icon(Symbols.lock),
                 title: const Text('Privacy & App Lock'),
                 subtitle: Text(_privacyStatus(settings)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/privacy'),
               ),
               ListTile(
-                leading: const Icon(Icons.folder),
+                leading: const Icon(Symbols.folder),
                 title: const Text('Media Folders'),
                 subtitle: const Text('Included folders and albums'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/media'),
               ),
               ListTile(
-                leading: const Icon(Icons.visibility_off),
+                leading: const Icon(Symbols.visibility_off),
                 title: const Text('Hidden Album'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/hidden'),
               ),
               ListTile(
-                leading: const Icon(Icons.archive),
+                leading: const Icon(Symbols.archive),
                 title: const Text('Archive'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/archive'),
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline),
+                leading: const Icon(Symbols.delete),
                 title: const Text('Trash'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/trash'),
               ),
             ],
@@ -120,23 +121,23 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Preferences',
             children: [
               ListTile(
-                leading: const Icon(Icons.palette),
+                leading: const Icon(Symbols.palette),
                 title: const Text('Appearance'),
                 subtitle: Text(_themeModeName(settings.themeMode)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/appearance'),
               ),
               ListTile(
-                leading: const Icon(Icons.language),
+                leading: const Icon(Symbols.language),
                 title: const Text('Language'),
                 subtitle: Text(_languageName(settings.languageCode)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/general'),
               ),
               ListTile(
-                leading: const Icon(Icons.notifications),
+                leading: const Icon(Symbols.notifications),
                 title: const Text('Notifications'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/notifications'),
               ),
             ],
@@ -147,16 +148,16 @@ class SettingsScreen extends ConsumerWidget {
             title: 'About & System',
             children: [
               ListTile(
-                leading: const Icon(Icons.info_outline),
+                leading: const Icon(Symbols.info),
                 title: const Text('About LumoVault'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/about'),
               ),
               ListTile(
-                leading: const Icon(Icons.code),
+                leading: const Icon(Symbols.code),
                 title: const Text('Developer Options'),
                 subtitle: const Text('Debug info and diagnostics'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/developer'),
               ),
             ],

@@ -10,6 +10,7 @@ import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/gallery/data/repositories/telegram_download_service.dart';
 import 'package:lumovault/features/gallery/presentation/screens/telegram_media_viewer_screen.dart';
 import 'package:lumovault/features/restore/presentation/providers/restore_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Behavioural coverage for [TelegramMediaViewerScreen].
 ///
@@ -136,7 +137,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.byIcon(Symbols.play_arrow), findsOneWidget);
     expect(find.text('0:30 · Tap to play'), findsOneWidget);
     // Videos never fetch the original until the user taps play — only the
     // thumbnail is requested up front.
@@ -156,7 +157,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.tap(find.byIcon(Symbols.info));
     await tester.pumpAndSettle();
 
     expect(find.text('Backed up to Telegram'), findsOneWidget);

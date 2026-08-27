@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/production_providers.dart';
 import '../../../../core/security/pin_service.dart';
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Privacy settings — app lock and encryption.
 class PrivacySettingsScreen extends ConsumerWidget {
@@ -19,7 +20,7 @@ class PrivacySettingsScreen extends ConsumerWidget {
         children: [
           const _SectionHeader(title: 'App Lock'),
           SwitchListTile(
-            secondary: const Icon(Icons.fingerprint),
+            secondary: const Icon(Symbols.fingerprint),
             title: const Text('Biometric Lock'),
             subtitle: const Text('Require fingerprint or face to open app'),
             value: settings.biometricLockEnabled,
@@ -30,7 +31,7 @@ class PrivacySettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.pin),
+            secondary: const Icon(Symbols.pin),
             title: const Text('PIN Lock'),
             subtitle: const Text('Require PIN to open app'),
             value: settings.pinLockEnabled,
@@ -51,7 +52,7 @@ class PrivacySettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.lock_clock),
+            secondary: const Icon(Symbols.lock_clock),
             title: const Text('Require on App Open'),
             subtitle: const Text('Lock every time app is opened'),
             value: settings.requireAuthOnAppOpen,
@@ -70,7 +71,7 @@ class PrivacySettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Encryption'),
           const ListTile(
-            leading: Icon(Icons.enhanced_encryption),
+            leading: Icon(Symbols.enhanced_encryption),
             title: Text('End-to-End Encryption'),
             subtitle: Text('Coming soon — encrypt all backups'),
             enabled: false,

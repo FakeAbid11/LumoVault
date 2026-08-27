@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../providers/people_providers.dart';
 import '../widgets/person_tile.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class PeopleScreen extends ConsumerStatefulWidget {
   const PeopleScreen({super.key});
@@ -70,20 +71,20 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     if (_selectionMode) {
       return AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Symbols.close),
           onPressed: _exitSelection,
         ),
         title: Text('${_selectedIds.length} selected'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.merge),
+            icon: const Icon(Symbols.merge),
             tooltip: 'Merge selected',
             onPressed: _selectedIds.length >= 2
                 ? () => _showMergeDialog()
                 : null,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Symbols.delete),
             tooltip: 'Delete selected',
             onPressed: () => _showDeleteDialog(),
           ),
@@ -220,14 +221,14 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   ) {
     final hasUnscanned = unscannedAsync.valueOrNull ?? false;
     return EmptyState(
-      icon: Icons.people_outline,
+      icon: Symbols.people,
       title: 'No people found',
       message: hasUnscanned
           ? 'Faces in your photos will be grouped here.\nTap below to start scanning.'
           : 'Scan your photos to discover and group people.',
       action: FilledButton.icon(
         onPressed: () => ref.read(faceScanControllerProvider).start(),
-        icon: const Icon(Icons.person_search),
+        icon: const Icon(Symbols.person_search),
         label: const Text('Scan for Faces'),
       ),
     );
@@ -252,7 +253,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               ),
               elevation: 0,
               child: ListTile(
-                leading: const Icon(Icons.person_add_outlined),
+                leading: const Icon(Symbols.person_add),
                 title: const Text('New photos to scan'),
                 subtitle: const Text('Tap to find new faces'),
                 trailing: FilledButton.tonal(
@@ -309,7 +310,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              Symbols.error,
               size: 80,
               color: Theme.of(context).colorScheme.error,
             ),
@@ -331,7 +332,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               onPressed: () {
                 ref.invalidate(peopleProvider);
               },
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Symbols.refresh),
               label: const Text('Try Again'),
             ),
           ],
@@ -351,7 +352,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                 onPressed: _selectedIds.length >= 2
                     ? () => _showMergeDialog()
                     : null,
-                icon: const Icon(Icons.merge),
+                icon: const Icon(Symbols.merge),
                 label: Text('Merge (${_selectedIds.length})'),
               ),
             ),
@@ -362,7 +363,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                   backgroundColor: Theme.of(context).colorScheme.error,
                 ),
                 onPressed: () => _showDeleteDialog(),
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(Symbols.delete),
                 label: Text('Delete (${_selectedIds.length})'),
               ),
             ),

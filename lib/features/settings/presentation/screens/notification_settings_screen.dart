@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Notification settings — toggle each notification type.
 class NotificationSettingsScreen extends ConsumerWidget {
@@ -17,7 +18,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
         children: [
           const _SectionHeader(title: 'Backup'),
           SwitchListTile(
-            secondary: const Icon(Icons.backup),
+            secondary: const Icon(Symbols.backup),
             title: const Text('Backup Progress'),
             subtitle: const Text('Show ongoing backup notifications'),
             value: settings.backupProgressNotification,
@@ -30,7 +31,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.check_circle),
+            secondary: const Icon(Symbols.check_circle),
             title: const Text('Backup Completed'),
             subtitle: const Text('Notify when backup finishes'),
             value: settings.backupCompletedNotification,
@@ -43,7 +44,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
             },
           ),
           SwitchListTile(
-            secondary: const Icon(Icons.error),
+            secondary: const Icon(Symbols.error),
             title: const Text('Backup Failed'),
             subtitle: const Text('Notify when backup fails'),
             value: settings.backupFailedNotification,
@@ -60,7 +61,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'Restore'),
           SwitchListTile(
-            secondary: const Icon(Icons.restore),
+            secondary: const Icon(Symbols.restore),
             title: const Text('Restore Completed'),
             subtitle: const Text('Notify when restore finishes'),
             value: settings.restoreCompletedNotification,
@@ -77,7 +78,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
           const _SectionHeader(title: 'System'),
           SwitchListTile(
-            secondary: const Icon(Icons.storage),
+            secondary: const Icon(Symbols.storage),
             title: const Text('Storage Warning'),
             subtitle: const Text('Warn when Telegram storage is low'),
             value: settings.storageWarningNotification,

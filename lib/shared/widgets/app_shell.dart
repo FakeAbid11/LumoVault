@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Responsive shell that adapts navigation layout based on screen size.
 ///
@@ -76,32 +77,32 @@ class AppShell extends StatelessWidget {
                 indicatorColor: colorScheme.secondaryContainer,
                 destinations: const [
                   NavigationDestination(
-                    icon: Icon(Icons.smartphone_outlined, size: 24),
-                    selectedIcon: Icon(Icons.smartphone, size: 24),
+                    icon: Icon(Symbols.smartphone, size: 24),
+                    selectedIcon: Icon(Symbols.smartphone, size: 24),
                     label: 'Local',
                     tooltip: 'All photos on this device',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.cloud_done_outlined, size: 24),
-                    selectedIcon: Icon(Icons.cloud_done, size: 24),
+                    icon: Icon(Symbols.cloud_done, size: 24),
+                    selectedIcon: Icon(Symbols.cloud_done, size: 24),
                     label: 'Timeline',
                     tooltip: 'Photos backed up to Telegram',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.map_outlined, size: 24),
-                    selectedIcon: Icon(Icons.map, size: 24),
+                    icon: Icon(Symbols.map, size: 24),
+                    selectedIcon: Icon(Symbols.map, size: 24),
                     label: 'Map',
                     tooltip: 'Photos on a map by location',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.people_outline, size: 24),
-                    selectedIcon: Icon(Icons.people, size: 24),
+                    icon: Icon(Symbols.people, size: 24),
+                    selectedIcon: Icon(Symbols.people, size: 24),
                     label: 'People',
                     tooltip: 'Photos grouped by person',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.settings_outlined, size: 24),
-                    selectedIcon: Icon(Icons.settings, size: 24),
+                    icon: Icon(Symbols.settings, size: 24),
+                    selectedIcon: Icon(Symbols.settings, size: 24),
                     label: 'Settings',
                     tooltip: 'App settings and preferences',
                   ),
@@ -124,32 +125,32 @@ class AppShell extends StatelessWidget {
             labelType: NavigationRailLabelType.all,
             leading: const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Icon(Icons.photo_library, size: 32),
+              child: Icon(Symbols.photo_library, size: 32),
             ),
             destinations: const [
               NavigationRailDestination(
-                icon: Icon(Icons.smartphone_outlined),
-                selectedIcon: Icon(Icons.smartphone),
+                icon: Icon(Symbols.smartphone),
+                selectedIcon: Icon(Symbols.smartphone),
                 label: Text('Local'),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.cloud_done_outlined),
-                selectedIcon: Icon(Icons.cloud_done),
+                icon: Icon(Symbols.cloud_done),
+                selectedIcon: Icon(Symbols.cloud_done),
                 label: Text('Timeline'),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.map_outlined),
-                selectedIcon: Icon(Icons.map),
+                icon: Icon(Symbols.map),
+                selectedIcon: Icon(Symbols.map),
                 label: Text('Map'),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
+                icon: Icon(Symbols.people),
+                selectedIcon: Icon(Symbols.people),
                 label: Text('People'),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
+                icon: Icon(Symbols.settings),
+                selectedIcon: Icon(Symbols.settings),
                 label: Text('Settings'),
               ),
             ],
@@ -180,28 +181,28 @@ class AppShell extends StatelessWidget {
                 ),
               ),
               NavigationDrawerDestination(
-                icon: Icon(Icons.smartphone_outlined),
-                selectedIcon: Icon(Icons.smartphone),
+                icon: Icon(Symbols.smartphone),
+                selectedIcon: Icon(Symbols.smartphone),
                 label: Text('Local'),
               ),
               NavigationDrawerDestination(
-                icon: Icon(Icons.cloud_done_outlined),
-                selectedIcon: Icon(Icons.cloud_done),
+                icon: Icon(Symbols.cloud_done),
+                selectedIcon: Icon(Symbols.cloud_done),
                 label: Text('Timeline'),
               ),
               NavigationDrawerDestination(
-                icon: Icon(Icons.map_outlined),
-                selectedIcon: Icon(Icons.map),
+                icon: Icon(Symbols.map),
+                selectedIcon: Icon(Symbols.map),
                 label: Text('Map'),
               ),
               NavigationDrawerDestination(
-                icon: Icon(Icons.people_outline),
-                selectedIcon: Icon(Icons.people),
+                icon: Icon(Symbols.people),
+                selectedIcon: Icon(Symbols.people),
                 label: Text('People'),
               ),
               NavigationDrawerDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
+                icon: Icon(Symbols.settings),
+                selectedIcon: Icon(Symbols.settings),
                 label: Text('Settings'),
               ),
             ],

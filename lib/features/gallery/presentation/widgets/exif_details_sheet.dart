@@ -12,6 +12,7 @@ import '../../../../core/utils/format_utils.dart';
 import '../../data/models/media_item.dart';
 import '../screens/location_picker_screen.dart';
 import 'osm_tile_layer.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-featured Apple Photos / Google Photos style EXIF and metadata details bottom sheet.
 class ExifDetailsSheet extends ConsumerStatefulWidget {
@@ -151,9 +152,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
                       Row(
                         children: [
                           Icon(
-                            isVideo
-                                ? Icons.videocam_outlined
-                                : Icons.image_outlined,
+                            isVideo ? Symbols.videocam : Symbols.image,
                             size: 24,
                             color: colorScheme.primary,
                           ),
@@ -222,7 +221,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         child: Row(
           children: [
             Icon(
-              isUploaded ? Icons.cloud_done : Icons.cloud_queue,
+              isUploaded ? Symbols.cloud_done : Symbols.cloud_queue,
               color: isUploaded ? Colors.green : colorScheme.onSurfaceVariant,
               size: 24,
             ),
@@ -270,10 +269,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: ListTile(
-          leading: Icon(
-            Icons.add_location_alt_outlined,
-            color: colorScheme.primary,
-          ),
+          leading: Icon(Symbols.add_location_alt, color: colorScheme.primary),
           title: const Text('Add location'),
           subtitle: const Text('Pin where this photo was taken'),
           onTap: () => _openLocationPicker(null, null),
@@ -297,7 +293,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
             ),
             TextButton.icon(
               onPressed: () => _openLocationPicker(lat, lng),
-              icon: const Icon(Icons.edit_location_alt, size: 16),
+              icon: const Icon(Symbols.edit_location_alt, size: 16),
               label: const Text('Edit'),
             ),
           ],
@@ -334,7 +330,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
                           ],
                         ),
                         child: const Icon(
-                          Icons.location_on,
+                          Symbols.location_on,
                           color: Colors.white,
                           size: 22,
                         ),

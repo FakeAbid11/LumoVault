@@ -8,6 +8,7 @@ import '../../../../core/storage/thumbnail_cache.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class MediaTile extends StatefulWidget {
   const MediaTile({
@@ -215,7 +216,7 @@ class _MediaTileState extends State<MediaTile> {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(
-        widget.mediaItem.isVideo ? Icons.videocam : Icons.image,
+        widget.mediaItem.isVideo ? Symbols.videocam : Symbols.image,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
         size: 32,
       ),
@@ -235,7 +236,7 @@ class _MediaTileState extends State<MediaTile> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.play_arrow, color: Colors.white, size: 12),
+            const Icon(Symbols.play_arrow, color: Colors.white, size: 12),
             const SizedBox(width: 2),
             Text(
               _formatDuration(widget.mediaItem.durationMs),
@@ -256,15 +257,15 @@ class _MediaTileState extends State<MediaTile> {
 
     switch (widget.mediaItem.status) {
       case MediaStatus.pending:
-        icon = Icons.cloud_upload_outlined;
+        icon = Symbols.cloud_upload;
       case MediaStatus.uploading:
-        icon = Icons.cloud_sync;
+        icon = Symbols.cloud_sync;
       case MediaStatus.uploaded:
-        icon = Icons.cloud_done;
+        icon = Symbols.cloud_done;
       case MediaStatus.failed:
-        icon = Icons.cloud_off;
+        icon = Symbols.cloud_off;
       case MediaStatus.excluded:
-        icon = Icons.block;
+        icon = Symbols.block;
     }
 
     final color = statusColor(context, widget.mediaItem.status);
@@ -294,7 +295,7 @@ class _MediaTileState extends State<MediaTile> {
           color: Theme.of(context).colorScheme.primary,
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.check, color: Colors.white, size: 16),
+        child: const Icon(Symbols.check, color: Colors.white, size: 16),
       ),
     );
   }

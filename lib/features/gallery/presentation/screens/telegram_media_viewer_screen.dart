@@ -20,6 +20,7 @@ import '../../data/models/transfer_error.dart';
 import '../../data/repositories/telegram_download_service.dart';
 import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-screen viewer for Telegram-only items (backed-up copies with no
 /// local file).
@@ -154,12 +155,12 @@ class _TelegramMediaViewerScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download_outlined),
+            icon: const Icon(Symbols.download),
             tooltip: 'Save to gallery',
             onPressed: () => _downloadToGallery(),
           ),
           IconButton(
-            icon: const Icon(Icons.info_outline),
+            icon: const Icon(Symbols.info),
             tooltip: 'Info & EXIF',
             onPressed: () => _showExifDetails(currentItem),
           ),
@@ -450,7 +451,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: Colors.white38, size: 64),
+          const Icon(Symbols.error, color: Colors.white38, size: 64),
           const SizedBox(height: 12),
           Text(
             message,
@@ -460,7 +461,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _retry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh),
             label: const Text('Retry'),
             style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
           ),
@@ -505,7 +506,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
                   color: Colors.black,
                   child: const Center(
                     child: Icon(
-                      Icons.videocam,
+                      Symbols.videocam,
                       color: Colors.white38,
                       size: 64,
                     ),
@@ -522,7 +523,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.play_arrow,
+                        Symbols.play_arrow,
                         color: Colors.white,
                         size: 48,
                       ),
@@ -584,7 +585,7 @@ class TelegramItemDetailSheet extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.cloud_done,
+                  Symbols.cloud_done,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),

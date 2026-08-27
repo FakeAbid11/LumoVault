@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:lumovault/shared/widgets/app_shell.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   group('AppShell', () {
@@ -114,7 +115,7 @@ void main() {
 
       expect(find.text('Local Content'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.map_outlined));
+      await tester.tap(find.byIcon(Symbols.map));
       await tester.pumpAndSettle();
 
       expect(navigationShell.currentIndex, equals(2));
@@ -131,7 +132,7 @@ void main() {
 
       expect(find.text('Local Content'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.tap(find.byIcon(Symbols.settings));
       await tester.pumpAndSettle();
 
       expect(navigationShell.currentIndex, equals(4));
@@ -148,7 +149,7 @@ void main() {
 
       expect(find.text('Local Content'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.people_outline));
+      await tester.tap(find.byIcon(Symbols.people));
       await tester.pumpAndSettle();
 
       expect(navigationShell.currentIndex, equals(3));

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/daos/face_dao.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../providers/people_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class PersonTile extends ConsumerWidget {
   const PersonTile({
@@ -73,7 +74,7 @@ class PersonTile extends ConsumerWidget {
                         ),
                       ),
                       child: Icon(
-                        Icons.check,
+                        Symbols.check,
                         size: 16,
                         color: Theme.of(context).colorScheme.onPrimary,
                       ),
@@ -124,7 +125,7 @@ class PersonTile extends ConsumerWidget {
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Center(
         child: Icon(
-          Icons.person,
+          Symbols.person,
           size: 40,
           color: Theme.of(context).colorScheme.onPrimaryContainer,
         ),

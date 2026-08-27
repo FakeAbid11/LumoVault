@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/permissions/permission_service.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// A widget displayed when a required permission is denied.
 ///
@@ -10,7 +11,7 @@ class PermissionBlockedWidget extends StatelessWidget {
     required this.status,
     required this.onGrantPressed,
     required this.onSettingsPressed,
-    this.icon = Icons.photo_library_outlined,
+    this.icon = Symbols.photo_library,
     this.title = 'Permission required',
     this.grantLabel = 'Grant Permission',
     this.settingsLabel = 'Open Settings',
@@ -56,7 +57,7 @@ class PermissionBlockedWidget extends StatelessWidget {
                   ? onSettingsPressed
                   : onGrantPressed,
               icon: Icon(
-                _isPermanentlyDenied ? Icons.settings : Icons.lock_open,
+                _isPermanentlyDenied ? Symbols.settings : Symbols.lock_open,
               ),
               label: Text(_isPermanentlyDenied ? settingsLabel : grantLabel),
             ),

@@ -14,6 +14,7 @@ import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Local screen — shows every photo/video on this device.
 ///
@@ -114,7 +115,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         icon: Icon(
-          Icons.photo_library_outlined,
+          Symbols.photo_library,
           color: Theme.of(context).colorScheme.error,
           size: 48,
         ),
@@ -150,7 +151,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       appBar: _isMultiSelectMode
           ? AppBar(
               leading: IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Symbols.close),
                 onPressed: () => setState(_multiSelected.clear),
                 tooltip: 'Cancel selection',
               ),
@@ -193,12 +194,12 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               title: const Text('LumoVault'),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Symbols.search),
                   onPressed: () => context.push('/gallery/search'),
                   tooltip: 'Search',
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert),
+                  icon: const Icon(Symbols.more_vert),
                   tooltip: 'More options',
                   onSelected: (value) {
                     switch (value) {
@@ -215,21 +216,21 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     PopupMenuItem(
                       value: 'settings',
                       child: ListTile(
-                        leading: Icon(Icons.settings),
+                        leading: Icon(Symbols.settings),
                         title: Text('Settings'),
                       ),
                     ),
                     PopupMenuItem(
                       value: 'restore',
                       child: ListTile(
-                        leading: Icon(Icons.restore),
+                        leading: Icon(Symbols.restore),
                         title: Text('Restore'),
                       ),
                     ),
                     PopupMenuItem(
                       value: 'refresh',
                       child: ListTile(
-                        leading: Icon(Icons.refresh),
+                        leading: Icon(Symbols.refresh),
                         title: Text('Refresh'),
                       ),
                     ),
@@ -241,7 +242,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: () => context.push('/settings/backup'),
-              icon: const Icon(Icons.cloud_upload),
+              icon: const Icon(Symbols.cloud_upload),
               label: const Text('Backup'),
             ),
       bottomNavigationBar: _isMultiSelectMode
@@ -275,11 +276,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.photo_library_outlined,
-              size: 80,
-              color: colorScheme.error,
-            ),
+            Icon(Symbols.photo_library, size: 80, color: colorScheme.error),
             const SizedBox(height: 24),
             Text(
               'Storage permission required',
@@ -313,7 +310,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                 ref.invalidate(mediaPermissionStatusProvider);
               },
               icon: Icon(
-                isPermanentlyDenied ? Icons.settings : Icons.lock_open,
+                isPermanentlyDenied ? Symbols.settings : Symbols.lock_open,
               ),
               label: Text(
                 isPermanentlyDenied ? 'Open Settings' : 'Grant Permission',
@@ -373,7 +370,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.photo_library_outlined,
+            Symbols.photo_library,
             size: 80,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -393,7 +390,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => ref.invalidate(deviceAssetsProvider),
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh),
             label: const Text('Refresh'),
           ),
         ],
@@ -599,7 +596,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
+              Symbols.error,
               size: 80,
               color: Theme.of(context).colorScheme.error,
             ),
@@ -619,7 +616,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () => ref.invalidate(deviceAssetsProvider),
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Symbols.refresh),
               label: const Text('Try Again'),
             ),
           ],
@@ -660,7 +657,7 @@ class _SelectionBar extends StatelessWidget {
             children: [
               Expanded(
                 child: _SelectionActionButton(
-                  icon: Icons.cloud_upload_outlined,
+                  icon: Symbols.cloud_upload,
                   label: 'Backup',
                   onTap: onBackup,
                 ),
@@ -668,7 +665,7 @@ class _SelectionBar extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _SelectionActionButton(
-                  icon: Icons.delete_outline,
+                  icon: Symbols.delete,
                   label: 'Trash',
                   color: Theme.of(context).colorScheme.error,
                   onTap: onTrash,

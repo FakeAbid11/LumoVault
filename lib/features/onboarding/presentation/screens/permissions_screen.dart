@@ -7,6 +7,7 @@ import '../../../../core/permissions/permission_service.dart';
 import '../providers/onboarding_provider.dart';
 import '../widgets/onboarding_progress_indicator.dart';
 import '../widgets/permission_card.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Permissions screen — requests necessary app permissions.
 ///
@@ -140,7 +141,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                       ),
                       const SizedBox(height: 24),
                       PermissionCard(
-                        icon: Icons.photo_library_outlined,
+                        icon: Symbols.photo_library,
                         title: 'Storage Access',
                         description: 'Access your photos and videos for backup',
                         status: _mediaStatus,
@@ -150,7 +151,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                       ),
                       const SizedBox(height: 12),
                       PermissionCard(
-                        icon: Icons.notifications_outlined,
+                        icon: Symbols.notifications,
                         title: 'Notifications',
                         description:
                             'Get notified about backup progress and completion',
@@ -160,7 +161,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                       ),
                       const SizedBox(height: 12),
                       PermissionCard(
-                        icon: Icons.sync_outlined,
+                        icon: Symbols.sync,
                         title: 'Background Execution',
                         description:
                             'Continue backing up when the app is in the background',

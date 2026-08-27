@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/core/di/gallery_providers.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
 import 'package:lumovault/features/gallery/presentation/screens/map_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 void main() {
   Widget wrap(List<MediaItem> photos) {
@@ -23,6 +24,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No photos with location yet'), findsOneWidget);
-    expect(find.byIcon(Icons.location_off_outlined), findsOneWidget);
+    expect(find.byIcon(Symbols.location_off), findsOneWidget);
   });
 }

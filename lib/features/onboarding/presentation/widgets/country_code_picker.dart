@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'country_code.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Opens a searchable bottom sheet for picking a [CountryCode].
 ///
@@ -57,7 +58,7 @@ class _CountryCodePickerSheetState extends State<_CountryCodePickerSheet> {
                 onChanged: _onSearchChanged,
                 decoration: const InputDecoration(
                   hintText: 'Search country or code',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: Icon(Symbols.search),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),

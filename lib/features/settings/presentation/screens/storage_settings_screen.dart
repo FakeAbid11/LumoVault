@@ -7,6 +7,7 @@ import '../../../../core/storage/thumbnail_cache.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../metadata/data/repositories/metadata_validator.dart';
 import '../providers/storage_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Storage settings — usage display and cache management.
 ///
@@ -34,19 +35,19 @@ class StorageSettingsScreen extends ConsumerWidget {
               context,
               'Storage usage',
               'Unavailable',
-              Icons.error_outline,
+              Symbols.error,
             ),
           ),
           const Divider(),
           const _SectionHeader(title: 'Cache Management'),
           ListTile(
-            leading: const Icon(Icons.delete_sweep),
+            leading: const Icon(Symbols.delete_sweep),
             title: const Text('Clear Cache'),
             subtitle: const Text('Remove cached thumbnails and temp files'),
             onTap: () => _confirmClearCache(context, ref),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library),
+            leading: const Icon(Symbols.photo_library),
             title: const Text('Rebuild Thumbnails'),
             subtitle: const Text('Regenerate all thumbnail images'),
             onTap: () => _confirmRebuildThumbnails(context, ref),
@@ -54,13 +55,13 @@ class StorageSettingsScreen extends ConsumerWidget {
           const Divider(),
           const _SectionHeader(title: 'Maintenance'),
           ListTile(
-            leading: const Icon(Icons.build),
+            leading: const Icon(Symbols.build),
             title: const Text('Repair Metadata'),
             subtitle: const Text('Fix corrupted metadata entries'),
             onTap: () => _confirmRepairMetadata(context, ref),
           ),
           ListTile(
-            leading: const Icon(Icons.compress),
+            leading: const Icon(Symbols.compress),
             title: const Text('Optimize Database'),
             subtitle: const Text('Compact and optimize the database'),
             onTap: () => _confirmOptimizeDatabase(context, ref),
@@ -77,7 +78,7 @@ class StorageSettingsScreen extends ConsumerWidget {
           context,
           'Photos & Videos',
           formatBytes(usage.deviceMediaBytes),
-          Icons.perm_media,
+          Symbols.perm_media,
           subtitle: usage.deviceMediaCount > 0
               ? '${usage.deviceMediaCount} items on device'
               : null,
@@ -86,7 +87,7 @@ class StorageSettingsScreen extends ConsumerWidget {
           context,
           'Telegram Storage',
           formatBytes(usage.telegramBytes),
-          Icons.cloud,
+          Symbols.cloud,
           subtitle: usage.telegramItemCount > 0
               ? '${usage.telegramItemCount} items backed up'
               : null,
@@ -95,25 +96,25 @@ class StorageSettingsScreen extends ConsumerWidget {
           context,
           'Local Cache',
           formatBytes(usage.localCacheBytes),
-          Icons.storage,
+          Symbols.storage,
         ),
         _usageTile(
           context,
           'Metadata',
           formatBytes(usage.metadataBytes),
-          Icons.data_object,
+          Symbols.data_object,
         ),
         _usageTile(
           context,
           'Thumbnail Cache',
           formatBytes(usage.thumbnailCacheBytes),
-          Icons.photo_size_select_actual,
+          Symbols.photo_size_select_actual,
         ),
         _usageTile(
           context,
           'Database',
           formatBytes(usage.databaseBytes),
-          Icons.storage,
+          Symbols.storage,
         ),
       ],
     );

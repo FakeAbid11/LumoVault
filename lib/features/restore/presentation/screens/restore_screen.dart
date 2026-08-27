@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/lumo_loading.dart';
 import '../providers/restore_providers.dart';
 import 'restore_progress_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Restore entry point screen.
 ///
@@ -109,7 +110,7 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.cloud_download_rounded,
+                    Symbols.cloud_download_rounded,
                     size: 80,
                     color: Theme.of(context).colorScheme.onPrimary,
                   ),
@@ -147,7 +148,7 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
                     ),
                   ] else if (_error != null) ...[
                     Icon(
-                      Icons.error_outline,
+                      Symbols.error,
                       size: 48,
                       color: Theme.of(context).colorScheme.onError,
                     ),

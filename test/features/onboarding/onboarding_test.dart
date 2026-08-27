@@ -18,6 +18,7 @@ import 'package:lumovault/features/onboarding/presentation/screens/telegram_conn
 import 'package:lumovault/features/onboarding/presentation/widgets/feature_card.dart';
 import 'package:lumovault/features/onboarding/presentation/widgets/permission_card.dart';
 import 'package:lumovault/features/onboarding/presentation/widgets/onboarding_progress_indicator.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Simple mock PermissionService for onboarding screen tests.
 class _MockPermissionService implements PermissionService {
@@ -256,7 +257,7 @@ void main() {
         const MaterialApp(
           home: Scaffold(
             body: FeatureCard(
-              icon: Icons.cloud_upload,
+              icon: Symbols.cloud_upload,
               title: 'Cloud Backup',
               description: 'Back up your photos',
             ),
@@ -264,7 +265,7 @@ void main() {
         ),
       );
 
-      expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+      expect(find.byIcon(Symbols.cloud_upload), findsOneWidget);
       expect(find.text('Cloud Backup'), findsOneWidget);
       expect(find.text('Back up your photos'), findsOneWidget);
     });
@@ -276,7 +277,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.denied,
@@ -287,7 +288,7 @@ void main() {
       );
 
       expect(find.text('Grant'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle), findsNothing);
+      expect(find.byIcon(Symbols.check_circle), findsNothing);
     });
 
     testWidgets('shows check icon when granted', (tester) async {
@@ -295,7 +296,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PermissionCard(
-              icon: Icons.photo_library,
+              icon: Symbols.photo_library,
               title: 'Storage',
               description: 'Access photos',
               status: PermissionStatus.granted,
@@ -306,7 +307,7 @@ void main() {
       );
 
       expect(find.text('Grant'), findsNothing);
-      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byIcon(Symbols.check_circle), findsOneWidget);
     });
   });
 

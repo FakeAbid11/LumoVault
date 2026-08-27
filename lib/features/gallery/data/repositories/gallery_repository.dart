@@ -344,8 +344,10 @@ class GalleryRepository {
       // Preserve user-set coordinates through rescans. EXIF-derived
       // coordinates are always overwritten by the fresh scan (the default
       // when isLocationUserSet is false).
-      latitude: existing.isLocationUserSet ? existing.latitude : null,
-      longitude: existing.isLocationUserSet ? existing.longitude : null,
+      latitude: existing.isLocationUserSet ? existing.latitude : fresh.latitude,
+      longitude: existing.isLocationUserSet
+          ? existing.longitude
+          : fresh.longitude,
       isLocationUserSet: existing.isLocationUserSet,
     );
   }

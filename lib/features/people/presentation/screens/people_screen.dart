@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_state.dart';
 import '../providers/people_providers.dart';
 import '../widgets/person_tile.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -311,41 +312,11 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   }
 
   Widget _buildErrorState(BuildContext context, String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Symbols.error,
-              size: 80,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Something went wrong',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                ref.invalidate(peopleProvider);
-              },
-              icon: const Icon(Symbols.refresh),
-              label: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorState(
+      error: error,
+      onRetry: () {
+        ref.invalidate(peopleProvider);
+      },
     );
   }
 

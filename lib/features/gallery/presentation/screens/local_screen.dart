@@ -12,6 +12,8 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
 import '../widgets/asset_tile.dart';
@@ -319,35 +321,14 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.photo_library,
-            size: 80,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No photos found',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Photos and videos on this device will\nappear here.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => ref.invalidate(deviceAssetsProvider),
-            icon: const Icon(Symbols.refresh),
-            label: const Text('Refresh'),
-          ),
-        ],
+    return EmptyState(
+      icon: Symbols.photo_library,
+      title: 'No photos found',
+      message: 'Photos and videos on this device will\nappear here.',
+      action: FilledButton.icon(
+        onPressed: () => ref.invalidate(deviceAssetsProvider),
+        icon: const Icon(Symbols.refresh),
+        label: const Text('Refresh'),
       ),
     );
   }
@@ -538,39 +519,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   }
 
   Widget _buildErrorState(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Symbols.error,
-              size: 80,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Something went wrong',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => ref.invalidate(deviceAssetsProvider),
-              icon: const Icon(Symbols.refresh),
-              label: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
+    return ErrorState(
+      error: error,
+      onRetry: () => ref.invalidate(deviceAssetsProvider),
     );
   }
 }

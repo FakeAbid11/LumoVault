@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
@@ -107,30 +108,10 @@ class ArchiveScreen extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.archive,
-            size: 80,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Archive is empty',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Archived items are removed from\nthe main timeline.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return const EmptyState(
+      icon: Symbols.archive,
+      title: 'Archive is empty',
+      message: 'Archived items are removed from\nthe main timeline.',
     );
   }
 }

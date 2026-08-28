@@ -4,6 +4,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
@@ -224,31 +225,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Symbols.delete,
-            size: 80,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Trash is empty',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Items moved to trash will be\npermanently deleted after '
-            '${AppConstants.trashRetentionDays} days.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return const EmptyState(
+      icon: Symbols.delete,
+      title: 'Trash is empty',
+      message: 'Items moved to trash will be\npermanently deleted after '
+          '${AppConstants.trashRetentionDays} days.',
     );
   }
 }

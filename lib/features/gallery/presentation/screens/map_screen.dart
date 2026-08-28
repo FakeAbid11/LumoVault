@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
+import '../../../../shared/widgets/empty_state.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
 import '../widgets/media_tile.dart';
@@ -384,33 +385,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Symbols.location_off, size: 64, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(
-              'No photos with location yet',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Photos with GPS location data appear here. On Android, make '
-              'sure location access is granted for your photos so their '
-              'coordinates can be read.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return const EmptyState(
+      icon: Symbols.location_off,
+      title: 'No photos with location yet',
+      message: 'Photos with GPS location data appear here. On Android, make '
+          'sure location access is granted for your photos so their '
+          'coordinates can be read.',
     );
   }
 

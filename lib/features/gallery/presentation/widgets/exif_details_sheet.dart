@@ -123,18 +123,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
-              // Drag Handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Date & Time
               Text(

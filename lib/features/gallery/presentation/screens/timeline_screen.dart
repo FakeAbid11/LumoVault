@@ -9,9 +9,11 @@ import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import '../../../../shared/utils/date_grouping.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/lumo_loading.dart';
+import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/date_header.dart';
 import '../widgets/media_tile.dart';
@@ -32,46 +34,11 @@ class TimelineScreen extends ConsumerStatefulWidget {
 
 class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final ScrollController _scrollController = ScrollController();
-  double _lastPinchScale = 1.0;
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _handlePinchScale(double scale) {
-    if ((scale - _lastPinchScale).abs() < 0.25) return;
-    _lastPinchScale = scale;
-
-    final currentGrid = ref.read(settingsGridSizeProvider);
-    if (scale > 1.25) {
-      // Zoom in -> larger thumbnails, fewer columns
-      if (currentGrid == GridSize.small) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
-        HapticFeedback.lightImpact();
-      } else if (currentGrid == GridSize.medium) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.large));
-        HapticFeedback.lightImpact();
-      }
-    } else if (scale < 0.75) {
-      // Zoom out -> smaller thumbnails, more columns
-      if (currentGrid == GridSize.large) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
-        HapticFeedback.lightImpact();
-      } else if (currentGrid == GridSize.medium) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.small));
-        HapticFeedback.lightImpact();
-      }
-    }
   }
 
   @override
@@ -127,7 +94,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       return _buildScanningState(scanned, total);
     }
 
-    final grouped = _groupByDate(uploadedItems);
+    final grouped = groupByDate(uploadedItems, (item) => item.createdAt);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -137,27 +104,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       },
       child: _buildGrid(context, uploadedItems, grouped),
     );
-  }
-
-  Map<String, List<MediaItem>> _groupByDate(List<MediaItem> items) {
-    final grouped = <String, List<MediaItem>>{};
-    for (final item in items) {
-      final key = _dateKey(item.createdAt);
-      grouped.putIfAbsent(key, () => []).add(item);
-    }
-    return grouped;
-  }
-
-  String _dateKey(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final itemDate = DateTime(date.year, date.month, date.day);
-
-    if (itemDate == today) return 'Today';
-    if (itemDate == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday';
-    }
-    return '${date.month}/${date.day}/${date.year}';
   }
 
   Widget _buildGrid(
@@ -188,12 +134,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       thumbnailGeneration,
     );
 
-    return GestureDetector(
-      onScaleUpdate: (details) {
-        if (details.pointerCount >= 2) {
-          _handlePinchScale(details.scale);
-        }
-      },
+    return PinchZoomWrapper(
       child: FastScrollScrubber(
         scrollController: _scrollController,
         dateResolver: (progress) {

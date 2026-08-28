@@ -11,7 +11,9 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import '../../../../shared/utils/date_grouping.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
+import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -39,7 +41,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   final Set<String> _multiSelected = {};
   bool get _isMultiSelectMode => _multiSelected.isNotEmpty;
   final ScrollController _scrollController = ScrollController();
-  double _lastPinchScale = 1.0;
 
   bool _areAllVisibleSelected(AsyncValue<List<AssetEntity>> deviceAssets) {
     final assets = deviceAssets.valueOrNull;
@@ -63,40 +64,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _handlePinchScale(double scale) {
-    if ((scale - _lastPinchScale).abs() < 0.25) return;
-    _lastPinchScale = scale;
-
-    final currentGrid = ref.read(settingsGridSizeProvider);
-    if (scale > 1.25) {
-      // Zoom in -> larger thumbnails, fewer columns
-      if (currentGrid == GridSize.small) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
-        HapticFeedback.lightImpact();
-      } else if (currentGrid == GridSize.medium) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.large));
-        HapticFeedback.lightImpact();
-      }
-    } else if (scale < 0.75) {
-      // Zoom out -> smaller thumbnails, more columns
-      if (currentGrid == GridSize.large) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.medium));
-        HapticFeedback.lightImpact();
-      } else if (currentGrid == GridSize.medium) {
-        ref
-            .read(appSettingsProvider.notifier)
-            .updateField((s) => s.copyWith(gridSize: GridSize.small));
-        HapticFeedback.lightImpact();
-      }
-    }
   }
 
   Future<void> _checkPermissions() async {
@@ -343,33 +310,12 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
         if (visible.isEmpty) return _buildEmptyState();
         return RefreshIndicator(
           onRefresh: () => ref.refresh(deviceAssetsProvider.future),
-          child: _buildTimelineGrid(visible, _groupByDate(visible)),
+          child: _buildTimelineGrid(visible, groupByDate(visible, (a) => a.createDateTime)),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => _buildErrorState(error.toString()),
     );
-  }
-
-  Map<String, List<AssetEntity>> _groupByDate(List<AssetEntity> assets) {
-    final grouped = <String, List<AssetEntity>>{};
-    for (final asset in assets) {
-      final key = _dateKey(asset.createDateTime);
-      grouped.putIfAbsent(key, () => []).add(asset);
-    }
-    return grouped;
-  }
-
-  String _dateKey(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final itemDate = DateTime(date.year, date.month, date.day);
-
-    if (itemDate == today) return 'Today';
-    if (itemDate == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday';
-    }
-    return '${date.month}/${date.day}/${date.year}';
   }
 
   Widget _buildEmptyState() {
@@ -417,12 +363,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       ref.watch(settingsCompactModeProvider),
     );
 
-    return GestureDetector(
-      onScaleUpdate: (details) {
-        if (details.pointerCount >= 2) {
-          _handlePinchScale(details.scale);
-        }
-      },
+    return PinchZoomWrapper(
       child: FastScrollScrubber(
         scrollController: _scrollController,
         dateResolver: (progress) {

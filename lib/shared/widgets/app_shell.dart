@@ -73,7 +73,7 @@ class AppShell extends StatelessWidget {
                 elevation: 0,
                 selectedIndex: _currentIndex,
                 onDestinationSelected: _onTap,
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+                labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
                 indicatorShape: const StadiumBorder(),
                 indicatorColor: colorScheme.secondaryContainer,
                 destinations: const [
@@ -173,35 +173,35 @@ class AppShell extends StatelessWidget {
               _onTap(index);
               Navigator.of(context).pop();
             },
-            children: const [
+            children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(28, 16, 28, 24),
+                padding: const EdgeInsets.fromLTRB(28, 16, 28, 24),
                 child: Text(
                   'LumoVault',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
-              NavigationDrawerDestination(
+              const NavigationDrawerDestination(
                 icon: Icon(Symbols.smartphone),
                 selectedIcon: Icon(Symbols.smartphone),
                 label: Text('Local'),
               ),
-              NavigationDrawerDestination(
+              const NavigationDrawerDestination(
                 icon: Icon(Symbols.cloud_done),
                 selectedIcon: Icon(Symbols.cloud_done),
                 label: Text('Timeline'),
               ),
-              NavigationDrawerDestination(
+              const NavigationDrawerDestination(
                 icon: Icon(Symbols.map),
                 selectedIcon: Icon(Symbols.map),
                 label: Text('Map'),
               ),
-              NavigationDrawerDestination(
+              const NavigationDrawerDestination(
                 icon: Icon(Symbols.people),
                 selectedIcon: Icon(Symbols.people),
                 label: Text('People'),
               ),
-              NavigationDrawerDestination(
+              const NavigationDrawerDestination(
                 icon: Icon(Symbols.settings),
                 selectedIcon: Icon(Symbols.settings),
                 label: Text('Settings'),

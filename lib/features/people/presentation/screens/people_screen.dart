@@ -53,16 +53,24 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       },
       child: Scaffold(
         appBar: _buildAppBar(scanProgress),
-        body: _buildBody(
-          context,
-          ref,
-          peopleAsync,
-          scanProgress,
-          unscannedAsync,
+        body: Stack(
+          children: [
+            _buildBody(
+              context,
+              ref,
+              peopleAsync,
+              scanProgress,
+              unscannedAsync,
+            ),
+            if (_selectionMode)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildActionBar(context, ref),
+              ),
+          ],
         ),
-        bottomNavigationBar: _selectionMode
-            ? _buildActionBar(context, ref)
-            : null,
       ),
     );
   }

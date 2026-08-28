@@ -321,63 +321,64 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FutureBuilder<GeoResult?>(
-                  future: geoFuture,
-                  builder: (context, snapshot) {
-                    final geo = snapshot.data;
-                    final locationName = geo?.displayName;
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            locationName != null && locationName.isNotEmpty
-                                ? 'Photos in $locationName (${items.length})'
-                                : 'Photos at this location (${items.length})',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FutureBuilder<GeoResult?>(
+                future: geoFuture,
+                builder: (context, snapshot) {
+                  final geo = snapshot.data;
+                  final locationName = geo?.displayName;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          locationName != null && locationName.isNotEmpty
+                              ? 'Photos in $locationName (${items.length})'
+                              : 'Photos at this location (${items.length})',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        IconButton(
-                          icon: const Icon(Symbols.close),
-                          onPressed: () => Navigator.pop(context),
-                          tooltip: 'Close',
+                      ),
+                      IconButton(
+                        icon: const Icon(Symbols.close),
+                        onPressed: () => Navigator.pop(context),
+                        tooltip: 'Close',
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openClusterItems(context, items, index);
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 120,
+                          child: MediaTile(mediaItem: item),
                         ),
-                      ],
+                      ),
                     );
                   },
                 ),
-                const SizedBox(height: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 300),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return SizedBox(
-                        height: 80,
-                        child: MediaTile(
-                          mediaItem: item,
-                          onTap: () {
-                            Navigator.pop(context);
-                            _openClusterItems(context, items, index);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

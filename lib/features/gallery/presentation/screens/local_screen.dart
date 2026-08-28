@@ -116,7 +116,12 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     final permissionStatus = ref.watch(mediaPermissionStatusProvider);
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_isMultiSelectMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(_multiSelected.clear);
+      },
+      child: Scaffold(
       appBar: _isMultiSelectMode
           ? AppBar(
               leading: IconButton(
@@ -240,6 +245,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 

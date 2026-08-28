@@ -33,8 +33,13 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   Widget build(BuildContext context) {
     final trashed = ref.watch(trashedItemsProvider);
 
-    return Scaffold(
-      appBar: _isMultiSelect
+    return PopScope(
+      canPop: !_isMultiSelect,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(_selected.clear);
+      },
+      child: Scaffold(
+        appBar: _isMultiSelect
           ? AppBar(
               leading: IconButton(
                 icon: const Icon(Symbols.close),
@@ -86,6 +91,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           error: (e, s) => Center(child: Text('$e')),
         ),
       ),
+    ),
     );
   }
 

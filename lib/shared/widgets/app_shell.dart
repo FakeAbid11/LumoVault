@@ -87,7 +87,7 @@ class AppShell extends StatelessWidget {
                   NavigationDestination(
                     icon: Icon(Symbols.cloud_done, size: 22),
                     selectedIcon: Icon(Symbols.cloud_done, size: 22),
-                    label: 'Backed Up',
+                    label: 'Cloud',
                     tooltip: 'Photos backed up to Telegram',
                   ),
                   NavigationDestination(
@@ -138,7 +138,7 @@ class AppShell extends StatelessWidget {
               NavigationRailDestination(
                 icon: Icon(Symbols.cloud_done),
                 selectedIcon: Icon(Symbols.cloud_done),
-                label: Text('Backed Up'),
+                label: Text('Cloud'),
               ),
               NavigationRailDestination(
                 icon: Icon(Symbols.map),
@@ -190,7 +190,7 @@ class AppShell extends StatelessWidget {
               const NavigationDrawerDestination(
                 icon: Icon(Symbols.cloud_done),
                 selectedIcon: Icon(Symbols.cloud_done),
-                label: Text('Backed Up'),
+                label: Text('Cloud'),
               ),
               const NavigationDrawerDestination(
                 icon: Icon(Symbols.map),

@@ -122,130 +122,130 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
         if (!didPop) setState(_multiSelected.clear);
       },
       child: Scaffold(
-      appBar: _isMultiSelectMode
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Symbols.close),
-                onPressed: () => setState(_multiSelected.clear),
-                tooltip: 'Cancel selection',
-              ),
-              title: Text('${_multiSelected.length} selected'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    final assets = deviceAssets.valueOrNull;
-                    if (assets == null) return;
-                    final repository = ref.read(galleryRepositoryProvider);
-                    final visibleCount = assets.where((asset) {
-                      final item = repository.getItemById(asset.id);
-                      return !(item?.isHidden ?? false) &&
-                          !(item?.isTrashed ?? false);
-                    }).length;
-                    setState(() {
-                      if (_multiSelected.length == visibleCount) {
-                        _multiSelected.clear();
-                      } else {
-                        final allIds = assets
-                            .where((asset) {
-                              final item = repository.getItemById(asset.id);
-                              return !(item?.isHidden ?? false) &&
-                                  !(item?.isTrashed ?? false);
-                            })
-                            .map((a) => a.id);
-                        _multiSelected.addAll(allIds);
-                      }
-                    });
-                  },
-                  child: Text(
-                    _areAllVisibleSelected(deviceAssets)
-                        ? 'Deselect all'
-                        : 'Select all',
+        appBar: _isMultiSelectMode
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Symbols.close),
+                  onPressed: () => setState(_multiSelected.clear),
+                  tooltip: 'Cancel selection',
+                ),
+                title: Text('${_multiSelected.length} selected'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      final assets = deviceAssets.valueOrNull;
+                      if (assets == null) return;
+                      final repository = ref.read(galleryRepositoryProvider);
+                      final visibleCount = assets.where((asset) {
+                        final item = repository.getItemById(asset.id);
+                        return !(item?.isHidden ?? false) &&
+                            !(item?.isTrashed ?? false);
+                      }).length;
+                      setState(() {
+                        if (_multiSelected.length == visibleCount) {
+                          _multiSelected.clear();
+                        } else {
+                          final allIds = assets
+                              .where((asset) {
+                                final item = repository.getItemById(asset.id);
+                                return !(item?.isHidden ?? false) &&
+                                    !(item?.isTrashed ?? false);
+                              })
+                              .map((a) => a.id);
+                          _multiSelected.addAll(allIds);
+                        }
+                      });
+                    },
+                    child: Text(
+                      _areAllVisibleSelected(deviceAssets)
+                          ? 'Deselect all'
+                          : 'Select all',
+                    ),
                   ),
-                ),
-              ],
-            )
-          : AppBar(
-              title: const Text('LumoVault'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Symbols.search),
-                  onPressed: () => context.push('/gallery/search'),
-                  tooltip: 'Search',
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(Symbols.more_vert),
-                  tooltip: 'More options',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'settings':
-                        // Settings is a bottom-nav branch — switch tabs.
-                        context.go('/settings');
-                      case 'restore':
-                        context.push('/restore');
-                      case 'refresh':
-                        ref.invalidate(deviceAssetsProvider);
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'settings',
-                      child: ListTile(
-                        leading: Icon(Symbols.settings),
-                        title: Text('Settings'),
+                ],
+              )
+            : AppBar(
+                title: const Text('LumoVault'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Symbols.search),
+                    onPressed: () => context.push('/gallery/search'),
+                    tooltip: 'Search',
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Symbols.more_vert),
+                    tooltip: 'More options',
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'settings':
+                          // Settings is a bottom-nav branch — switch tabs.
+                          context.go('/settings');
+                        case 'restore':
+                          context.push('/restore');
+                        case 'refresh':
+                          ref.invalidate(deviceAssetsProvider);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'settings',
+                        child: ListTile(
+                          leading: Icon(Symbols.settings),
+                          title: Text('Settings'),
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'restore',
-                      child: ListTile(
-                        leading: Icon(Symbols.restore),
-                        title: Text('Restore'),
+                      PopupMenuItem(
+                        value: 'restore',
+                        child: ListTile(
+                          leading: Icon(Symbols.restore),
+                          title: Text('Restore'),
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'refresh',
-                      child: ListTile(
-                        leading: Icon(Symbols.refresh),
-                        title: Text('Refresh'),
+                      PopupMenuItem(
+                        value: 'refresh',
+                        child: ListTile(
+                          leading: Icon(Symbols.refresh),
+                          title: Text('Refresh'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-      floatingActionButton: _isMultiSelectMode
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => context.push('/settings/backup'),
-              icon: const Icon(Symbols.cloud_upload),
-              label: const Text('Backup'),
-            ),
-      body: Stack(
-        children: [
-          permissionStatus.when(
-            data: (status) {
-              if (status == PermissionStatus.denied ||
-                  status == PermissionStatus.permanentlyDenied) {
-                return _buildPermissionDeniedState(status);
-              }
-              return _buildGalleryContent(deviceAssets);
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => _buildErrorState(error.toString()),
-          ),
-          if (_isMultiSelectMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: _SelectionBar(
-                selectedCount: _multiSelected.length,
-                onBackup: () => _selectForBackup(deviceAssets),
-                onTrash: () => _trashSelected(deviceAssets),
+                    ],
+                  ),
+                ],
               ),
+        floatingActionButton: _isMultiSelectMode
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: () => context.push('/settings/backup'),
+                icon: const Icon(Symbols.cloud_upload),
+                label: const Text('Backup'),
+              ),
+        body: Stack(
+          children: [
+            permissionStatus.when(
+              data: (status) {
+                if (status == PermissionStatus.denied ||
+                    status == PermissionStatus.permanentlyDenied) {
+                  return _buildPermissionDeniedState(status);
+                }
+                return _buildGalleryContent(deviceAssets);
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => _buildErrorState(error.toString()),
             ),
-        ],
+            if (_isMultiSelectMode)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _SelectionBar(
+                  selectedCount: _multiSelected.length,
+                  onBackup: () => _selectForBackup(deviceAssets),
+                  onTrash: () => _trashSelected(deviceAssets),
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -318,7 +318,10 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
         if (visible.isEmpty) return _buildEmptyState();
         return RefreshIndicator(
           onRefresh: () => ref.refresh(deviceAssetsProvider.future),
-          child: _buildTimelineGrid(visible, groupByDate(visible, (a) => a.createDateTime)),
+          child: _buildTimelineGrid(
+            visible,
+            groupByDate(visible, (a) => a.createDateTime),
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

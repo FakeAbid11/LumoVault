@@ -150,9 +150,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               opacity: _isChromeVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 250),
               child: AnimatedSlide(
-                offset: _isChromeVisible
-                    ? Offset.zero
-                    : const Offset(0, -0.2),
+                offset: _isChromeVisible ? Offset.zero : const Offset(0, -0.2),
                 duration: const Duration(milliseconds: 250),
                 child: AppBar(
                   backgroundColor: Colors.black,
@@ -160,10 +158,9 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                   title: Text(
                     '${_currentIndex + 1} / ${widget.assets.length}',
                     style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.7),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -188,9 +185,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               opacity: _isChromeVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 250),
               child: AnimatedSlide(
-                offset: _isChromeVisible
-                    ? Offset.zero
-                    : const Offset(0, 0.2),
+                offset: _isChromeVisible ? Offset.zero : const Offset(0, 0.2),
                 duration: const Duration(milliseconds: 250),
                 child: Container(
                   color: Colors.black,

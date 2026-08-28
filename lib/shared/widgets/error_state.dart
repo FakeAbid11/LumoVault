@@ -7,11 +7,7 @@ import 'package:flutter/material.dart';
 /// pattern that each screen used to hand-roll (local, people, router error),
 /// so they share one consistent layout and theme-aware colours.
 class ErrorState extends StatelessWidget {
-  const ErrorState({
-    required this.error,
-    this.onRetry,
-    super.key,
-  });
+  const ErrorState({required this.error, this.onRetry, super.key});
 
   final String error;
   final VoidCallback? onRetry;
@@ -25,16 +21,9 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: theme.colorScheme.error,
-            ),
+            Icon(Icons.error_outline, size: 80, color: theme.colorScheme.error),
             const SizedBox(height: 24),
-            Text(
-              'Something went wrong',
-              style: theme.textTheme.headlineSmall,
-            ),
+            Text('Something went wrong', style: theme.textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
               error,

@@ -41,101 +41,103 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
         if (!didPop) setState(_selected.clear);
       },
       child: Scaffold(
-      appBar: _isMultiSelect
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Symbols.close),
-                onPressed: () => setState(_selected.clear),
-                tooltip: 'Cancel selection',
-              ),
-              title: Text('${_selected.length} selected'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Symbols.delete_forever),
-                  tooltip: 'Delete selected',
-                  onPressed: () => _confirmDelete(
-                    count: _selected.length,
-                    onConfirm: () => _deleteSelected(),
-                  ),
+        appBar: _isMultiSelect
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Symbols.close),
+                  onPressed: () => setState(_selected.clear),
+                  tooltip: 'Cancel selection',
                 ),
-              ],
-            )
-          : AppBar(title: const Text('Find Duplicates')),
-      body: groups.isEmpty
-          ? _buildEmptyState()
-          : Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  child: Text(
-                    '$totalGroups group${totalGroups == 1 ? '' : 's'} · '
-                    '$totalDuplicates duplicate${totalDuplicates == 1 ? '' : 's'} · '
-                    '${formatBytes(reclaimableBytes)} reclaimable',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                title: Text('${_selected.length} selected'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Symbols.delete_forever),
+                    tooltip: 'Delete selected',
+                    onPressed: () => _confirmDelete(
+                      count: _selected.length,
+                      onConfirm: () => _deleteSelected(),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 32),
-                    itemCount: groups.length,
-                    itemBuilder: (context, index) {
-                      final hash = groups.keys.elementAt(index);
-                      final items = groups[hash]!;
-                      return _DuplicateGroup(
-                        hash: hash,
-                        items: items,
-                        selected: _selected,
-                        onToggle: (localId) {
-                          setState(() {
-                            if (!_selected.remove(localId)) {
-                              _selected.add(localId);
-                            }
-                          });
-                        },
-                        onSelectAll: () {
-                          setState(() {
-                            final allSelected = items.every(
-                              (i) => _selected.contains(i.localId),
-                            );
-                            if (allSelected) {
-                              for (final i in items) {
-                                _selected.remove(i.localId);
-                              }
-                            } else {
-                              for (final i in items) {
-                                _selected.add(i.localId);
-                              }
-                            }
-                          });
-                        },
-                        onKeepNewest: () {
-                          final toDelete = items.skip(1).toList();
-                          _confirmDelete(
-                            count: toDelete.length,
-                            onConfirm: () => _deleteItems(toDelete),
-                          );
-                        },
-                        onKeepOldest: () {
-                          final toDelete = items.reversed.skip(1).toList();
-                          _confirmDelete(
-                            count: toDelete.length,
-                            onConfirm: () => _deleteItems(toDelete),
-                          );
-                        },
-                      );
-                    },
+                ],
+              )
+            : AppBar(title: const Text('Find Duplicates')),
+        body: groups.isEmpty
+            ? _buildEmptyState()
+            : Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Text(
+                      '$totalGroups group${totalGroups == 1 ? '' : 's'} · '
+                      '$totalDuplicates duplicate${totalDuplicates == 1 ? '' : 's'} · '
+                      '${formatBytes(reclaimableBytes)} reclaimable',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-    ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 32),
+                      itemCount: groups.length,
+                      itemBuilder: (context, index) {
+                        final hash = groups.keys.elementAt(index);
+                        final items = groups[hash]!;
+                        return _DuplicateGroup(
+                          hash: hash,
+                          items: items,
+                          selected: _selected,
+                          onToggle: (localId) {
+                            setState(() {
+                              if (!_selected.remove(localId)) {
+                                _selected.add(localId);
+                              }
+                            });
+                          },
+                          onSelectAll: () {
+                            setState(() {
+                              final allSelected = items.every(
+                                (i) => _selected.contains(i.localId),
+                              );
+                              if (allSelected) {
+                                for (final i in items) {
+                                  _selected.remove(i.localId);
+                                }
+                              } else {
+                                for (final i in items) {
+                                  _selected.add(i.localId);
+                                }
+                              }
+                            });
+                          },
+                          onKeepNewest: () {
+                            final toDelete = items.skip(1).toList();
+                            _confirmDelete(
+                              count: toDelete.length,
+                              onConfirm: () => _deleteItems(toDelete),
+                            );
+                          },
+                          onKeepOldest: () {
+                            final toDelete = items.reversed.skip(1).toList();
+                            _confirmDelete(
+                              count: toDelete.length,
+                              onConfirm: () => _deleteItems(toDelete),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 

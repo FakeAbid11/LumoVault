@@ -56,13 +56,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         appBar: _buildAppBar(scanProgress),
         body: Stack(
           children: [
-            _buildBody(
-              context,
-              ref,
-              peopleAsync,
-              scanProgress,
-              unscannedAsync,
-            ),
+            _buildBody(context, ref, peopleAsync, scanProgress, unscannedAsync),
             if (_selectionMode)
               Positioned(
                 left: 0,

@@ -280,9 +280,7 @@ class _MediaTileState extends State<MediaTile> {
   }
 
   Widget _buildDimOverlay(BuildContext context) {
-    return Positioned.fill(
-      child: Container(color: Colors.black38),
-    );
+    return Positioned.fill(child: Container(color: Colors.black38));
   }
 
   Widget _buildSelectionOverlay(BuildContext context) {

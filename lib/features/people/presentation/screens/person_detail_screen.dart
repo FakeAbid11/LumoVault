@@ -85,7 +85,10 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               PopupMenuItem(
                 value: 'delete',
                 child: ListTile(
-                  leading: Icon(Symbols.delete, color: Theme.of(context).colorScheme.error),
+                  leading: Icon(
+                    Symbols.delete,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   title: const Text('Delete Person'),
                 ),
               ),

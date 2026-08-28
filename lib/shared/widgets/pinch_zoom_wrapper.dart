@@ -10,10 +10,7 @@ import '../../features/settings/presentation/providers/settings_providers.dart';
 /// Consolidates the identical `_handlePinchScale` logic that was duplicated
 /// across [LocalScreen] and [TimelineScreen].
 class PinchZoomWrapper extends ConsumerStatefulWidget {
-  const PinchZoomWrapper({
-    required this.child,
-    super.key,
-  });
+  const PinchZoomWrapper({required this.child, super.key});
 
   final Widget child;
 

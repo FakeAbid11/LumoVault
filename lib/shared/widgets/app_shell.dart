@@ -73,7 +73,8 @@ class AppShell extends StatelessWidget {
                 elevation: 0,
                 selectedIndex: _currentIndex,
                 onDestinationSelected: _onTap,
-                labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+                labelBehavior:
+                    NavigationDestinationLabelBehavior.onlyShowSelected,
                 indicatorShape: const StadiumBorder(),
                 indicatorColor: colorScheme.secondaryContainer,
                 destinations: const [

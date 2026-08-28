@@ -40,58 +40,58 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       },
       child: Scaffold(
         appBar: _isMultiSelect
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Symbols.close),
-                onPressed: () => setState(_selected.clear),
-                tooltip: 'Cancel selection',
-              ),
-              title: Text('${_selected.length} selected'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Symbols.restore),
-                  tooltip: 'Restore',
-                  onPressed: () => _restoreSelected(),
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Symbols.close),
+                  onPressed: () => setState(_selected.clear),
+                  tooltip: 'Cancel selection',
                 ),
-                IconButton(
-                  icon: const Icon(Symbols.delete_forever),
-                  tooltip: 'Delete permanently',
-                  onPressed: () => _confirmDelete(
-                    count: _selected.length,
-                    onConfirm: () => _deleteSelected(),
+                title: Text('${_selected.length} selected'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Symbols.restore),
+                    tooltip: 'Restore',
+                    onPressed: () => _restoreSelected(),
                   ),
-                ),
-              ],
-            )
-          : AppBar(
-              title: const Text('Trash'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    final items = trashed.valueOrNull;
-                    if (items == null || items.isEmpty) return;
-                    _confirmDelete(
-                      count: items.length,
-                      emptyAll: true,
-                      onConfirm: () => _emptyTrash(items),
-                    );
-                  },
-                  child: const Text('Empty'),
-                ),
-              ],
-            ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(trashedItemsProvider);
-          await Future<void>.delayed(const Duration(milliseconds: 300));
-        },
-        child: trashed.when(
-          data: (items) => _buildBody(items),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, s) => Center(child: Text('$e')),
+                  IconButton(
+                    icon: const Icon(Symbols.delete_forever),
+                    tooltip: 'Delete permanently',
+                    onPressed: () => _confirmDelete(
+                      count: _selected.length,
+                      onConfirm: () => _deleteSelected(),
+                    ),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: const Text('Trash'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      final items = trashed.valueOrNull;
+                      if (items == null || items.isEmpty) return;
+                      _confirmDelete(
+                        count: items.length,
+                        emptyAll: true,
+                        onConfirm: () => _emptyTrash(items),
+                      );
+                    },
+                    child: const Text('Empty'),
+                  ),
+                ],
+              ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(trashedItemsProvider);
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+          },
+          child: trashed.when(
+            data: (items) => _buildBody(items),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('$e')),
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -234,7 +234,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     return const EmptyState(
       icon: Symbols.delete,
       title: 'Trash is empty',
-      message: 'Items moved to trash will be\npermanently deleted after '
+      message:
+          'Items moved to trash will be\npermanently deleted after '
           '${AppConstants.trashRetentionDays} days.',
     );
   }

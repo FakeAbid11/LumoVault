@@ -388,7 +388,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return const EmptyState(
       icon: Symbols.location_off,
       title: 'No photos with location yet',
-      message: 'Photos with GPS location data appear here. On Android, make '
+      message:
+          'Photos with GPS location data appear here. On Android, make '
           'sure location access is granted for your photos so their '
           'coordinates can be read.',
     );

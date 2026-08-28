@@ -1,0 +1,6 @@
+# Force LF line endings for source files so dart format CI check is stable
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf

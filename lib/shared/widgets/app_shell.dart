@@ -81,13 +81,13 @@ class AppShell extends StatelessWidget {
                   NavigationDestination(
                     icon: Icon(Symbols.smartphone, size: 22),
                     selectedIcon: Icon(Symbols.smartphone, size: 22),
-                    label: 'Local',
+                    label: 'This device',
                     tooltip: 'All photos on this device',
                   ),
                   NavigationDestination(
                     icon: Icon(Symbols.cloud_done, size: 22),
                     selectedIcon: Icon(Symbols.cloud_done, size: 22),
-                    label: 'Timeline',
+                    label: 'Backed Up',
                     tooltip: 'Photos backed up to Telegram',
                   ),
                   NavigationDestination(
@@ -133,12 +133,12 @@ class AppShell extends StatelessWidget {
               NavigationRailDestination(
                 icon: Icon(Symbols.smartphone),
                 selectedIcon: Icon(Symbols.smartphone),
-                label: Text('Local'),
+                label: Text('This device'),
               ),
               NavigationRailDestination(
                 icon: Icon(Symbols.cloud_done),
                 selectedIcon: Icon(Symbols.cloud_done),
-                label: Text('Timeline'),
+                label: Text('Backed Up'),
               ),
               NavigationRailDestination(
                 icon: Icon(Symbols.map),
@@ -185,12 +185,12 @@ class AppShell extends StatelessWidget {
               const NavigationDrawerDestination(
                 icon: Icon(Symbols.smartphone),
                 selectedIcon: Icon(Symbols.smartphone),
-                label: Text('Local'),
+                label: Text('This device'),
               ),
               const NavigationDrawerDestination(
                 icon: Icon(Symbols.cloud_done),
                 selectedIcon: Icon(Symbols.cloud_done),
-                label: Text('Timeline'),
+                label: Text('Backed Up'),
               ),
               const NavigationDrawerDestination(
                 icon: Icon(Symbols.map),

@@ -86,8 +86,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Local'), findsOneWidget);
-      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('This device'), findsOneWidget);
+      expect(find.text('Backed Up'), findsOneWidget);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('People'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);

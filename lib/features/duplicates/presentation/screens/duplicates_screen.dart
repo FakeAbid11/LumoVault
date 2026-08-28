@@ -35,7 +35,12 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
       return sum + sizePerItem * (items.length - 1);
     });
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_isMultiSelect,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(_selected.clear);
+      },
+      child: Scaffold(
       appBar: _isMultiSelect
           ? AppBar(
               leading: IconButton(
@@ -130,6 +135,7 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
                 ),
               ],
             ),
+    ),
     );
   }
 
@@ -375,13 +381,13 @@ class _DuplicateTile extends StatelessWidget {
                   child: Container(
                     width: 24,
                     height: 24,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Symbols.check,
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onPrimary,
                       size: 16,
                     ),
                   ),

@@ -82,11 +82,11 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                   title: Text('Merge with...'),
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'delete',
                 child: ListTile(
-                  leading: Icon(Symbols.delete, color: Colors.red),
-                  title: Text('Delete Person'),
+                  leading: Icon(Symbols.delete, color: Theme.of(context).colorScheme.error),
+                  title: const Text('Delete Person'),
                 ),
               ),
             ],

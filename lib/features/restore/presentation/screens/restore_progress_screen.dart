@@ -293,9 +293,9 @@ class RestoreProgressScreen extends ConsumerWidget {
             foregroundColor: Theme.of(context).colorScheme.primary,
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-          child: const Text(
+          child: Text(
             'View Your Library',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.labelLarge,
           ),
         ),
       );
@@ -349,9 +349,9 @@ class RestoreProgressScreen extends ConsumerWidget {
                 foregroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: const Text(
+              child: Text(
                 'Start Fresh',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.labelLarge,
               ),
             ),
           ),

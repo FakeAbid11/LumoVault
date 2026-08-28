@@ -330,16 +330,16 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
                       width: 36,
                       height: 36,
                       child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
+                        decoration: BoxDecoration(
+                          color: colorScheme.error,
                           shape: BoxShape.circle,
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(color: Colors.black26, blurRadius: 4),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Symbols.location_on,
-                          color: Colors.white,
+                          color: colorScheme.onError,
                           size: 22,
                         ),
                       ),
@@ -427,16 +427,16 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
                       width: 36,
                       height: 36,
                       child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
+                        decoration: BoxDecoration(
+                          color: colorScheme.error,
                           shape: BoxShape.circle,
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(color: Colors.black26, blurRadius: 4),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Symbols.location_on,
-                          color: Colors.white,
+                          color: colorScheme.onError,
                           size: 22,
                         ),
                       ),

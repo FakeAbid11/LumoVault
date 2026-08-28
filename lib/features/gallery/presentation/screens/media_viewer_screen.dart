@@ -56,6 +56,8 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   /// mid-upload doesn't show that photo as busy.
   final Set<String> _inFlight = {};
 
+  bool _isChromeVisible = true;
+
   @override
   void initState() {
     super.initState();
@@ -103,114 +105,150 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(
-          '${_currentIndex + 1} / ${widget.assets.length}',
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Symbols.info),
-            tooltip: 'Info & EXIF',
-            onPressed: _showExifDetails,
-          ),
-        ],
-      ),
-      body: SwipeDismissWrapper(
-        enabled: !_isZoomed,
-        onSwipeUp: _showExifDetails,
-        child: PageView.builder(
-          controller: _pageController,
-          physics: _isZoomed
-              ? const NeverScrollableScrollPhysics()
-              : const BouncingScrollPhysics(),
-          itemCount: widget.assets.length,
-          onPageChanged: (index) {
-            if (_currentIndex != index) {
-              HapticFeedback.selectionClick();
-              setState(() {
-                _currentIndex = index;
-                _isZoomed = false;
-              });
-            }
-          },
-          itemBuilder: (context, index) => _AssetPreview(
-            asset: widget.assets[index],
-            onZoomChanged: (zoomed) {
-              if (_isZoomed != zoomed) {
-                setState(() => _isZoomed = zoomed);
-              }
-            },
-          ),
-        ),
-      ),
-      // Actions live at the bottom, thumb-reachable, like most gallery apps.
-      // The backup action only appears while there's something to do — back
-      // up, queued, or uploading. Once an item is backed up the action drops
-      // out entirely rather than sitting there as a redundant "Backed up"
-      // label: that state is already obvious from where the item shows up
-      // (e.g. the Timeline lists only backed-up items).
-      bottomNavigationBar: Container(
-        color: Colors.black,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-            child: Row(
-              children: [
-                if (!isBackedUp)
-                  Expanded(
-                    child: _BackupAction(
-                      isUploading: isUploading,
-                      isQueued: isQueued,
-                      progress: task?.progress ?? 0,
-                      onPressed: isUploading
-                          ? null
-                          : () => _backUpCurrentAsset(),
-                    ),
-                  ),
-                Expanded(
-                  child: _BottomAction(
-                    icon: hasLocation
-                        ? Symbols.location_on
-                        : Symbols.location_on,
-                    label: displayLocationLabel,
-                    color: hasLocation ? Colors.blueAccent : Colors.white,
-                    onPressed: () => _openLocationPicker(),
-                  ),
+      body: Stack(
+        children: [
+          // Tap target + image body
+          GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => setState(() => _isChromeVisible = !_isChromeVisible),
+            child: SwipeDismissWrapper(
+              enabled: !_isZoomed,
+              onSwipeUp: _showExifDetails,
+              child: PageView.builder(
+                controller: _pageController,
+                physics: _isZoomed
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
+                itemCount: widget.assets.length,
+                onPageChanged: (index) {
+                  if (_currentIndex != index) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _currentIndex = index;
+                      _isZoomed = false;
+                    });
+                  }
+                },
+                itemBuilder: (context, index) => _AssetPreview(
+                  asset: widget.assets[index],
+                  onZoomChanged: (zoomed) {
+                    if (_isZoomed != zoomed) {
+                      setState(() => _isZoomed = zoomed);
+                    }
+                  },
                 ),
-                Expanded(
-                  child: _BottomAction(
-                    icon: Symbols.share,
-                    label: 'Share',
-                    onPressed: () => _shareCurrentAsset(),
-                  ),
-                ),
-                // No "Download" action here: this viewer only ever shows
-                // on-device assets, so saving a copy back to the gallery would
-                // just duplicate a file that's already local. Downloading is
-                // meaningful only for cloud-only items — see the separate
-                // TelegramMediaViewerScreen, which keeps its Save action.
-                //
-                // Trash, on the other hand, is shown only for the Local tab
-                // (allowDeviceDelete): it routes the file to Android's own
-                // MediaStore trash — a 30-day, OS-owned recovery window — and
-                // never touches the Telegram backup. See _trashFromDevice.
-                if (widget.allowDeviceDelete)
-                  Expanded(
-                    child: _BottomAction(
-                      icon: Symbols.delete,
-                      label: 'Trash',
-                      color: Colors.redAccent,
-                      onPressed: () => _trashFromDevice(),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
-        ),
+
+          // Animated AppBar
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _isChromeVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 250),
+              child: AnimatedSlide(
+                offset: _isChromeVisible
+                    ? Offset.zero
+                    : const Offset(0, -0.2),
+                duration: const Duration(milliseconds: 250),
+                child: AppBar(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  title: Text(
+                    '${_currentIndex + 1} / ${widget.assets.length}',
+                    style: TextStyle(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Symbols.info),
+                      tooltip: 'Info & EXIF',
+                      onPressed: _showExifDetails,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Animated bottom bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _isChromeVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 250),
+              child: AnimatedSlide(
+                offset: _isChromeVisible
+                    ? Offset.zero
+                    : const Offset(0, 0.2),
+                duration: const Duration(milliseconds: 250),
+                child: Container(
+                  color: Colors.black,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 24,
+                      ),
+                      child: Row(
+                        children: [
+                          if (!isBackedUp)
+                            Expanded(
+                              child: _BackupAction(
+                                isUploading: isUploading,
+                                isQueued: isQueued,
+                                progress: task?.progress ?? 0,
+                                onPressed: isUploading
+                                    ? null
+                                    : () => _backUpCurrentAsset(),
+                              ),
+                            ),
+                          Expanded(
+                            child: _BottomAction(
+                              icon: Symbols.location_on,
+                              label: displayLocationLabel,
+                              color: hasLocation
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                              onPressed: () => _openLocationPicker(),
+                            ),
+                          ),
+                          Expanded(
+                            child: _BottomAction(
+                              icon: Symbols.share,
+                              label: 'Share',
+                              onPressed: () => _shareCurrentAsset(),
+                            ),
+                          ),
+                          if (widget.allowDeviceDelete)
+                            Expanded(
+                              child: _BottomAction(
+                                icon: Symbols.delete,
+                                label: 'Trash',
+                                color: Theme.of(context).colorScheme.error,
+                                onPressed: () => _trashFromDevice(),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -459,7 +497,7 @@ class _BackupAction extends StatelessWidget {
     } else {
       icon = Symbols.backup;
       label = 'Back up';
-      color = Colors.white;
+      color = Theme.of(context).colorScheme.onSurface;
     }
 
     return _BottomAction(
@@ -478,7 +516,7 @@ class _BottomAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.iconWidget,
-    this.color = Colors.white,
+    this.color,
   });
 
   final IconData icon;
@@ -487,10 +525,11 @@ class _BottomAction extends StatelessWidget {
 
   /// Overrides [icon] when a non-Icon glyph is needed (e.g. a progress ring).
   final Widget? iconWidget;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(12),
@@ -499,14 +538,14 @@ class _BottomAction extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            iconWidget ?? Icon(icon, color: color, size: 24),
+            iconWidget ?? Icon(icon, color: effectiveColor, size: 24),
             const SizedBox(height: 6),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(color: color, fontSize: 12),
+              style: TextStyle(color: effectiveColor, fontSize: 12),
             ),
           ],
         ),

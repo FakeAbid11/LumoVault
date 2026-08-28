@@ -218,7 +218,7 @@ class _AssetTileState extends State<AssetTile>
 
   Widget _buildDimOverlay(BuildContext context) {
     return Positioned.fill(
-      child: Container(color: Colors.black.withValues(alpha: 0.3)),
+      child: Container(color: Colors.black38),
     );
   }
 

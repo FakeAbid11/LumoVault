@@ -245,23 +245,31 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               icon: const Icon(Symbols.cloud_upload),
               label: const Text('Backup'),
             ),
-      bottomNavigationBar: _isMultiSelectMode
-          ? _SelectionBar(
-              selectedCount: _multiSelected.length,
-              onBackup: () => _selectForBackup(deviceAssets),
-              onTrash: () => _trashSelected(deviceAssets),
-            )
-          : null,
-      body: permissionStatus.when(
-        data: (status) {
-          if (status == PermissionStatus.denied ||
-              status == PermissionStatus.permanentlyDenied) {
-            return _buildPermissionDeniedState(status);
-          }
-          return _buildGalleryContent(deviceAssets);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => _buildErrorState(error.toString()),
+      body: Stack(
+        children: [
+          permissionStatus.when(
+            data: (status) {
+              if (status == PermissionStatus.denied ||
+                  status == PermissionStatus.permanentlyDenied) {
+                return _buildPermissionDeniedState(status);
+              }
+              return _buildGalleryContent(deviceAssets);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => _buildErrorState(error.toString()),
+          ),
+          if (_isMultiSelectMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _SelectionBar(
+                selectedCount: _multiSelected.length,
+                onBackup: () => _selectForBackup(deviceAssets),
+                onTrash: () => _trashSelected(deviceAssets),
+              ),
+            ),
+        ],
       ),
     );
   }

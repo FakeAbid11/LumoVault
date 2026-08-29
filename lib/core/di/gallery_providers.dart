@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:photo_manager/photo_manager.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 import '../../features/gallery/data/models/device_folder.dart';
 import '../../features/gallery/data/models/media_item.dart';
@@ -7,6 +8,7 @@ import '../../features/gallery/data/repositories/asset_location.dart';
 import '../../features/gallery/data/repositories/gallery_repository.dart';
 import '../../features/gallery/data/repositories/incremental_scanner.dart';
 import '../../features/gallery/data/repositories/media_scanner_service.dart';
+import '../../features/gallery/presentation/widgets/heatmap_layer.dart';
 import '../storage/storage_channel_service.dart';
 import 'database_providers.dart';
 import 'tdlib_providers.dart';
@@ -150,6 +152,39 @@ final mapPhotosProvider = StreamProvider.autoDispose<List<MediaItem>>((
   // Second emission: merged list with newly-resolved items.
   yield located.values.toList()
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+});
+
+/// Transforms [mapPhotosProvider] data into weighted [HeatmapPoint]s for the
+/// heatmap layer. Each photo contributes weight 1. Photos at the exact same
+/// 6-decimal coordinate are grouped into a single point with accumulated weight.
+final heatmapPointsProvider = FutureProvider.autoDispose<List<HeatmapPoint>>((
+  ref,
+) async {
+  final photosAsync = ref.watch(mapPhotosProvider);
+  return photosAsync.when(
+    loading: () => [],
+    error: (_, __) => [],
+    data: (photos) {
+      final grouped = <String, HeatmapPoint>{};
+      for (final photo in photos) {
+        if (!photo.hasLocation) continue;
+        final key =
+            '${photo.latitude!.toStringAsFixed(6)},${photo.longitude!.toStringAsFixed(6)}';
+        final existing = grouped[key];
+        if (existing != null) {
+          grouped[key] = HeatmapPoint(
+            latLng: existing.latLng,
+            weight: existing.weight + 1,
+          );
+        } else {
+          grouped[key] = HeatmapPoint(
+            latLng: LatLng(photo.latitude!, photo.longitude!),
+          );
+        }
+      }
+      return grouped.values.toList();
+    },
+  );
 });
 
 /// Lists device photos/videos directly for the timeline grid — fast,

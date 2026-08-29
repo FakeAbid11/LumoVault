@@ -31,6 +31,7 @@ import '../../features/settings/presentation/screens/general_settings_screen.dar
 import '../../features/backup/presentation/screens/backup_settings_screen_v2.dart';
 import '../../features/settings/presentation/screens/media_settings_screen.dart';
 import '../../features/settings/presentation/screens/storage_settings_screen.dart';
+import '../../features/settings/presentation/screens/storage_insights_screen.dart';
 import '../../features/settings/presentation/screens/appearance_settings_screen.dart';
 import '../../features/settings/presentation/screens/privacy_settings_screen.dart';
 import '../../features/settings/presentation/screens/notification_settings_screen.dart';
@@ -354,6 +355,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/storage',
         pageBuilder: (context, state) =>
             _slideFromRight(const StorageSettingsScreen(), state),
+      ),
+      GoRoute(
+        path: '/settings/storage-insights',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const StorageInsightsScreen(), state),
       ),
       GoRoute(
         path: '/settings/appearance',

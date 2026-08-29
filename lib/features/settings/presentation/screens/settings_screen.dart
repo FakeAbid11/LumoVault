@@ -74,6 +74,13 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/storage'),
               ),
+              ListTile(
+                leading: const Icon(Symbols.insights),
+                title: const Text('Storage Insights'),
+                subtitle: const Text('Backup coverage and media breakdown'),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push('/settings/storage-insights'),
+              ),
             ],
           ),
 

@@ -14,6 +14,7 @@ import '../../../../core/di/geocoding_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
+import '../widgets/heatmap_layer.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -35,12 +36,24 @@ class MapScreen extends ConsumerStatefulWidget {
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
   bool _locating = false;
+  bool _showHeatmap = false;
 
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showHeatmap ? Icons.map_outlined : Icons.local_fire_department,
+            ),
+            tooltip: _showHeatmap ? 'Show pins' : 'Show heatmap',
+            onPressed: () => setState(() => _showHeatmap = !_showHeatmap),
+          ),
+        ],
+      ),
       body: photosAsync.when(
         loading: () => _buildMapOnly(),
         error: (error, _) => Center(
@@ -95,7 +108,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
           children: [
             const OsmTileLayer(),
-            _buildClusterLayer(context, photos),
+            if (_showHeatmap)
+              _buildHeatmapLayer(context)
+            else
+              _buildClusterLayer(context, photos),
             RichAttributionWidget(
               attributions: [
                 TextSourceAttribution(
@@ -153,6 +169,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
       );
     }
+  }
+
+  Widget _buildHeatmapLayer(BuildContext context) {
+    final heatmapAsync = ref.watch(heatmapPointsProvider);
+    return heatmapAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (heatPoints) {
+        if (heatPoints.isEmpty) return const SizedBox.shrink();
+        return HeatmapLayer(points: heatPoints);
+      },
+    );
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {

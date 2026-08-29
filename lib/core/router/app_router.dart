@@ -18,6 +18,7 @@ import '../../features/hidden/presentation/screens/hidden_album_screen.dart';
 import '../../features/onboarding/presentation/providers/onboarding_provider.dart';
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
 import '../../features/onboarding/presentation/screens/permissions_screen.dart';
+import '../../features/onboarding/presentation/screens/miui_permissions_screen.dart';
 import '../../features/onboarding/presentation/screens/folder_selection_screen.dart';
 import '../../features/onboarding/presentation/screens/telegram_connect_screen.dart';
 import '../../features/people/presentation/screens/people_screen.dart';
@@ -104,6 +105,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding/permissions',
         pageBuilder: (context, state) =>
             _slideFromRight(const PermissionsScreen(), state),
+      ),
+      GoRoute(
+        path: '/onboarding/miui-permissions',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const MiuiPermissionsScreen(), state),
       ),
       GoRoute(
         path: '/onboarding/folders',

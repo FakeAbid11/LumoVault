@@ -22,6 +22,7 @@ import '../storage/storage_channel_service.dart';
 import '../storage/transfer_queue_persistence.dart';
 import 'gallery_providers.dart';
 import 'production_providers.dart';
+import 'providers.dart';
 import 'tdlib_providers.dart';
 import 'transfer_providers.dart';
 
@@ -595,6 +596,7 @@ final backgroundBackupSyncProvider = Provider<BackgroundBackupSync>((ref) {
     sync.apply(
       enabled: ref.read(appSettingsProvider).backgroundBackupEnabled,
       settings: ref.read(backupSettingsProvider),
+      isMiuiDevice: ref.read(isMiuiDeviceProvider).valueOrNull ?? false,
     ),
   );
 
@@ -603,6 +605,7 @@ final backgroundBackupSyncProvider = Provider<BackgroundBackupSync>((ref) {
       sync.apply(
         enabled: next.backgroundBackupEnabled,
         settings: ref.read(backupSettingsProvider),
+        isMiuiDevice: ref.read(isMiuiDeviceProvider).valueOrNull ?? false,
       ),
     );
   });
@@ -612,6 +615,7 @@ final backgroundBackupSyncProvider = Provider<BackgroundBackupSync>((ref) {
       sync.apply(
         enabled: ref.read(appSettingsProvider).backgroundBackupEnabled,
         settings: next,
+        isMiuiDevice: ref.read(isMiuiDeviceProvider).valueOrNull ?? false,
       ),
     );
   });
@@ -632,9 +636,13 @@ class BackgroundBackupSync {
   /// A no-op when nothing that affects scheduling changed: settings streams
   /// fire on every unrelated edit (theme, grid size), and re-registering on
   /// each one would churn WorkManager's database for nothing.
+  ///
+  /// [isMiuiDevice] promotes the media scanner to a foreground service on
+  /// Xiaomi/Redmi/POCO devices to prevent MIUI from killing it.
   Future<void> apply({
     required bool enabled,
     required BackupSettings settings,
+    bool isMiuiDevice = false,
   }) async {
     if (_lastEnabled == enabled && _schedulingEquals(_lastSettings, settings)) {
       return;
@@ -647,7 +655,10 @@ class BackgroundBackupSync {
         await _service.cancelAll();
         return;
       }
-      await _service.registerAllTasks(settings: settings);
+      await _service.registerAllTasks(
+        settings: settings,
+        promoteScannerToForeground: isMiuiDevice,
+      );
     } catch (e) {
       // No WorkManager on this platform (desktop, tests) — the app must still
       // start, it just won't back up in the background.

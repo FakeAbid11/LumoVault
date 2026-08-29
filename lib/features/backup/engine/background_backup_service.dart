@@ -67,8 +67,11 @@ final Map<String, dynamic> _foregroundInputData = {
 /// can be tested without a WorkManager host.
 abstract class BackupTaskScheduler {
   Future<void> initialize();
-  Future<void> registerAllTasks({required BackupSettings settings});
-  Future<void> registerMediaScanner();
+  Future<void> registerAllTasks({
+    required BackupSettings settings,
+    bool promoteScannerToForeground = false,
+  });
+  Future<void> registerMediaScanner({bool promoteToForeground = false});
   Future<void> registerUploadWorker({bool wifiOnly, bool chargingOnly});
   Future<void> registerBackupScheduler({required BackupSettings settings});
   Future<void> registerMetadataRepair();
@@ -110,12 +113,18 @@ class BackgroundBackupService implements BackupTaskScheduler {
   /// Auto-backup off means the scan/upload/scheduler trio must not run at all —
   /// registering them anyway would keep backing up in the background after the
   /// user switched it off. Maintenance tasks stay registered regardless.
+  ///
+  /// [promoteScannerToForeground] promotes the media scanner to a dataSync
+  /// foreground service, preventing MIUI/HyperOS from killing it.
   @override
-  Future<void> registerAllTasks({required BackupSettings settings}) async {
+  Future<void> registerAllTasks({
+    required BackupSettings settings,
+    bool promoteScannerToForeground = false,
+  }) async {
     if (!_initialized) await initialize();
 
     if (settings.isAutoBackupEnabled) {
-      await registerMediaScanner();
+      await registerMediaScanner(promoteToForeground: promoteScannerToForeground);
       await registerUploadWorker(wifiOnly: settings.wifiOnly);
       await registerBackupScheduler(settings: settings);
     } else {
@@ -133,8 +142,10 @@ class BackgroundBackupService implements BackupTaskScheduler {
   /// Register the periodic media scanner task.
   ///
   /// Per PRD: runs every 15 minutes with network constraint.
+  /// When [promoteToForeground] is true (MIUI devices), the scanner is
+  /// promoted to a dataSync foreground service so MIUI can't kill it.
   @override
-  Future<void> registerMediaScanner() async {
+  Future<void> registerMediaScanner({bool promoteToForeground = false}) async {
     await _workmanager.registerPeriodicTask(
       kMediaScannerTask,
       kMediaScannerTask,
@@ -145,8 +156,12 @@ class BackgroundBackupService implements BackupTaskScheduler {
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       backoffPolicy: BackoffPolicy.exponential,
       initialDelay: const Duration(minutes: 1),
+      inputData: promoteToForeground ? _foregroundInputData : null,
     );
-    debugPrint('[BackgroundBackupService] Registered media scanner');
+    debugPrint(
+      '[BackgroundBackupService] Registered media scanner'
+      '${promoteToForeground ? ' (foreground)' : ''}',
+    );
   }
 
   /// Register the upload worker as a one-time task.

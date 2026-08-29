@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../providers/onboarding_provider.dart';
+import '../widgets/miui_guidance_card.dart';
 import '../widgets/onboarding_progress_indicator.dart';
 import '../widgets/permission_card.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -25,11 +26,14 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   PermissionStatus _notificationStatus = PermissionStatus.notDetermined;
   bool _batteryOptimizationDisabled = false;
   bool _isLoading = true;
+  bool _isMiuiDevice = false;
+  String? _packageName;
 
   @override
   void initState() {
     super.initState();
     _checkCurrentPermissions();
+    _checkDeviceType();
   }
 
   Future<void> _checkCurrentPermissions() async {
@@ -57,6 +61,20 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _checkDeviceType() async {
+    try {
+      final deviceService = ref.read(deviceInfoServiceProvider);
+      final isMiui = await deviceService.isMiuiDevice();
+      if (mounted) {
+        setState(() {
+          _isMiuiDevice = isMiui;
+        });
+      }
+    } catch (e) {
+      debugPrint('[PermissionsScreen] Device check failed: $e');
     }
   }
 
@@ -171,6 +189,14 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                         onGrant: _requestBatteryOptimization,
                         onOpenSettings: _openAppSettings,
                       ),
+
+                      // MIUI-specific guidance card
+                      if (_isMiuiDevice) ...[
+                        const SizedBox(height: 16),
+                        MiuiGuidanceCard(
+                          packageName: _packageName ?? 'com.lumovault.app',
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/providers.dart';
+import '../../../../core/device/miui_health_check.dart';
+import '../../../../core/device/miui_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../widgets/folder_selection_widget.dart';
 import '../../../../core/utils/format_utils.dart';
@@ -10,15 +13,32 @@ import '../../data/models/backup_settings.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Enhanced backup settings screen with all production features.
-class BackupSettingsScreenV2 extends ConsumerWidget {
+class BackupSettingsScreenV2 extends ConsumerStatefulWidget {
   const BackupSettingsScreenV2({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BackupSettingsScreenV2> createState() =>
+      _BackupSettingsScreenV2State();
+}
+
+class _BackupSettingsScreenV2State
+    extends ConsumerState<BackupSettingsScreenV2> {
+  bool _dismissedMiuiWarning = false;
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(backupSettingsProvider);
     final stats = ref.watch(backupStatsProvider);
     final isBackupActive = ref.watch(isBackupActiveProvider);
     final isPaused = ref.watch(isBackupPausedProvider);
+    final isMiuiDevice = ref.watch(isMiuiDeviceProvider).valueOrNull ?? false;
+
+    final showMiuiWarning = !_dismissedMiuiWarning &&
+        MiuiHealthCheck.isLikelyRestricted(
+          isMiuiDevice: isMiuiDevice,
+          isAutoBackupEnabled: settings.isAutoBackupEnabled,
+          lastBackupAt: stats.lastBackupAt,
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -41,6 +61,14 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
       ),
       body: ListView(
         children: [
+          // -- MIUI Warning --
+          if (showMiuiWarning)
+            MiuiHealthCheck.buildWarningBanner(
+              context: context,
+              packageName: 'com.lumovault.app',
+              onDismissed: () => setState(() => _dismissedMiuiWarning = true),
+            ),
+
           // -- Status --
           if (isBackupActive) ...[
             const _SectionHeader(title: 'Status'),
@@ -96,6 +124,31 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
                   );
             },
           ),
+
+          // MIUI-specific background settings shortcuts
+          if (isMiuiDevice) ...[
+            const Divider(),
+            const _SectionHeader(title: 'Xiaomi / MIUI Settings'),
+            ListTile(
+              leading: const Icon(Symbols.power_settings_new),
+              title: const Text('Enable Autostart'),
+              subtitle: const Text('Allow LumoVault to start automatically'),
+              trailing: const Icon(Symbols.chevron_right),
+              onTap: () => _openMiuiAutostart(context),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.battery_alert),
+              title: const Text('Battery Saver'),
+              subtitle: const Text('Set to "No restrictions"'),
+              trailing: const Icon(Symbols.chevron_right),
+              onTap: () => _openMiuiBattery(context),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.lock),
+              title: const Text('Lock in Recents'),
+              subtitle: const Text('Tap lock icon in Recent Apps'),
+            ),
+          ],
 
           const Divider(),
 
@@ -236,6 +289,26 @@ class BackupSettingsScreenV2 extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openMiuiAutostart(BuildContext context) async {
+    const packageName = 'com.lumovault.app';
+    final opened = await MiuiSettings.openAutostartSettings(packageName);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open settings automatically')),
+      );
+    }
+  }
+
+  Future<void> _openMiuiBattery(BuildContext context) async {
+    const packageName = 'com.lumovault.app';
+    final opened = await MiuiSettings.openBatterySettings(packageName);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open settings automatically')),
+      );
+    }
   }
 
   Widget _buildStatusTile(BuildContext context, dynamic stats, bool isPaused) {

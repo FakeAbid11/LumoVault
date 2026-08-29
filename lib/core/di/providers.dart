@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../device/device_info_service.dart';
 import '../permissions/permission_handler_service.dart';
 import '../permissions/permission_service.dart';
 import '../../shared/providers/connectivity_provider.dart';
@@ -53,4 +54,17 @@ final notificationPermissionStatusProvider = FutureProvider<PermissionStatus>((
 final criticalPermissionsGrantedProvider = FutureProvider<bool>((ref) async {
   final service = ref.watch(permissionServiceProvider);
   return service.areAllCriticalPermissionsGranted();
+});
+
+/// Device info service provider.
+///
+/// Used to detect device manufacturer and show device-specific guidance.
+final deviceInfoServiceProvider = Provider<DeviceInfoService>((ref) {
+  return DeviceInfoService();
+});
+
+/// Whether the current device is a Xiaomi/Redmi/POCO running MIUI.
+final isMiuiDeviceProvider = FutureProvider<bool>((ref) async {
+  final service = ref.watch(deviceInfoServiceProvider);
+  return service.isMiuiDevice();
 });

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,9 @@ import '../../features/settings/presentation/providers/settings_providers.dart';
 
 /// Wraps a scrollable grid with pinch-to-zoom for changing grid density.
 ///
-/// Consolidates the identical `_handlePinchScale` logic that was duplicated
-/// across [LocalScreen] and [TimelineScreen].
+/// Uses [Listener] instead of [GestureDetector] so the raw pointer events
+/// don't enter Flutter's gesture arena — child recognizers like
+/// [LongPressGestureRecognizer] (used for bulk-select) are never blocked.
 class PinchZoomWrapper extends ConsumerStatefulWidget {
   const PinchZoomWrapper({required this.child, super.key});
 
@@ -20,6 +22,41 @@ class PinchZoomWrapper extends ConsumerStatefulWidget {
 
 class _PinchZoomWrapperState extends ConsumerState<PinchZoomWrapper> {
   double _lastPinchScale = 1.0;
+
+  /// Active pointers keyed by pointer id.
+  final Map<int, Offset> _pointers = {};
+
+  /// Distance between the two fingers when the pinch started (or when the
+  /// second finger touched down). Reset whenever we drop below 2 pointers.
+  double _initialSpan = 0;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _pointers[event.pointer] = event.position;
+    if (_pointers.length == 2) {
+      _initialSpan = _span;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    _pointers[event.pointer] = event.position;
+    if (_pointers.length >= 2 && _initialSpan > 0) {
+      final scale = _span / _initialSpan;
+      _handlePinchScale(scale);
+    }
+  }
+
+  void _handlePointerUp(PointerEvent event) {
+    _pointers.remove(event.pointer);
+    if (_pointers.length < 2) {
+      _initialSpan = 0;
+    }
+  }
+
+  /// Euclidean distance between the two tracked pointers.
+  double get _span {
+    final pts = _pointers.values.toList();
+    return (pts[0] - pts[1]).distance;
+  }
 
   void _handlePinchScale(double scale) {
     if ((scale - _lastPinchScale).abs() < 0.25) return;
@@ -55,12 +92,11 @@ class _PinchZoomWrapperState extends ConsumerState<PinchZoomWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onScaleUpdate: (details) {
-        if (details.pointerCount >= 2) {
-          _handlePinchScale(details.scale);
-        }
-      },
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerUp,
       child: widget.child,
     );
   }

@@ -144,10 +144,10 @@ class _BackupSettingsScreenV2State
               trailing: const Icon(Symbols.chevron_right),
               onTap: () => _openMiuiBattery(context),
             ),
-            ListTile(
-              leading: const Icon(Symbols.lock),
-              title: const Text('Lock in Recents'),
-              subtitle: const Text('Tap lock icon in Recent Apps'),
+            const ListTile(
+              leading: Icon(Symbols.lock),
+              title: Text('Lock in Recents'),
+              subtitle: Text('Tap lock icon in Recent Apps'),
             ),
           ],
 

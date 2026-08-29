@@ -169,12 +169,15 @@ class _FakeScheduler implements BackupTaskScheduler {
   Future<void> initialize() async {}
 
   @override
-  Future<void> registerAllTasks({required BackupSettings settings}) async {
+  Future<void> registerAllTasks({
+    required BackupSettings settings,
+    bool promoteScannerToForeground = false,
+  }) async {
     registeredAll.add(settings);
   }
 
   @override
-  Future<void> registerMediaScanner() async {}
+  Future<void> registerMediaScanner({bool promoteToForeground = false}) async {}
 
   @override
   Future<void> registerUploadWorker({
@@ -206,7 +209,10 @@ class _FakeScheduler implements BackupTaskScheduler {
 
 class _ThrowingScheduler extends _FakeScheduler {
   @override
-  Future<void> registerAllTasks({required BackupSettings settings}) async {
+  Future<void> registerAllTasks({
+    required BackupSettings settings,
+    bool promoteScannerToForeground = false,
+  }) async {
     throw StateError('no WorkManager here');
   }
 }

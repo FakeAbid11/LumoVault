@@ -25,7 +25,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   PermissionStatus _notificationStatus = PermissionStatus.notDetermined;
   bool _batteryOptimizationDisabled = false;
   bool _isLoading = true;
-  bool _isMiuiDevice = false;
+  bool _needsBackgroundGuide = false;
 
   @override
   void initState() {
@@ -65,10 +65,10 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   Future<void> _checkDeviceType() async {
     try {
       final deviceService = ref.read(deviceInfoServiceProvider);
-      final isMiui = await deviceService.isMiuiDevice();
+      final needsGuide = await deviceService.needsBackgroundPermissionGuide();
       if (mounted) {
         setState(() {
-          _isMiuiDevice = isMiui;
+          _needsBackgroundGuide = needsGuide;
         });
       }
     } catch (e) {
@@ -130,8 +130,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
           TextButton(
             onPressed: () {
               ref.read(onboardingProvider.notifier).nextStep();
-              if (_isMiuiDevice) {
-                context.push('/onboarding/miui-permissions');
+              if (_needsBackgroundGuide) {
+                context.push('/onboarding/background-permissions');
               } else {
                 context.push('/onboarding/folders');
               }
@@ -225,9 +225,9 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                                   ref
                                       .read(onboardingProvider.notifier)
                                       .nextStep();
-                                  if (_isMiuiDevice) {
+                                  if (_needsBackgroundGuide) {
                                     context.push(
-                                      '/onboarding/miui-permissions',
+                                      '/onboarding/background-permissions',
                                     );
                                   } else {
                                     context.push('/onboarding/folders');

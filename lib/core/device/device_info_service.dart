@@ -5,6 +5,9 @@ import 'package:device_info_plus/device_info_plus.dart';
 /// Callback that returns Android manufacturer name.
 typedef ManufacturerProvider = Future<String> Function();
 
+/// Normalized brand categories for background permission guidance.
+enum DeviceBrand { xiaomi, samsung, huawei, oneplus, oppo, realme, other }
+
 /// Service to detect device manufacturer and OS skin.
 ///
 /// Used to show device-specific guidance (e.g., MIUI background restrictions).
@@ -55,4 +58,32 @@ class DeviceInfoService {
   }
 
   Future<String> getManufacturer() => _getManufacturer();
+
+  /// Returns the normalized brand category for the current device.
+  Future<DeviceBrand> getDeviceBrand() async {
+    final manufacturer = await _getManufacturer();
+    final m = manufacturer.toLowerCase();
+
+    if (m == 'xiaomi' || m == 'redmi' || m == 'poco') {
+      return DeviceBrand.xiaomi;
+    } else if (m == 'samsung') {
+      return DeviceBrand.samsung;
+    } else if (m == 'huawei') {
+      return DeviceBrand.huawei;
+    } else if (m == 'oneplus') {
+      return DeviceBrand.oneplus;
+    } else if (m == 'oppo') {
+      return DeviceBrand.oppo;
+    } else if (m == 'realme') {
+      return DeviceBrand.realme;
+    }
+    return DeviceBrand.other;
+  }
+
+  /// Whether this device has aggressive background restrictions
+  /// that require onboarding guidance.
+  Future<bool> needsBackgroundPermissionGuide() async {
+    final brand = await getDeviceBrand();
+    return brand != DeviceBrand.other;
+  }
 }

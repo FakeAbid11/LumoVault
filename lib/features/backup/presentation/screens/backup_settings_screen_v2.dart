@@ -5,7 +5,7 @@ import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/device/miui_health_check.dart';
-import '../../../../core/device/miui_settings.dart';
+import '../../../../core/device/brand_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../widgets/folder_selection_widget.dart';
 import '../../../../core/utils/format_utils.dart';
@@ -294,7 +294,7 @@ class _BackupSettingsScreenV2State
 
   Future<void> _openMiuiAutostart(BuildContext context) async {
     const packageName = 'com.lumovault.app';
-    final opened = await MiuiSettings.openAutostartSettings(packageName);
+    final opened = await BrandSettings.openAutostartSettings(packageName);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open settings automatically')),
@@ -304,7 +304,7 @@ class _BackupSettingsScreenV2State
 
   Future<void> _openMiuiBattery(BuildContext context) async {
     const packageName = 'com.lumovault.app';
-    final opened = await MiuiSettings.openBatterySettings(packageName);
+    final opened = await BrandSettings.openBatterySettings(packageName);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open settings automatically')),

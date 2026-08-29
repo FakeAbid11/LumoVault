@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'device_info_service.dart';
-import 'miui_settings.dart';
+import 'brand_settings.dart';
 
 /// Checks whether MIUI background restrictions are likely blocking backups
 /// and shows a warning if so.
@@ -54,7 +54,7 @@ class MiuiHealthCheck {
       leading: Icon(Symbols.warning, color: colorScheme.error),
       actions: [
         TextButton(
-          onPressed: () => MiuiSettings.openBatterySettings(packageName),
+          onPressed: () => BrandSettings.openBatterySettings(packageName),
           child: const Text('Open Settings'),
         ),
         if (onDismissed != null)

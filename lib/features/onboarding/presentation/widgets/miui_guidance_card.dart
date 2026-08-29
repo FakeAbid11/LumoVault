@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../../core/device/miui_settings.dart';
+import '../../../../core/device/brand_settings.dart';
 
 /// A card showing MIUI-specific guidance for reliable background backup.
 ///
@@ -108,7 +108,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
               isCompleted: _completedSteps.contains(1),
               onToggle: () => _toggleStep(1),
               onOpenSettings: () =>
-                  MiuiSettings.openAutostartSettings(widget.packageName),
+                  BrandSettings.openAutostartSettings(widget.packageName),
             ),
 
             // Step 2: Battery Saver
@@ -122,7 +122,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
               isCompleted: _completedSteps.contains(2),
               onToggle: () => _toggleStep(2),
               onOpenSettings: () =>
-                  MiuiSettings.openBatterySettings(widget.packageName),
+                  BrandSettings.openBatterySettings(widget.packageName),
             ),
 
             // Step 3: Background Activity
@@ -136,7 +136,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
               isCompleted: _completedSteps.contains(3),
               onToggle: () => _toggleStep(3),
               onOpenSettings: () =>
-                  MiuiSettings.openBatterySettings(widget.packageName),
+                  BrandSettings.openBatterySettings(widget.packageName),
             ),
 
             // Step 4: Lock in Recents

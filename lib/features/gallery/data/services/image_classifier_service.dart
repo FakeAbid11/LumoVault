@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
@@ -20,6 +21,7 @@ class ImageClassifierService {
   late OnnxRuntime _ort;
   late OrtSession _session;
   bool _initialized = false;
+  String? _initError;
 
   /// Input size expected by EfficientNet-Lite0.
   static const int _inputSize = 224;
@@ -30,6 +32,10 @@ class ImageClassifierService {
   /// Maximum labels to return per image.
   static const int _maxLabels = 5;
 
+  bool get isReady => _initialized;
+
+  String? get initError => _initError;
+
   /// Initializes the ONNX session. Safe to call multiple times.
   Future<void> init() async {
     if (_initialized) return;
@@ -39,8 +45,10 @@ class ImageClassifierService {
         'assets/models/efficientnet_lite0.onnx',
       );
       _initialized = true;
+      _initError = null;
       debugPrint('[ImageClassifier] ONNX session ready');
     } catch (e) {
+      _initError = e.toString();
       debugPrint('[ImageClassifier] Init failed: $e');
     }
   }
@@ -88,15 +96,15 @@ class ImageClassifierService {
       final outputName = _session.outputNames.first;
       final output = outputs[outputName];
       if (output == null) {
-        ortValue.dispose();
+        await ortValue.dispose();
         return const [];
       }
 
-      final logits = await output.asList();
-      final floats = logits.map((e) => (e as num).toDouble()).toList();
+      final logitsFlat = await output.asFlattenedList();
+      final floats = logitsFlat.map((e) => (e as num).toDouble()).toList();
 
-      ortValue.dispose();
-      output.dispose();
+      await ortValue.dispose();
+      await output.dispose();
 
       // Softmax + top-N.
       return _decodeTopLabels(floats);
@@ -133,11 +141,11 @@ class ImageClassifierService {
 
   /// Applies softmax and returns the top-N human-readable labels.
   List<String> _decodeTopLabels(List<double> logits) {
-    // Softmax.
+    // Softmax with numerical stability.
     final maxLogit = logits.reduce((a, b) => a > b ? a : b);
-    final exps = logits.map((l) => l - maxLogit); // for numerical stability
-    final sumExp = exps.map((e) => Math.exp(e)).reduce((a, b) => a + b);
-    final probs = exps.map((e) => Math.exp(e) / sumExp).toList();
+    final exps = logits.map((l) => exp(l - maxLogit)).toList();
+    final sumExp = exps.reduce((a, b) => a + b);
+    final probs = exps.map((e) => e / sumExp).toList();
 
     // Sort by probability descending.
     final indexed = <(int, double)>[];
@@ -159,25 +167,8 @@ class ImageClassifierService {
     return labels;
   }
 
-  void dispose() {
-    _session.close();
+  Future<void> dispose() async {
+    await _session.close();
     _initialized = false;
-  }
-}
-
-/// Minimal math helper to avoid importing dart:math.
-class Math {
-  static double exp(double x) {
-    // Dart's double has no built-in exp — use the identity e^x.
-    // This is a simple Taylor-series approximation sufficient for softmax.
-    if (x > 20) return 1.0e20; // prevent overflow
-    if (x < -20) return 0.0;
-    var sum = 1.0;
-    var term = 1.0;
-    for (var i = 1; i <= 20; i++) {
-      term *= x / i;
-      sum += term;
-    }
-    return sum;
   }
 }

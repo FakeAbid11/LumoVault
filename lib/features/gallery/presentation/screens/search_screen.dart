@@ -110,14 +110,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final results = ref.watch(searchProvider(_query));
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
-    return results.when(
-      data: (items) => deviceAssets.when(
-        data: (assets) => _buildGrid(items, assets),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => _buildGrid(items, const []),
-      ),
+    return deviceAssets.when(
+      data: (assets) => _buildGrid(results, assets),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('$e')),
+      error: (e, s) => _buildGrid(results, const []),
     );
   }
 
@@ -379,32 +375,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _scanTotal = unlabeled.length;
     });
 
-    final classifier = ref.read(imageClassifierProvider);
-    final repository = ref.read(galleryRepositoryProvider);
-    await classifier.init();
+    try {
+      final classifier = ref.read(imageClassifierProvider);
+      final repository = ref.read(galleryRepositoryProvider);
+      await classifier.init();
 
-    for (var i = 0; i < unlabeled.length; i++) {
-      if (!_scanning) break;
-
-      final item = unlabeled[i];
-      final asset = await AssetEntity.fromId(item.localId);
-      if (asset == null) continue;
-
-      final labels = await classifier.classify(asset);
-      if (labels.isNotEmpty) {
-        await repository.labelMediaItem(item.localId, labels);
+      if (!classifier.isReady) {
+        debugPrint('[SearchScreen] Classifier failed to initialize');
+        return;
       }
 
+      for (var i = 0; i < unlabeled.length; i++) {
+        if (!_scanning) break;
+
+        final item = unlabeled[i];
+        final asset = await AssetEntity.fromId(item.localId);
+        if (asset == null) continue;
+
+        final labels = await classifier.classify(asset);
+        if (labels.isNotEmpty) {
+          await repository.labelMediaItem(item.localId, labels);
+        }
+
+        if (mounted) {
+          setState(() => _scanProgress = i + 1);
+        }
+      }
+    } catch (e) {
+      debugPrint('[SearchScreen] Scan failed: $e');
+    } finally {
       if (mounted) {
-        setState(() => _scanProgress = i + 1);
+        setState(() => _scanning = false);
+        ref.invalidate(unlabeledItemsProvider);
+        ref.invalidate(labeledCountProvider);
       }
-    }
-
-    if (mounted) {
-      setState(() => _scanning = false);
-      // Force providers to refresh.
-      ref.invalidate(unlabeledItemsProvider);
-      ref.invalidate(labeledCountProvider);
     }
   }
 }

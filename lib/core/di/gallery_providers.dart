@@ -178,11 +178,13 @@ final favoriteItemsProvider = FutureProvider.autoDispose<List<MediaItem>>((
   return repository.getFavoriteItems();
 });
 
-final searchProvider = FutureProvider.autoDispose
-    .family<List<MediaItem>, String>((ref, query) async {
-      final repository = ref.watch(galleryRepositoryProvider);
-      return repository.searchMedia(query);
-    });
+final searchProvider = Provider.autoDispose.family<List<MediaItem>, String>((
+  ref,
+  query,
+) {
+  final repository = ref.watch(galleryRepositoryProvider);
+  return repository.searchMedia(query);
+});
 
 final trashedItemsProvider = FutureProvider.autoDispose<List<MediaItem>>((
   ref,

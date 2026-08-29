@@ -51,20 +51,14 @@ class MiuiHealthCheck {
         'MIUI may be blocking background activity.',
         style: Theme.of(context).textTheme.bodyMedium,
       ),
-      leading: Icon(
-        Symbols.warning,
-        color: colorScheme.error,
-      ),
+      leading: Icon(Symbols.warning, color: colorScheme.error),
       actions: [
         TextButton(
           onPressed: () => MiuiSettings.openBatterySettings(packageName),
           child: const Text('Open Settings'),
         ),
         if (onDismissed != null)
-          TextButton(
-            onPressed: onDismissed,
-            child: const Text('Dismiss'),
-          ),
+          TextButton(onPressed: onDismissed, child: const Text('Dismiss')),
       ],
     );
   }

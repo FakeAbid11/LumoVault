@@ -124,7 +124,9 @@ class BackgroundBackupService implements BackupTaskScheduler {
     if (!_initialized) await initialize();
 
     if (settings.isAutoBackupEnabled) {
-      await registerMediaScanner(promoteToForeground: promoteScannerToForeground);
+      await registerMediaScanner(
+        promoteToForeground: promoteScannerToForeground,
+      );
       await registerUploadWorker(wifiOnly: settings.wifiOnly);
       await registerBackupScheduler(settings: settings);
     } else {

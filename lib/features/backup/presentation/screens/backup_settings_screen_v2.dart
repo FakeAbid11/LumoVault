@@ -33,7 +33,8 @@ class _BackupSettingsScreenV2State
     final isPaused = ref.watch(isBackupPausedProvider);
     final isMiuiDevice = ref.watch(isMiuiDeviceProvider).valueOrNull ?? false;
 
-    final showMiuiWarning = !_dismissedMiuiWarning &&
+    final showMiuiWarning =
+        !_dismissedMiuiWarning &&
         MiuiHealthCheck.isLikelyRestricted(
           isMiuiDevice: isMiuiDevice,
           isAutoBackupEnabled: settings.isAutoBackupEnabled,

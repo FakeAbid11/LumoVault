@@ -345,6 +345,16 @@ class $MediaItemsTable extends MediaItems
         requiredDuringInsert: false,
         defaultValue: const Constant('[]'),
       ).withConverter<List<String>>($MediaItemsTable.$convertertags);
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String> aiLabels =
+      GeneratedColumn<String>(
+        'ai_labels',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      ).withConverter<List<String>>($MediaItemsTable.$converteraiLabels);
   static const VerificationMeta _thumbnailPathMeta = const VerificationMeta(
     'thumbnailPath',
   );
@@ -424,6 +434,7 @@ class $MediaItemsTable extends MediaItems
     deviceFolder,
     description,
     tags,
+    aiLabels,
     thumbnailPath,
     latitude,
     longitude,
@@ -807,6 +818,12 @@ class $MediaItemsTable extends MediaItems
           data['${effectivePrefix}tags'],
         )!,
       ),
+      aiLabels: $MediaItemsTable.$converteraiLabels.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}ai_labels'],
+        )!,
+      ),
       thumbnailPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}thumbnail_path'],
@@ -832,6 +849,8 @@ class $MediaItemsTable extends MediaItems
   }
 
   static TypeConverter<List<String>, String> $convertertags =
+      const StringListConverter();
+  static TypeConverter<List<String>, String> $converteraiLabels =
       const StringListConverter();
 }
 
@@ -865,6 +884,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
   final String? deviceFolder;
   final String? description;
   final List<String> tags;
+  final List<String> aiLabels;
   final String? thumbnailPath;
   final double? latitude;
   final double? longitude;
@@ -899,6 +919,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     this.deviceFolder,
     this.description,
     required this.tags,
+    required this.aiLabels,
     this.thumbnailPath,
     this.latitude,
     this.longitude,
@@ -958,6 +979,11 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     {
       map['tags'] = Variable<String>(
         $MediaItemsTable.$convertertags.toSql(tags),
+      );
+    }
+    {
+      map['ai_labels'] = Variable<String>(
+        $MediaItemsTable.$converteraiLabels.toSql(aiLabels),
       );
     }
     if (!nullToAbsent || thumbnailPath != null) {
@@ -1024,6 +1050,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ? const Value.absent()
           : Value(description),
       tags: Value(tags),
+      aiLabels: Value(aiLabels),
       thumbnailPath: thumbnailPath == null && nullToAbsent
           ? const Value.absent()
           : Value(thumbnailPath),
@@ -1074,6 +1101,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       deviceFolder: serializer.fromJson<String?>(json['deviceFolder']),
       description: serializer.fromJson<String?>(json['description']),
       tags: serializer.fromJson<List<String>>(json['tags']),
+      aiLabels: serializer.fromJson<List<String>>(json['aiLabels']),
       thumbnailPath: serializer.fromJson<String?>(json['thumbnailPath']),
       latitude: serializer.fromJson<double?>(json['latitude']),
       longitude: serializer.fromJson<double?>(json['longitude']),
@@ -1113,6 +1141,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       'deviceFolder': serializer.toJson<String?>(deviceFolder),
       'description': serializer.toJson<String?>(description),
       'tags': serializer.toJson<List<String>>(tags),
+      'aiLabels': serializer.toJson<List<String>>(aiLabels),
       'thumbnailPath': serializer.toJson<String?>(thumbnailPath),
       'latitude': serializer.toJson<double?>(latitude),
       'longitude': serializer.toJson<double?>(longitude),
@@ -1150,6 +1179,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     Value<String?> deviceFolder = const Value.absent(),
     Value<String?> description = const Value.absent(),
     List<String>? tags,
+    List<String>? aiLabels,
     Value<String?> thumbnailPath = const Value.absent(),
     Value<double?> latitude = const Value.absent(),
     Value<double?> longitude = const Value.absent(),
@@ -1188,6 +1218,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     deviceFolder: deviceFolder.present ? deviceFolder.value : this.deviceFolder,
     description: description.present ? description.value : this.description,
     tags: tags ?? this.tags,
+    aiLabels: aiLabels ?? this.aiLabels,
     thumbnailPath: thumbnailPath.present
         ? thumbnailPath.value
         : this.thumbnailPath,
@@ -1250,6 +1281,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ? data.description.value
           : this.description,
       tags: data.tags.present ? data.tags.value : this.tags,
+      aiLabels: data.aiLabels.present ? data.aiLabels.value : this.aiLabels,
       thumbnailPath: data.thumbnailPath.present
           ? data.thumbnailPath.value
           : this.thumbnailPath,
@@ -1293,6 +1325,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ..write('deviceFolder: $deviceFolder, ')
           ..write('description: $description, ')
           ..write('tags: $tags, ')
+          ..write('aiLabels: $aiLabels, ')
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
@@ -1332,6 +1365,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     deviceFolder,
     description,
     tags,
+    aiLabels,
     thumbnailPath,
     latitude,
     longitude,
@@ -1370,6 +1404,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           other.deviceFolder == this.deviceFolder &&
           other.description == this.description &&
           other.tags == this.tags &&
+          other.aiLabels == this.aiLabels &&
           other.thumbnailPath == this.thumbnailPath &&
           other.latitude == this.latitude &&
           other.longitude == this.longitude &&
@@ -1406,6 +1441,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
   final Value<String?> deviceFolder;
   final Value<String?> description;
   final Value<List<String>> tags;
+  final Value<List<String>> aiLabels;
   final Value<String?> thumbnailPath;
   final Value<double?> latitude;
   final Value<double?> longitude;
@@ -1440,6 +1476,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.deviceFolder = const Value.absent(),
     this.description = const Value.absent(),
     this.tags = const Value.absent(),
+    this.aiLabels = const Value.absent(),
     this.thumbnailPath = const Value.absent(),
     this.latitude = const Value.absent(),
     this.longitude = const Value.absent(),
@@ -1475,6 +1512,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.deviceFolder = const Value.absent(),
     this.description = const Value.absent(),
     this.tags = const Value.absent(),
+    this.aiLabels = const Value.absent(),
     this.thumbnailPath = const Value.absent(),
     this.latitude = const Value.absent(),
     this.longitude = const Value.absent(),
@@ -1520,6 +1558,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Expression<String>? deviceFolder,
     Expression<String>? description,
     Expression<String>? tags,
+    Expression<String>? aiLabels,
     Expression<String>? thumbnailPath,
     Expression<double>? latitude,
     Expression<double>? longitude,
@@ -1555,6 +1594,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       if (deviceFolder != null) 'device_folder': deviceFolder,
       if (description != null) 'description': description,
       if (tags != null) 'tags': tags,
+      if (aiLabels != null) 'ai_labels': aiLabels,
       if (thumbnailPath != null) 'thumbnail_path': thumbnailPath,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
@@ -1592,6 +1632,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Value<String?>? deviceFolder,
     Value<String?>? description,
     Value<List<String>>? tags,
+    Value<List<String>>? aiLabels,
     Value<String?>? thumbnailPath,
     Value<double?>? latitude,
     Value<double?>? longitude,
@@ -1627,6 +1668,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       deviceFolder: deviceFolder ?? this.deviceFolder,
       description: description ?? this.description,
       tags: tags ?? this.tags,
+      aiLabels: aiLabels ?? this.aiLabels,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -1726,6 +1768,11 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
         $MediaItemsTable.$convertertags.toSql(tags.value),
       );
     }
+    if (aiLabels.present) {
+      map['ai_labels'] = Variable<String>(
+        $MediaItemsTable.$converteraiLabels.toSql(aiLabels.value),
+      );
+    }
     if (thumbnailPath.present) {
       map['thumbnail_path'] = Variable<String>(thumbnailPath.value);
     }
@@ -1773,6 +1820,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
           ..write('deviceFolder: $deviceFolder, ')
           ..write('description: $description, ')
           ..write('tags: $tags, ')
+          ..write('aiLabels: $aiLabels, ')
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
@@ -3606,6 +3654,7 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<String?> deviceFolder,
       Value<String?> description,
       Value<List<String>> tags,
+      Value<List<String>> aiLabels,
       Value<String?> thumbnailPath,
       Value<double?> latitude,
       Value<double?> longitude,
@@ -3642,6 +3691,7 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<String?> deviceFolder,
       Value<String?> description,
       Value<List<String>> tags,
+      Value<List<String>> aiLabels,
       Value<String?> thumbnailPath,
       Value<double?> latitude,
       Value<double?> longitude,
@@ -3802,6 +3852,12 @@ class $$MediaItemsTableFilterComposer
         column: $table.tags,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+  get aiLabels => $composableBuilder(
+    column: $table.aiLabels,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<String> get thumbnailPath => $composableBuilder(
     column: $table.thumbnailPath,
@@ -3978,6 +4034,11 @@ class $$MediaItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get aiLabels => $composableBuilder(
+    column: $table.aiLabels,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get thumbnailPath => $composableBuilder(
     column: $table.thumbnailPath,
     builder: (column) => ColumnOrderings(column),
@@ -4119,6 +4180,9 @@ class $$MediaItemsTableAnnotationComposer
   GeneratedColumnWithTypeConverter<List<String>, String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
 
+  GeneratedColumnWithTypeConverter<List<String>, String> get aiLabels =>
+      $composableBuilder(column: $table.aiLabels, builder: (column) => column);
+
   GeneratedColumn<String> get thumbnailPath => $composableBuilder(
     column: $table.thumbnailPath,
     builder: (column) => column,
@@ -4196,6 +4260,7 @@ class $$MediaItemsTableTableManager
                 Value<String?> deviceFolder = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<List<String>> tags = const Value.absent(),
+                Value<List<String>> aiLabels = const Value.absent(),
                 Value<String?> thumbnailPath = const Value.absent(),
                 Value<double?> latitude = const Value.absent(),
                 Value<double?> longitude = const Value.absent(),
@@ -4230,6 +4295,7 @@ class $$MediaItemsTableTableManager
                 deviceFolder: deviceFolder,
                 description: description,
                 tags: tags,
+                aiLabels: aiLabels,
                 thumbnailPath: thumbnailPath,
                 latitude: latitude,
                 longitude: longitude,
@@ -4266,6 +4332,7 @@ class $$MediaItemsTableTableManager
                 Value<String?> deviceFolder = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<List<String>> tags = const Value.absent(),
+                Value<List<String>> aiLabels = const Value.absent(),
                 Value<String?> thumbnailPath = const Value.absent(),
                 Value<double?> latitude = const Value.absent(),
                 Value<double?> longitude = const Value.absent(),
@@ -4300,6 +4367,7 @@ class $$MediaItemsTableTableManager
                 deviceFolder: deviceFolder,
                 description: description,
                 tags: tags,
+                aiLabels: aiLabels,
                 thumbnailPath: thumbnailPath,
                 latitude: latitude,
                 longitude: longitude,

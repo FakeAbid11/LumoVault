@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:photo_manager/photo_manager.dart';
 
 import '../../features/gallery/data/models/device_folder.dart';
 import '../../features/gallery/data/models/media_item.dart';
@@ -8,7 +7,7 @@ import '../../features/gallery/data/repositories/asset_location.dart';
 import '../../features/gallery/data/repositories/gallery_repository.dart';
 import '../../features/gallery/data/repositories/incremental_scanner.dart';
 import '../../features/gallery/data/repositories/media_scanner_service.dart';
-import '../../features/gallery/presentation/widgets/heatmap_layer.dart';
+import '../../features/gallery/data/services/image_classifier_service.dart';
 import '../storage/storage_channel_service.dart';
 import 'database_providers.dart';
 import 'tdlib_providers.dart';
@@ -154,39 +153,6 @@ final mapPhotosProvider = StreamProvider.autoDispose<List<MediaItem>>((
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 });
 
-/// Transforms [mapPhotosProvider] data into weighted [HeatmapPoint]s for the
-/// heatmap layer. Each photo contributes weight 1. Photos at the exact same
-/// 6-decimal coordinate are grouped into a single point with accumulated weight.
-final heatmapPointsProvider = FutureProvider.autoDispose<List<HeatmapPoint>>((
-  ref,
-) async {
-  final photosAsync = ref.watch(mapPhotosProvider);
-  return photosAsync.when(
-    loading: () => [],
-    error: (_, __) => [],
-    data: (photos) {
-      final grouped = <String, HeatmapPoint>{};
-      for (final photo in photos) {
-        if (!photo.hasLocation) continue;
-        final key =
-            '${photo.latitude!.toStringAsFixed(6)},${photo.longitude!.toStringAsFixed(6)}';
-        final existing = grouped[key];
-        if (existing != null) {
-          grouped[key] = HeatmapPoint(
-            latLng: existing.latLng,
-            weight: existing.weight + 1,
-          );
-        } else {
-          grouped[key] = HeatmapPoint(
-            latLng: LatLng(photo.latitude!, photo.longitude!),
-          );
-        }
-      }
-      return grouped.values.toList();
-    },
-  );
-});
-
 /// Lists device photos/videos directly for the timeline grid — fast,
 /// metadata-only, no hashing. Kept separate from [timelineProvider] (which
 /// reads the hashed/scanned [MediaItem] list) since display no longer
@@ -250,3 +216,37 @@ final mediaItemProvider = FutureProvider.autoDispose.family<MediaItem?, String>(
     return repository.getItemById(localId);
   },
 );
+
+/// Singleton instance of the AI image classifier.
+final imageClassifierProvider = Provider<ImageClassifierService>((ref) {
+  return ImageClassifierService.instance;
+});
+
+/// Media items that have not yet been labeled by the AI classifier.
+/// Used to drive the "AI Scan" button — shows how many items remain.
+final unlabeledItemsProvider = Provider<List<MediaItem>>((ref) {
+  final repository = ref.watch(galleryRepositoryProvider);
+  return repository.mediaItems
+      .where(
+        (item) =>
+            !item.isHidden &&
+            !item.isTrashed &&
+            item.mediaType == MediaType.image &&
+            item.aiLabels.isEmpty,
+      )
+      .toList();
+});
+
+/// Count of items that have been AI-labeled.
+final labeledCountProvider = Provider<int>((ref) {
+  final repository = ref.watch(galleryRepositoryProvider);
+  return repository.mediaItems
+      .where(
+        (item) =>
+            !item.isHidden &&
+            !item.isTrashed &&
+            item.mediaType == MediaType.image &&
+            item.aiLabels.isNotEmpty,
+      )
+      .length;
+});

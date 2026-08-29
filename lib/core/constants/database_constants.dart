@@ -20,7 +20,8 @@ abstract final class DatabaseConstants {
   ///      5-point template before embedding, so embeddings from the earlier
   ///      unaligned crops are not comparable to new ones and would cluster
   ///      against them badly.
-  static const int schemaVersion = 12;
+  /// v13: added ai_labels column for AI-powered image classification.
+  static const int schemaVersion = 13;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

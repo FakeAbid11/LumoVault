@@ -103,6 +103,7 @@ flutter:
   assets:
     - assets/models/det_500m.onnx
     - assets/models/w600k_mbf.onnx
+    - assets/models/efficientnet_lite0.onnx
 
 # Launcher icon generation — `dart run flutter_launcher_icons`.
 #

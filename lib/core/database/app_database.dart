@@ -110,6 +110,9 @@ class MediaItems extends Table {
   TextColumn get tags => text()
       .map(const StringListConverter())
       .withDefault(const Constant('[]'))();
+  TextColumn get aiLabels => text()
+      .map(const StringListConverter())
+      .withDefault(const Constant('[]'))();
   TextColumn get thumbnailPath => text().nullable()();
   RealColumn get latitude => real().nullable()();
   RealColumn get longitude => real().nullable()();
@@ -282,6 +285,11 @@ class AppDatabase extends _$AppDatabase {
         await m.database.customStatement('DELETE FROM faces');
         await m.database.customStatement('DELETE FROM people');
         await m.database.customStatement('DELETE FROM face_scans');
+      }
+      if (from < 13) {
+        await m.database.customStatement(
+          "ALTER TABLE media_items ADD COLUMN ai_labels TEXT NOT NULL DEFAULT '[]'",
+        );
       }
     },
   );

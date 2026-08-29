@@ -33,6 +33,7 @@ class MediaItem {
     this.deviceFolder,
     this.description,
     this.tags = const [],
+    this.aiLabels = const [],
     this.thumbnailPath,
     this.latitude,
     this.longitude,
@@ -67,6 +68,7 @@ class MediaItem {
   final String? deviceFolder;
   final String? description;
   final List<String> tags;
+  final List<String> aiLabels;
   final String? thumbnailPath;
 
   /// Photo GPS coordinates from EXIF, or null when the photo carries no fix.
@@ -123,6 +125,7 @@ class MediaItem {
     String? deviceFolder,
     String? description,
     List<String>? tags,
+    List<String>? aiLabels,
     String? thumbnailPath,
     double? latitude,
     double? longitude,
@@ -158,6 +161,7 @@ class MediaItem {
       deviceFolder: deviceFolder ?? this.deviceFolder,
       description: description ?? this.description,
       tags: tags ?? this.tags,
+      aiLabels: aiLabels ?? this.aiLabels,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,

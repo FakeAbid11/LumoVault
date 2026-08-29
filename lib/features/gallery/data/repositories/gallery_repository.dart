@@ -335,6 +335,7 @@ class GalleryRepository {
       isExcluded: existing.isExcluded,
       description: existing.description,
       tags: existing.tags,
+      aiLabels: existing.aiLabels,
       status: hashChanged ? null : existing.status,
       telegramMessageId: hashChanged ? null : existing.telegramMessageId,
       telegramFileId: hashChanged ? null : existing.telegramFileId,
@@ -443,7 +444,10 @@ class GalleryRepository {
       return item.fileName.toLowerCase().contains(lowerQuery) ||
           (item.description?.toLowerCase().contains(lowerQuery) ?? false) ||
           (item.albumName?.toLowerCase().contains(lowerQuery) ?? false) ||
-          item.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
+          item.tags.any((tag) => tag.toLowerCase().contains(lowerQuery)) ||
+          item.aiLabels.any(
+            (label) => label.toLowerCase().contains(lowerQuery),
+          );
     }).toList();
   }
 
@@ -614,6 +618,19 @@ class GalleryRepository {
         operation: 'location_set',
         item: updated,
       );
+    }
+  }
+
+  /// Persists AI-generated labels for a media item.
+  ///
+  /// Labels should be prefixed with `ai_` (e.g. `ai_beach`, `ai_sunset`).
+  /// Only overwrites the `aiLabels` field; user tags are preserved.
+  Future<void> labelMediaItem(String localId, List<String> labels) async {
+    final index = _indexOfLocalId(localId);
+    if (index != -1) {
+      final updated = _mediaItems[index].copyWith(aiLabels: labels);
+      _mediaItems[index] = updated;
+      await _persistItem(updated);
     }
   }
 

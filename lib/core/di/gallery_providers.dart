@@ -3,7 +3,6 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../features/gallery/data/models/device_folder.dart';
 import '../../features/gallery/data/models/media_item.dart';
-import '../../features/gallery/data/repositories/asset_location.dart';
 import '../../features/gallery/data/repositories/gallery_repository.dart';
 import '../../features/gallery/data/repositories/incremental_scanner.dart';
 import '../../features/gallery/data/repositories/media_scanner_service.dart';
@@ -144,22 +143,107 @@ final mapPhotosProvider = StreamProvider.autoDispose<List<MediaItem>>((
         asset,
   ];
 
-  for (final item in await resolveAssetLocations(pending)) {
-    located[item.localId] = item;
+  // Split into cached and uncached.
+  final uncached = <AssetEntity>[];
+  for (final asset in pending) {
+    final cached = repository.getCachedLocation(asset.id);
+    if (cached != null) {
+      final item = MediaItem(
+        localId: asset.id,
+        fileHash: '',
+        filePath: '',
+        fileName: asset.title ?? asset.id,
+        mimeType: asset.type == AssetType.image ? 'image/jpeg' : 'video/mp4',
+        fileSize: 0,
+        width: asset.width,
+        height: asset.height,
+        durationMs: asset.type == AssetType.video
+            ? asset.duration * 1000
+            : null,
+        createdAt: asset.createDateTime,
+        modifiedAt: asset.modifiedDateTime,
+        scannedAt: DateTime.now(),
+        status: MediaStatus.pending,
+        latitude: cached.$1,
+        longitude: cached.$2,
+      );
+      located[item.localId] = item;
+    } else {
+      uncached.add(asset);
+    }
   }
 
-  // Second emission: merged list with newly-resolved items.
+  // Yield with cached locations immediately.
   yield located.values.toList()
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  if (uncached.isEmpty) return;
+
+  // Resolve uncached assets in batches of 50, yielding progressively.
+  const batchSize = 50;
+  for (var start = 0; start < uncached.length; start += batchSize) {
+    final end = start + batchSize;
+    final chunk = uncached.sublist(
+      start,
+      end > uncached.length ? uncached.length : end,
+    );
+
+    final resolved = await Future.wait(
+      chunk.map((asset) async {
+        try {
+          final latlng = await asset.latlngAsync();
+          if (latlng == null) return null;
+          final lat = latlng.latitude;
+          final lng = latlng.longitude;
+          if (lat == 0 && lng == 0) return null;
+          // Cache for next visit.
+          repository.cacheLocation(asset.id, lat, lng);
+          final mimeType = asset.type == AssetType.image
+              ? 'image/jpeg'
+              : 'video/mp4';
+          return MediaItem(
+            localId: asset.id,
+            fileHash: '',
+            filePath: '',
+            fileName: asset.title ?? asset.id,
+            mimeType: mimeType,
+            fileSize: 0,
+            width: asset.width,
+            height: asset.height,
+            durationMs: asset.type == AssetType.video
+                ? asset.duration * 1000
+                : null,
+            createdAt: asset.createDateTime,
+            modifiedAt: asset.modifiedDateTime,
+            scannedAt: DateTime.now(),
+            status: MediaStatus.pending,
+            latitude: lat,
+            longitude: lng,
+          );
+        } catch (_) {
+          return null;
+        }
+      }),
+    );
+
+    for (final item in resolved.whereType<MediaItem>()) {
+      located[item.localId] = item;
+    }
+
+    // Yield after each batch so markers appear progressively.
+    yield located.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
 });
 
 /// Lists device photos/videos directly for the timeline grid — fast,
 /// metadata-only, no hashing. Kept separate from [timelineProvider] (which
 /// reads the hashed/scanned [MediaItem] list) since display no longer
 /// depends on the slow scan; only starting an actual backup does.
-final deviceAssetsProvider = FutureProvider.autoDispose<List<AssetEntity>>((
-  ref,
-) async {
+///
+/// Uses [keepAlive] so the asset list is cached across tab switches —
+/// the Map tab reuses it without re-paginating through all device photos.
+final deviceAssetsProvider = FutureProvider<List<AssetEntity>>((ref) async {
   final scannerService = ref.watch(mediaScannerServiceProvider);
   final assets = await scannerService.listAllAssets();
   assets.sort((a, b) => b.createDateTime.compareTo(a.createDateTime));

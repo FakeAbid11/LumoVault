@@ -62,6 +62,26 @@ class GalleryRepository {
   /// full restore that calls [markUploaded] per item was previously O(n²).
   final Map<String, int> _indexByLocalId = {};
 
+  /// In-memory cache of resolved GPS coordinates: asset ID → (lat, lng).
+  /// Populated lazily on first map visit; survives across tab switches
+  /// within the same app session.
+  final Map<String, (double, double)> _locationCache = {};
+
+  /// Get the location cache for read-only access (e.g. by map providers).
+  Map<String, (double, double)> get locationCache => _locationCache;
+
+  /// Check if a location is already cached for the given asset ID.
+  bool isLocationCached(String assetId) => _locationCache.containsKey(assetId);
+
+  /// Cache a resolved location for an asset.
+  void cacheLocation(String assetId, double lat, double lng) {
+    _locationCache[assetId] = (lat, lng);
+  }
+
+  /// Get a cached location, or null if not cached.
+  (double, double)? getCachedLocation(String assetId) =>
+      _locationCache[assetId];
+
   MetadataChangeCallback? _onMetadataChange;
 
   /// Propagates permanent deletions to the storage channel. Null until wired

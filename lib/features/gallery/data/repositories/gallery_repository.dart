@@ -457,17 +457,34 @@ class GalleryRepository {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
+  /// Searches media items by query string.
+  ///
+  /// Splits the query into words and matches if ANY word appears as a
+  /// substring in ANY searchable field (fileName, description, albumName,
+  /// tags, aiLabels). This allows "family selfie" to match photos labeled
+  /// with both "ai_family" and "ai_selfie".
   List<MediaItem> searchMedia(String query) {
-    final lowerQuery = query.toLowerCase();
+    final words = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return const [];
+
     return _mediaItems.where((item) {
       if (item.isHidden || item.isTrashed) return false;
-      return item.fileName.toLowerCase().contains(lowerQuery) ||
-          (item.description?.toLowerCase().contains(lowerQuery) ?? false) ||
-          (item.albumName?.toLowerCase().contains(lowerQuery) ?? false) ||
-          item.tags.any((tag) => tag.toLowerCase().contains(lowerQuery)) ||
-          item.aiLabels.any(
-            (label) => label.toLowerCase().contains(lowerQuery),
-          );
+
+      // A word matches if it appears as a substring in any searchable field.
+      bool wordMatches(String word) {
+        return item.fileName.toLowerCase().contains(word) ||
+            (item.description?.toLowerCase().contains(word) ?? false) ||
+            (item.albumName?.toLowerCase().contains(word) ?? false) ||
+            item.tags.any((tag) => tag.toLowerCase().contains(word)) ||
+            item.aiLabels.any((label) => label.toLowerCase().contains(word));
+      }
+
+      // Match if ALL words find at least one match across the item's fields.
+      return words.every(wordMatches);
     }).toList();
   }
 

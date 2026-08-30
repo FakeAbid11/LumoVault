@@ -16,6 +16,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
+import '../../data/repositories/gallery_repository.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -313,6 +314,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
           child: _buildTimelineGrid(
             visible,
             groupByDate(visible, (a) => a.createDateTime),
+            repository,
           ),
         );
       },
@@ -337,9 +339,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   Widget _buildTimelineGrid(
     List<AssetEntity> allAssets,
     Map<String, List<AssetEntity>> groupedAssets,
+    GalleryRepository repository,
   ) {
     final dateKeys = groupedAssets.keys.toList();
-    final repository = ref.watch(galleryRepositoryProvider);
     final crossAxisCount = galleryCrossAxisCount(
       ref.watch(settingsGridSizeProvider),
       ref.watch(settingsCompactModeProvider),

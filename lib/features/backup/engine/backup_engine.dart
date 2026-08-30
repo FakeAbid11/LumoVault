@@ -243,6 +243,17 @@ class BackupEngine {
   static const _maxAutoResumeRetries = 3;
   static const _autoResumeDelay = Duration(seconds: 30);
 
+  /// Throttle timer for _updateStats — prevents recomputing stats and
+  /// persisting the queue on every single upload progress tick (which can
+  /// fire hundreds of times per second).
+  Timer? _statsThrottleTimer;
+  static const _statsThrottleDuration = Duration(milliseconds: 500);
+
+  /// Timer for periodic queue persistence — coalesces _persistQueue calls
+  /// to at most once every 5 seconds during active uploads.
+  Timer? _persistTimer;
+  static const _persistInterval = Duration(seconds: 5);
+
   UploadQueue get queue => _queue;
   BackupEngineState get state => _state;
   BackupStats get stats => _stats;
@@ -752,7 +763,7 @@ class BackupEngine {
             failedAt: DateTime.now(),
           ),
         );
-        _updateStats();
+        _updateStatsImmediate();
         return;
       }
 
@@ -830,7 +841,7 @@ class BackupEngine {
           failedAt: DateTime.now(),
         ),
       );
-      _updateStats();
+      _updateStatsImmediate();
     }
   }
 
@@ -933,11 +944,32 @@ class BackupEngine {
     );
   }
 
+  /// Throttled stats update — recomputes stats and persists the queue
+  /// at most once per [_statsThrottleDuration] to avoid O(n) work and
+  /// disk I/O on every upload progress tick.
   void _updateStats() {
-    // An upload continuation can resolve after teardown; without this the
-    // stats controller throws on add, and _persistQueue below would write
-    // the disposed (cleared) queue over the real persisted one.
     if (_disposed) return;
+    if (_statsThrottleTimer?.isActive ?? false) return;
+
+    _statsThrottleTimer = Timer(_statsThrottleDuration, () {
+      _statsThrottleTimer = null;
+      if (_disposed) return;
+      _applyStats();
+      _schedulePersistQueue();
+    });
+  }
+
+  /// Immediately apply stats (used for critical state changes like task
+  /// completion or failure, bypassing the throttle).
+  void _updateStatsImmediate() {
+    if (_disposed) return;
+    _statsThrottleTimer?.cancel();
+    _statsThrottleTimer = null;
+    _applyStats();
+    _schedulePersistQueue();
+  }
+
+  void _applyStats() {
     _stats = BackupStats(
       totalMediaItems: galleryRepository.totalCount,
       backedUpCount: _queue.completedCount,
@@ -946,17 +978,20 @@ class BackupEngine {
       uploadingCount: _queue.uploadingCount,
       progress: _queue.overallProgress,
       lastBackupAt: settings.lastBackupAt,
-      totalBytes: _queue.allTasks.fold(0, (sum, t) => sum + t.fileSize),
-      backedUpBytes: _queue.allTasks.fold(0, (sum, t) {
-        if (t.status == UploadStatus.completed) return sum + t.fileSize;
-        if (t.status == UploadStatus.uploading) {
-          return sum + (t.fileSize * t.progress).round();
-        }
-        return sum;
-      }),
+      totalBytes: _queue.totalBytes,
+      backedUpBytes: _queue.backedUpBytes,
     );
     _statsController.add(_stats);
-    _persistQueue();
+  }
+
+  /// Schedule a persist with coalescing — at most once per [_persistInterval].
+  void _schedulePersistQueue() {
+    if (_persistTimer?.isActive ?? false) return;
+    _persistTimer = Timer(_persistInterval, () {
+      _persistTimer = null;
+      if (_disposed) return;
+      _persistQueue();
+    });
   }
 
   bool _disposed = false;
@@ -978,6 +1013,8 @@ class BackupEngine {
     _disposed = true;
     _retryTimer?.cancel();
     _autoResumeTimer?.cancel();
+    _statsThrottleTimer?.cancel();
+    _persistTimer?.cancel();
     _progressSubscription?.cancel();
     _stateController.close();
     _statsController.close();

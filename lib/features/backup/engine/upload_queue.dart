@@ -65,11 +65,6 @@ class UploadQueue {
   int _batchSize;
 
   /// How many queued tasks [getNextBatch] returns at once.
-  ///
-  /// Kept in step with the user's `uploadBatchSize` preference by
-  /// `BackupEngine.updateSettings`. A non-positive value would make
-  /// [getNextBatch] return nothing and stall the backup outright, so the
-  /// setter floors it at 1.
   int get batchSize => _batchSize;
 
   set batchSize(int value) => _batchSize = _sanitizeBatchSize(value);
@@ -86,17 +81,19 @@ class UploadQueue {
 
   /// Task IDs grouped by media item, so duplicate checks and removals don't
   /// have to scan the whole queue.
-  ///
-  /// A set rather than a single ID: [enqueue] refuses duplicates, but tasks
-  /// restored from persistence are merged in without going through it.
   final Map<String, Set<String>> _tasksByMediaItem = {};
 
   /// How many completed tasks exist per file hash, for the dedup check.
-  ///
-  /// A count rather than a set because the same hash can legitimately
-  /// complete more than once (the same photo present in two albums), and
-  /// decrementing has to know when the last one is gone.
   final Map<String, int> _completedByHash = {};
+
+  // ── Maintained counters ── O(1) reads, no recomputation ──
+  int _pendingCount = 0;
+  int _uploadingCount = 0;
+  int _completedCount = 0;
+  int _failedCount = 0;
+  int _pausedCount = 0;
+  int _totalBytes = 0;
+  int _backedUpBytes = 0;
 
   /// Add [task] to the secondary indexes. Call whenever a task enters
   /// [_queue]; [_unindex] is its exact inverse.
@@ -112,6 +109,12 @@ class UploadQueue {
         ifAbsent: () => 1,
       );
     }
+    // Update maintained counters.
+    _updateCountersForStatus(task.status, delta: 1);
+    _totalBytes += task.fileSize;
+    if (task.status == UploadStatus.completed) {
+      _backedUpBytes += task.fileSize;
+    }
   }
 
   /// Remove [task] from the secondary indexes.
@@ -121,8 +124,6 @@ class UploadQueue {
     final siblings = _tasksByMediaItem[task.mediaItemId];
     if (siblings != null) {
       siblings.remove(task.id);
-      // Drop the empty set — otherwise the map grows without bound over a
-      // long backup run and never shrinks.
       if (siblings.isEmpty) _tasksByMediaItem.remove(task.mediaItemId);
     }
 
@@ -135,6 +136,29 @@ class UploadQueue {
           _completedByHash[task.fileHash] = count - 1;
         }
       }
+    }
+
+    // Update maintained counters.
+    _updateCountersForStatus(task.status, delta: -1);
+    _totalBytes -= task.fileSize;
+    if (task.status == UploadStatus.completed) {
+      _backedUpBytes -= task.fileSize;
+    }
+  }
+
+  /// Increment/decrement the appropriate counter for [status].
+  void _updateCountersForStatus(UploadStatus status, {required int delta}) {
+    switch (status) {
+      case UploadStatus.queued:
+        _pendingCount += delta;
+      case UploadStatus.uploading:
+        _uploadingCount += delta;
+      case UploadStatus.completed:
+        _completedCount += delta;
+      case UploadStatus.failed:
+        _failedCount += delta;
+      case UploadStatus.paused:
+        _pausedCount += delta;
     }
   }
 
@@ -157,11 +181,15 @@ class UploadQueue {
   List<UploadTask> get failedTasks =>
       _queue.where((t) => t.status == UploadStatus.failed).toList();
 
-  int get pendingCount => queuedTasks.length;
-  int get uploadingCount => uploadingTasks.length;
-  int get completedCount => completedTasks.length;
-  int get failedCount => failedTasks.length;
+  // O(1) reads — maintained counters, no recomputation.
+  int get pendingCount => _pendingCount;
+  int get uploadingCount => _uploadingCount;
+  int get completedCount => _completedCount;
+  int get failedCount => _failedCount;
+  int get pausedCount => _pausedCount;
   int get totalCount => _queue.length;
+  int get totalBytes => _totalBytes;
+  int get backedUpBytes => _backedUpBytes;
 
   /// Overall progress (0.0 to 1.0).
   double get overallProgress {
@@ -288,14 +316,12 @@ class UploadQueue {
   /// restored from persistence get merged in, bypassing [enqueue]'s duplicate
   /// checks.
   void updateTask(UploadTask updatedTask) {
-    // The previous implementation scanned the whole queue with removeWhere,
-    // and every progress tick on every upload went through here. Looking the
-    // old task up by ID and removing that exact object is O(log n) — and it
-    // has to be the old object: _queue is ordered by (priority, id), so
-    // removing by the *updated* task would silently miss whenever a
-    // priority changed and leave a stale duplicate behind.
     final existing = _taskIndex[updatedTask.id];
     if (existing != null) {
+      // Handle backed-up bytes transition before _unindex/_index update counters.
+      if (existing.status == UploadStatus.completed) {
+        _backedUpBytes -= existing.fileSize;
+      }
       _queue.remove(existing);
       _unindex(existing);
     }
@@ -418,5 +444,12 @@ class UploadQueue {
     _taskIndex.clear();
     _tasksByMediaItem.clear();
     _completedByHash.clear();
+    _pendingCount = 0;
+    _uploadingCount = 0;
+    _completedCount = 0;
+    _failedCount = 0;
+    _pausedCount = 0;
+    _totalBytes = 0;
+    _backedUpBytes = 0;
   }
 }

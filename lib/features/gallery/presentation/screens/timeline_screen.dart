@@ -43,7 +43,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch backup stats for live refresh on upload completion.
+    // Watch backup stats only for the loading indicator — don't rebuild the
+    // entire screen on every upload progress tick.
     ref.watch(backupStatsProvider);
     // Watch gallery changes (channel scan adds items here).
     final repository = ref.watch(galleryRepositoryProvider);
@@ -117,20 +118,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       ref.watch(settingsCompactModeProvider),
     );
 
-    // Reload generation: bumps when a channel scan completes/progresses, a
-    // new upload lands, or the thumbnail cache is cleared — tiles that
-    // previously timed out re-run their loaders instead of staying on the
-    // placeholder for the whole session. Derived from *values* only, so
-    // high-frequency progress updates (byte-level upload stats) don't churn
-    // every tile's reload.
+    // Reload generation: bumps when a channel scan completes or the thumbnail
+    // cache is cleared. Deliberately does NOT watch backupStatsProvider —
+    // upload progress ticks are high-frequency and would rebuild every tile.
     final scanState = ref.watch(channelScanStateProvider);
-    final backupStats = ref.watch(backupStatsProvider);
     final thumbnailGeneration = ref.watch(thumbnailGenerationProvider);
     final telegramFetcher = ref.watch(telegramThumbnailFetcherProvider);
     final reloadGeneration = Object.hash(
       scanState.status,
       scanState.scannedItems,
-      backupStats.backedUpCount,
       thumbnailGeneration,
     );
 

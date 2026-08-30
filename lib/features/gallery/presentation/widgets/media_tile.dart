@@ -156,26 +156,28 @@ class _MediaTileState extends State<MediaTile> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onLongPress: widget.onLongPress,
-      child: Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildThumbnail(context),
-              if (widget.mediaItem.isVideo) _buildVideoIndicator(context),
-              if (widget.showStatus) _buildStatusIndicator(context),
-              if (widget.isSelected) ...[
-                _buildDimOverlay(context),
-                _buildSelectionOverlay(context),
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildThumbnail(context),
+                if (widget.mediaItem.isVideo) _buildVideoIndicator(context),
+                if (widget.showStatus) _buildStatusIndicator(context),
+                if (widget.isSelected) ...[
+                  _buildDimOverlay(context),
+                  _buildSelectionOverlay(context),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

@@ -519,6 +519,7 @@ BackupEngine _engine({
     // wall-clock per upload to every test in this file.
     settings: settings.copyWith(uploadDelayMs: 0),
     storageChannelService: channels,
+    statsThrottleDuration: Duration.zero,
   );
 
   // BackupSettings defaults wifiOnly: true while BackupEnvironment defaults

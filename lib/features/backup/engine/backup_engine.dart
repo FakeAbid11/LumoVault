@@ -131,7 +131,9 @@ class BackupEngine {
     this.ensureTdLibConnected,
     this.queuePersistence,
     this.videoPosterGenerator,
-  }) {
+    Duration? statsThrottleDuration,
+  }) : _statsThrottleDuration =
+           statsThrottleDuration ?? const Duration(milliseconds: 500) {
     if (persistedChannelId != null) {
       storageChannelService.setCachedChannelId(persistedChannelId);
     }
@@ -247,7 +249,7 @@ class BackupEngine {
   /// persisting the queue on every single upload progress tick (which can
   /// fire hundreds of times per second).
   Timer? _statsThrottleTimer;
-  static const _statsThrottleDuration = Duration(milliseconds: 500);
+  final Duration _statsThrottleDuration;
 
   /// Timer for periodic queue persistence — coalesces _persistQueue calls
   /// to at most once every 5 seconds during active uploads.

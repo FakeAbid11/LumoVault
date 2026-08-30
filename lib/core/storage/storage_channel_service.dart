@@ -68,7 +68,7 @@ class StorageChannelError extends StorageChannelResult {
 class StorageChannelService {
   StorageChannelService({
     required TdLibClient client,
-    @visibleForTesting TdRequestSender? requestSender,
+    TdRequestSender? requestSender,
   }) : _sendRequest = requestSender ?? client.sendRequest;
 
   /// Issues TDLib requests. Defaults to the real client; overridable in tests

@@ -11,6 +11,7 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/gallery_save_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../../core/storage/storage_channel_service.dart';
+import '../../../../core/tdlib/tdlib_exception.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../../restore/presentation/providers/restore_providers.dart';
@@ -441,6 +442,8 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
     String message;
     if (error is TransferError) {
       message = error.message;
+    } else if (error is TdLibException) {
+      message = error.displayMessage;
     } else if (error != null) {
       message = error.toString();
     } else {
@@ -662,6 +665,16 @@ Future<int> _resolveStorageChannelId(WidgetRef ref) async {
   if (settingsChannelId != null && settingsChannelId != 0) {
     storageChannelService.setCachedChannelId(settingsChannelId);
     return settingsChannelId;
+  }
+
+  final manager = ref.read(tdLibConnectionManagerProvider);
+  if (!manager.isConnected) {
+    throw const TdLibException(
+      message: 'TDLib client not connected',
+      code: 'NOT_CONNECTED',
+      userFacingMessage:
+          'Telegram is reconnecting… Please wait a moment and tap Retry.',
+    );
   }
 
   final result = await storageChannelService.findExistingChannel();

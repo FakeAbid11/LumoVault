@@ -91,7 +91,10 @@ final authServiceProvider = Provider<AuthService>((ref) {
 /// Storage channel service provider.
 final storageChannelServiceProvider = Provider<StorageChannelService>((ref) {
   final manager = ref.read(tdLibConnectionManagerProvider);
-  final service = StorageChannelService(client: manager.client);
+  final service = StorageChannelService(
+    client: manager.client,
+    requestSender: manager.sendRequest,
+  );
   final settings = ref.read(appSettingsProvider);
   if (settings.storageChannelId != null && settings.storageChannelId != 0) {
     service.setCachedChannelId(settings.storageChannelId!);

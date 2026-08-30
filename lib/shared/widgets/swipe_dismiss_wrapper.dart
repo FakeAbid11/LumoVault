@@ -148,7 +148,7 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
         onVerticalDragUpdate: _onVerticalDragUpdate,
         onVerticalDragEnd: _onVerticalDragEnd,
         child: Container(
-          color: Colors.black.withValues(alpha: opacity),
+          color: Color.fromRGBO(0, 0, 0, opacity),
           child: Transform.translate(
             offset: Offset(0, _dragOffset),
             child: Transform.scale(scale: scale, child: widget.child),

@@ -1,133 +1,223 @@
 package com.lumovault.feature.people.repository
 
-import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.sqrt
 
 /**
- * Groups detected faces into people clusters using simple embedding comparison.
- * Uses face region, skin tone, and eye/mouth positions for similarity matching.
+ * Clusters face embeddings into people groups using average-linkage clustering
+ * on 512-dim ArcFace embeddings (w600k_mbf.onnx).
+ *
+ * InsightFace ArcFace 512-dim embeddings produce cosine similarity
+ * 0.50-0.80 for the same person across varied lighting/angles, and
+ * 0.10-0.35 for different people.
  */
 @Singleton
 class FaceGroupingService @Inject constructor() {
 
-    /**
-     * Generate a simple embedding from a DetectedFace for comparison.
-     * This is a lightweight feature vector (not a full ML embedding).
-     */
-    fun generateEmbedding(face: DetectedFace, imageWidth: Int, imageHeight: Int): FloatArray {
-        val bounds = face.boundingBox
+    companion object {
+        /** Average-linkage clustering threshold. */
+        const val DEFAULT_THRESHOLD = 0.45f
 
-        // Normalize bounding box position
-        val centerX = (bounds.centerX().toFloat() / imageWidth).coerceIn(0f, 1f)
-        val centerY = (bounds.centerY().toFloat() / imageHeight).coerceIn(0f, 1f)
+        /** Threshold for orphan-to-named-person matching. */
+        const val NAMED_THRESHOLD = 0.55f
 
-        // Normalize face size
-        val faceWidth = (bounds.width().toFloat() / imageWidth).coerceIn(0f, 1f)
-        val faceHeight = (bounds.height().toFloat() / imageHeight).coerceIn(0f, 1f)
-        val faceRatio = faceWidth / faceHeight.coerceAtLeast(0.01f)
+        /** Threshold for centroid-based reassignment during refinement. */
+        const val REFINEMENT_THRESHOLD = 0.50f
 
-        // Head pose angles (already in reasonable ranges)
-        val eulerX = (face.headEulerAngleX + 90f) / 180f
-        val eulerY = (face.headEulerAngleY + 90f) / 180f
-        val eulerZ = (face.headEulerAngleZ + 90f) / 180f
-
-        // Eye opening ratios
-        val leftEye = face.leftEyeOpenProbability
-        val rightEye = face.rightEyeOpenProbability
-
-        // Smile probability
-        val smile = face.smilingProbability
-
-        return floatArrayOf(
-            centerX, centerY,
-            faceWidth, faceHeight, faceRatio,
-            eulerX, eulerY, eulerZ,
-            leftEye, rightEye,
-            smile,
-        )
+        /** Minimum faces required to form a new person cluster. */
+        const val MIN_CLUSTER_SIZE = 3
     }
 
     /**
-     * Compute cosine similarity between two embeddings.
+     * Cosine similarity between two L2-normalized embedding vectors.
      */
     fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
-        if (a.size != b.size) return 0f
-
-        var dotProduct = 0f
-        var normA = 0f
-        var normB = 0f
-
-        for (i in a.indices) {
-            dotProduct += a[i] * b[i]
-            normA += a[i] * a[i]
-            normB += b[i] * b[i]
-        }
-
-        val denominator = sqrt(normA) * sqrt(normB)
-        return if (denominator > 0f) dotProduct / denominator else 0f
+        if (a.isEmpty() || b.isEmpty()) return 0f
+        val length = minOf(a.size, b.size)
+        var dot = 0f
+        for (i in 0 until length) dot += a[i] * b[i]
+        return dot.coerceIn(-1f, 1f)
     }
 
     /**
-     * Assign faces to existing people clusters, or create new ones.
-     * Returns a map of personId -> list of face indices.
+     * Compute the centroid (mean) embedding for a list of embeddings.
+     */
+    fun computeCentroid(embeddings: List<FloatArray>): FloatArray {
+        if (embeddings.isEmpty()) return floatArrayOf()
+        if (embeddings.size == 1) return embeddings.first().copyOf()
+        val dim = embeddings[0].size
+        val centroid = FloatArray(dim)
+        for (emb in embeddings) {
+            for (i in 0 until dim) centroid[i] += emb[i]
+        }
+        val n = embeddings.size.toFloat()
+        for (i in 0 until dim) centroid[i] /= n
+        return l2Normalize(centroid)
+    }
+
+    /**
+     * Average-linkage clustering.
+     * Two clusters merge only when the *mean* cosine similarity of all
+     * cross-cluster face pairs stays above the threshold.
      */
     fun clusterFaces(
         embeddings: List<FloatArray>,
-        threshold: Float = 0.75f,
+        threshold: Float = DEFAULT_THRESHOLD,
     ): List<ClusterResult> {
         if (embeddings.isEmpty()) return emptyList()
+        if (embeddings.size == 1) {
+            return listOf(ClusterResult(listOf(0), embeddings[0].copyOf()))
+        }
 
-        val clusters = mutableListOf<MutableList<Int>>()
-        val clusterCentroids = mutableListOf<FloatArray>()
+        // Initialize: each face is its own cluster
+        val clusters = embeddings.indices.map { mutableListOf(it) }.toMutableList()
+        val centroids = embeddings.map { it.copyOf() }.toMutableList()
 
-        for (i in embeddings.indices) {
-            var bestCluster = -1
-            var bestSimilarity = threshold
-
-            for (j in clusters.indices) {
-                val similarity = cosineSimilarity(embeddings[i], clusterCentroids[j])
-                if (similarity > bestSimilarity) {
-                    bestSimilarity = similarity
-                    bestCluster = j
-                }
-            }
-
-            if (bestCluster >= 0) {
-                clusters[bestCluster].add(i)
-                // Update centroid as running average
-                val size = clusters[bestCluster].size
-                clusterCentroids[bestCluster] = FloatArray(embeddings[0].size) { k ->
-                    (clusterCentroids[bestCluster][k] * (size - 1) + embeddings[i][k]) / size
-                }
-            } else {
-                clusters.add(mutableListOf(i))
-                clusterCentroids.add(embeddings[i].copyOf())
+        // Pairwise similarity matrix
+        val n = embeddings.size
+        val simMatrix = Array(n) { FloatArray(n) }
+        for (i in 0 until n) {
+            for (j in i + 1 until n) {
+                val sim = cosineSimilarity(embeddings[i], embeddings[j])
+                simMatrix[i][j] = sim
+                simMatrix[j][i] = sim
             }
         }
 
-        return clusters.map { cluster ->
+        // Iteratively merge closest clusters
+        while (clusters.size > 1) {
+            var bestI = -1
+            var bestJ = -1
+            var bestAvgSim = -1f
+
+            // Find best pair to merge (highest average cross-cluster similarity)
+            for (i in clusters.indices) {
+                for (j in i + 1 until clusters.size) {
+                    val avgSim = averageLinkage(clusters[i], clusters[j], simMatrix)
+                    if (avgSim > bestAvgSim) {
+                        bestAvgSim = avgSim
+                        bestI = i
+                        bestJ = j
+                    }
+                }
+            }
+
+            if (bestAvgSim < threshold) break
+
+            // Merge cluster j into i
+            clusters[bestI].addAll(clusters[bestJ])
+            centroids[bestI] = computeCentroid(clusters[bestI].map { embeddings[it] })
+            clusters.removeAt(bestJ)
+            centroids.removeAt(bestJ)
+        }
+
+        return clusters.mapIndexed { idx, cluster ->
             ClusterResult(
                 faceIndices = cluster,
-                centroid = clusterCentroids[clusters.indexOf(cluster)],
+                centroid = centroids[idx],
             )
         }
     }
 
     /**
-     * Merge two people (reassign all faces from personB to personA).
+     * Refinement pass: reassign faces to their closest cluster centroid
+     * if similarity exceeds the refinement threshold.
      */
-    fun mergeEmbeddings(centroidA: FloatArray, countA: Int, centroidB: FloatArray): FloatArray {
-        return FloatArray(centroidA.size) { i ->
-            (centroidA[i] * countA + centroidB[i]) / (countA + 1)
+    fun refineClusters(
+        clusters: List<ClusterResult>,
+        embeddings: List<FloatArray>,
+        threshold: Float = REFINEMENT_THRESHOLD,
+    ): List<ClusterResult> {
+        val mutableClusters = clusters.map { it.faceIndices.toMutableList() }.toMutableList()
+        val centroids = clusters.map { it.centroid }.toMutableList()
+
+        // Collect all face indices that might be reassigned
+        val reassigned = mutableListOf<Int>()
+        val reassignedFrom = mutableListOf<Int>()
+
+        for (clusterIdx in mutableClusters.indices) {
+            for (faceIdx in mutableClusters[clusterIdx].toList()) {
+                var bestCluster = clusterIdx
+                var bestSim = threshold
+
+                for (otherIdx in centroids.indices) {
+                    if (otherIdx == clusterIdx) continue
+                    val sim = cosineSimilarity(embeddings[faceIdx], centroids[otherIdx])
+                    if (sim > bestSim) {
+                        bestSim = sim
+                        bestCluster = otherIdx
+                    }
+                }
+
+                if (bestCluster != clusterIdx) {
+                    reassigned.add(faceIdx)
+                    reassignedFrom.add(clusterIdx)
+                }
+            }
         }
+
+        // Apply reassignments
+        for (k in reassigned.indices) {
+            val faceIdx = reassigned[k]
+            val fromCluster = reassignedFrom[k]
+            val toCluster = mutableClusters.indices.minByOrNull { idx ->
+                if (idx == fromCluster) -1f
+                else cosineSimilarity(embeddings[faceIdx], centroids[idx])
+            } ?: continue
+
+            mutableClusters[fromCluster].remove(faceIdx)
+            mutableClusters[toCluster].add(faceIdx)
+        }
+
+        // Recompute centroids
+        val result = mutableClusters.mapIndexed { idx, cluster ->
+            ClusterResult(
+                faceIndices = cluster,
+                centroid = if (cluster.isNotEmpty()) {
+                    computeCentroid(cluster.map { embeddings[it] })
+                } else centroids[idx],
+            )
+        }
+
+        return result.filter { it.faceIndices.isNotEmpty() }
     }
 
-    companion object {
-        private const val TAG = "FaceGroupingService"
+    /**
+     * Merge two people: combine face lists and recompute centroid.
+     */
+    fun mergePeople(
+        target: ClusterResult,
+        source: ClusterResult,
+        embeddings: List<FloatArray>,
+    ): ClusterResult {
+        val mergedIndices = target.faceIndices + source.faceIndices
+        return ClusterResult(
+            faceIndices = mergedIndices,
+            centroid = computeCentroid(mergedIndices.map { embeddings[it] }),
+        )
+    }
+
+    private fun averageLinkage(clusterA: List<Int>, clusterB: List<Int>, simMatrix: Array<FloatArray>): Float {
+        var total = 0f
+        var count = 0
+        for (a in clusterA) {
+            for (b in clusterB) {
+                total += simMatrix[a][b]
+                count++
+            }
+        }
+        return if (count > 0) total / count else 0f
+    }
+
+    private fun l2Normalize(embedding: FloatArray): FloatArray {
+        var norm = 0f
+        for (v in embedding) norm += v * v
+        norm = sqrt(norm)
+        if (norm > 0f) {
+            for (i in embedding.indices) embedding[i] /= norm
+        }
+        return embedding
     }
 }
 

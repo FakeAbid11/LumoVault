@@ -21,7 +21,6 @@ data class Person(
         if (other !is Person) return false
         return id == other.id
     }
-
     override fun hashCode(): Int = id.hashCode()
 }
 
@@ -38,76 +37,61 @@ data class FaceEntry(
 @Singleton
 class PeopleRepository @Inject constructor(
     private val mediaDao: MediaDao,
-    private val faceDetectionService: FaceDetectionService,
+    private val onnxFaceService: OnnxFaceService,
     private val faceGroupingService: FaceGroupingService,
 ) {
     private val faceEntries = mutableListOf<FaceEntry>()
     private val people = mutableListOf<Person>()
 
-    /**
-     * Get all people sorted by photo count.
-     */
     suspend fun getPeople(): List<Person> = withContext(Dispatchers.IO) {
         people.sortedByDescending { it.faceCount }
     }
 
-    /**
-     * Get a person by ID.
-     */
-    suspend fun getPerson(id: String): Person? {
-        return people.find { it.id == id }
-    }
+    suspend fun getPerson(id: String): Person? = people.find { it.id == id }
 
-    /**
-     * Get all face entries for a person.
-     */
     suspend fun getPersonFaces(personId: String): List<FaceEntry> {
         return faceEntries.filter { it.personId == personId }
     }
 
     /**
-     * Process all media items for face detection and grouping.
+     * Process all media items using ONNX SCRFD detector + ArcFace embedder.
      */
     suspend fun processAllMedia() = withContext(Dispatchers.IO) {
+        if (!onnxFaceService.isReady) onnxFaceService.init()
+
         val items = mediaDao.getAllItems()
         var processedCount = 0
 
         for (item in items) {
             if (item.mimeType.startsWith("video/")) continue
+            if (item.filePath.isBlank()) continue
 
             try {
-                val faces = faceDetectionService.detectFaces(item.filePath)
-                if (faces.isEmpty()) continue
-
-                val bitmap = faceDetectionService.getFaceThumbnail(faces.first().faceBitmap)
-
-                val entry = FaceEntry(
-                    id = "face_${item.localId}_${System.currentTimeMillis()}",
-                    personId = "", // Will be assigned after clustering
-                    mediaItemId = item.localId,
-                    filePath = item.filePath,
-                    thumbnailPath = item.filePath, // Use original as thumbnail for now
-                    embedding = faceGroupingService.generateEmbedding(
-                        faces.first(),
-                        faces.first().boundingBox.width(),
-                        faces.first().boundingBox.height(),
-                    ),
-                    detectedAt = System.currentTimeMillis(),
-                )
-                faceEntries.add(entry)
-                processedCount++
+                val faces = onnxFaceService.detectAndEmbed(item.filePath)
+                for (face in faces) {
+                    val entry = FaceEntry(
+                        id = "face_${item.localId}_${processedCount}",
+                        personId = "",
+                        mediaItemId = item.localId,
+                        filePath = item.filePath,
+                        thumbnailPath = item.filePath,
+                        embedding = face.embedding,
+                        detectedAt = System.currentTimeMillis(),
+                    )
+                    faceEntries.add(entry)
+                }
+                if (faces.isNotEmpty()) processedCount++
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to process ${item.localId}", e)
             }
         }
 
-        // Cluster faces into people
         clusterFaces()
         Log.i(TAG, "Processed $processedCount items, found ${people.size} people")
     }
 
     /**
-     * Cluster all face entries into people.
+     * Cluster faces using average-linkage on 512-dim ArcFace embeddings.
      */
     fun clusterFaces() {
         val embeddings = faceEntries.mapNotNull { it.embedding }
@@ -119,14 +103,12 @@ class PeopleRepository @Inject constructor(
         for ((index, cluster) in clusters.withIndex()) {
             val personId = "person_${index}_${System.currentTimeMillis()}"
 
-            // Assign faces to this person
             for (faceIndex in cluster.faceIndices) {
                 if (faceIndex < faceEntries.size) {
                     faceEntries[faceIndex] = faceEntries[faceIndex].copy(personId = personId)
                 }
             }
 
-            // Find most recent photo for this person
             val personFaces = faceEntries.filter { it.personId == personId }
             val mostRecent = personFaces.maxByOrNull { it.detectedAt }
 
@@ -143,9 +125,6 @@ class PeopleRepository @Inject constructor(
         }
     }
 
-    /**
-     * Rename a person.
-     */
     suspend fun renamePerson(personId: String, newName: String) {
         val index = people.indexOfFirst { it.id == personId }
         if (index >= 0) {
@@ -153,43 +132,33 @@ class PeopleRepository @Inject constructor(
         }
     }
 
-    /**
-     * Merge two people into one.
-     */
     suspend fun mergePeople(targetId: String, sourceId: String) {
         val target = people.find { it.id == targetId } ?: return
         val source = people.find { it.id == sourceId } ?: return
 
-        // Reassign faces
-        faceEntries.forEach { entry ->
+        faceEntries.forEachIndexed { idx, entry ->
             if (entry.personId == sourceId) {
-                val updated = entry.copy(personId = targetId)
-                faceEntries[faceEntries.indexOf(entry)] = updated
+                faceEntries[idx] = entry.copy(personId = targetId)
             }
         }
 
-        // Merge embeddings
         if (target.embedding != null && source.embedding != null) {
-            val merged = faceGroupingService.mergeEmbeddings(
-                target.embedding,
-                target.faceCount,
-                source.embedding,
+            val mergedCluster = faceGroupingService.mergePeople(
+                ClusterResult(faceEntries.filter { it.personId == targetId }.map { faceEntries.indexOf(it) }, target.embedding),
+                ClusterResult(faceEntries.filter { it.personId == sourceId }.map { faceEntries.indexOf(it) }, source.embedding),
+                faceEntries.mapNotNull { it.embedding },
             )
             people.removeAll { it.id == sourceId }
-
             val mergedIndex = people.indexOfFirst { it.id == targetId }
             if (mergedIndex >= 0) {
                 people[mergedIndex] = target.copy(
-                    faceCount = target.faceCount + source.faceCount,
-                    embedding = merged,
+                    faceCount = faceEntries.count { it.personId == targetId },
+                    embedding = mergedCluster.centroid,
                 )
             }
         }
     }
 
-    /**
-     * Delete a person and all their face entries.
-     */
     suspend fun deletePerson(personId: String) {
         people.removeAll { it.id == personId }
         faceEntries.removeAll { it.personId == personId }

@@ -63,8 +63,12 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
         }
       });
     }
-    // Return a minimal placeholder while the boundary transitions to error UI.
-    return const SizedBox.shrink();
+    // Never build an invisible slot. A previous version returned
+    // SizedBox.shrink() here, which rendered whatever threw as a blank —
+    // on a dark theme, exactly the "screen went black" report — and left
+    // nothing in logcat pointing at the cause. The framework's own error
+    // box stays visible and keeps the exception in the log.
+    return _ErrorSlot(details: details);
   }
 
   /// Public method to manually trigger the error state (e.g., from a catch block).
@@ -96,6 +100,35 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
     }
 
     return widget.child;
+  }
+}
+
+class _ErrorSlot extends StatelessWidget {
+  const _ErrorSlot({required this.details});
+
+  final FlutterErrorDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
+        border: Border.all(color: theme.colorScheme.error),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Text(
+          'Render error — ${details.exception}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onErrorContainer,
+            fontFamily: 'monospace',
+          ),
+          maxLines: 6,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
   }
 }
 

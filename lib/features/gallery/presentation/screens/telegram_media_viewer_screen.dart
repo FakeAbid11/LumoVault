@@ -400,10 +400,9 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
                 scaleEnabled: true,
                 clipBehavior: Clip.none,
                 child: Center(
-                  child: Hero(
-                    tag: 'media_${widget.item.localId}',
-                    child: Image.file(File(filePath), fit: BoxFit.contain),
-                  ),
+                  // No Hero here either — see media_viewer_screen.dart for
+                  // the duplicate-tag rationale.
+                  child: Image.file(File(filePath), fit: BoxFit.contain),
                 ),
               );
             },

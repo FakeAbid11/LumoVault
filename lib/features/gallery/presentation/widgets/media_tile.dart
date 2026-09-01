@@ -193,15 +193,12 @@ class _MediaTileState extends State<MediaTile> {
         }
         final bytes = snapshot.data;
         if (bytes != null) {
-          return Hero(
-            tag: 'media_${widget.mediaItem.localId}',
-            child: Image.memory(
-              bytes,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) =>
-                  _buildPlaceholder(context),
-            ),
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildPlaceholder(context),
           );
         }
         return _buildPlaceholder(context);

@@ -565,6 +565,11 @@ class _AssetPreviewState extends State<_AssetPreview>
   late final Future<File?> _fileFuture;
   late final bool _isVideo;
 
+  /// Cheap poster for the decode window: photo_manager serves the grid's
+  /// cached 300px thumbnail almost instantly, so the viewer opens on the
+  /// photo instead of a bare spinner on black while the 1600px decode runs.
+  Uint8List? _posterBytes;
+
   final TransformationController _transformationController =
       TransformationController();
   late final AnimationController _zoomAnimationController;
@@ -581,6 +586,12 @@ class _AssetPreviewState extends State<_AssetPreview>
       _thumbnailFuture = widget.asset.thumbnailDataWithSize(
         const ThumbnailSize(1600, 1600),
       );
+      // Best-effort: a failed poster read must not block the main decode.
+      widget.asset.thumbnailData.then((bytes) {
+        if (mounted && bytes != null) {
+          setState(() => _posterBytes = bytes);
+        }
+      }, onError: (Object _) {});
     }
     _zoomAnimationController = AnimationController(
       vsync: this,
@@ -669,6 +680,15 @@ class _AssetPreviewState extends State<_AssetPreview>
       future: _thumbnailFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
+          // Paint the cached poster while the full-resolution decode runs —
+          // a black frame here read as "the app broke" on slower devices.
+          if (_posterBytes != null) {
+            return Image.memory(
+              _posterBytes!,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            );
+          }
           return const Center(
             child: CircularProgressIndicator(color: Colors.white54),
           );
@@ -697,10 +717,11 @@ class _AssetPreviewState extends State<_AssetPreview>
                 scaleEnabled: true,
                 clipBehavior: Clip.none,
                 child: Center(
-                  child: Hero(
-                    tag: 'asset_${widget.asset.id}',
-                    child: Image.memory(bytes, fit: BoxFit.contain),
-                  ),
+                  // No Hero here: tiles dropped their heroes because
+                  // Local/Timeline/Search kept mounted heroes for the same
+                  // asset id under the IndexedStack shell, and duplicate
+                  // tags corrupt hero flights in release builds.
+                  child: Image.memory(bytes, fit: BoxFit.contain),
                 ),
               );
             },

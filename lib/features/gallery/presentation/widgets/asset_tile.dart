@@ -124,15 +124,15 @@ class _AssetTileState extends State<AssetTile>
         if (bytes == null) {
           return _buildPlaceholder(context);
         }
-        return Hero(
-          tag: 'asset_${widget.asset.id}',
-          child: Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildPlaceholder(context),
-          ),
+        // No Hero wrapper: the Local/Timeline/Search surfaces kept mounted
+        // heroes for the same asset id under the IndexedStack shell, and
+        // duplicate tags corrupt hero flights in release builds.
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildPlaceholder(context),
         );
       },
     );

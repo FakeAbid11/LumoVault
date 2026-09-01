@@ -47,8 +47,8 @@ void main() {
   });
 
   group('openBatterySettings', () {
-    test('returns true when the user grants the request', () async {
-      batteryRequestOverride = () async => true;
+    test('returns true when the native battery page opens', () async {
+      nativeBatteryOverride = () async => true;
       var appInfoCalls = 0;
       openAppInfoOverride = () async => appInfoCalls++;
 
@@ -59,8 +59,8 @@ void main() {
       expect(appInfoCalls, 0);
     });
 
-    test('opens App Info when the user denies the request', () async {
-      batteryRequestOverride = () async => false;
+    test('falls back to App Info when the native path misses', () async {
+      nativeBatteryOverride = () async => false;
       var appInfoCalls = 0;
       openAppInfoOverride = () async => appInfoCalls++;
 
@@ -71,8 +71,18 @@ void main() {
       expect(appInfoCalls, 1);
     });
 
-    test('returns false when the request throws and App Info fails', () async {
-      batteryRequestOverride = () => throw Exception('no activity');
+    test('falls back to App Info when the native path throws', () async {
+      nativeBatteryOverride = () => throw Exception('channel wedged');
+      openAppInfoOverride = () async {};
+
+      expect(
+        await BrandSettings.openBatterySettings('com.lumovault.app'),
+        isTrue,
+      );
+    });
+
+    test('returns false when every path fails', () async {
+      nativeBatteryOverride = () async => false;
       openAppInfoOverride = () => throw Exception('no settings activity');
 
       expect(
@@ -84,7 +94,7 @@ void main() {
 
   group('OEM convenience wrappers', () {
     test('all delegate to the battery + App Info path', () async {
-      batteryRequestOverride = () async => true;
+      nativeBatteryOverride = () async => true;
 
       for (final open in [
         BrandSettings.openSamsungBatterySettings,

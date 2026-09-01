@@ -23,9 +23,9 @@ const String kOpenSettingsFallbackHint =
 @visibleForTesting
 Future<bool> Function()? nativeAutostartOverride;
 
-/// When set, used instead of the battery-optimization permission request.
+/// When set, used instead of the native `openMiuiBatterySettings` call.
 @visibleForTesting
-Future<bool> Function()? batteryRequestOverride;
+Future<bool> Function()? nativeBatteryOverride;
 
 /// When set, used instead of permission_handler's `openAppSettings`.
 @visibleForTesting
@@ -35,7 +35,7 @@ Future<void> Function()? openAppInfoOverride;
 @visibleForTesting
 void resetBrandSettingsOverrides() {
   nativeAutostartOverride = null;
-  batteryRequestOverride = null;
+  nativeBatteryOverride = null;
   openAppInfoOverride = null;
 }
 
@@ -53,9 +53,12 @@ void resetBrandSettingsOverrides() {
 /// 2. **permission_handler's `openAppSettings`** — opens the App Info page
 ///    via `Settings.ACTION_APPLICATION_DETAILS_SETTINGS`, which works on
 ///    every supported Android version and needs no `<queries>` declaration.
-/// 3. **The battery-optimization dialog** —
-///    `Permission.ignoreBatteryOptimizations.request()` shows the system
-///    "Allow LumoVault to ignore battery optimizations?" prompt directly.
+/// 3. **The native battery chain** (see MainActivity.openMiuiBatterySettings)
+///    — MIUI's per-app PowerKeeper page first, then the AOSP
+///    "ignore battery optimizations" prompt for stock-ROM builds, then App
+///    Info. The permission_handler request path is deliberately not used for
+///    this step: MIUI suppresses the AOSP dialog, and its request can
+///    resolve instantly with no visible UI on Xiaomi builds.
 ///
 /// The OEM-specific methods (Samsung/Huawei/OnePlus/Oppo) collapse onto 2+3:
 /// those skins expose their per-app controls through App Info, and none of
@@ -103,11 +106,41 @@ class BrandSettings {
     return _openAppInfo();
   }
 
-  /// Battery saver / background activity. The system dialog is the most
-  /// direct path; a denial drops the user on App Info to finish manually.
+  /// Battery saver / background activity.
+  ///
+  /// Native-first (see MainActivity.openMiuiBatterySettings): the MIUI
+  /// PowerKeeper per-app page, then the AOSP prompt, then App Info — every
+  /// step launching something the user actually sees, unlike the
+  /// permission_handler request which can resolve silently on MIUI. A short
+  /// timeout guards the channel so a wedged platform response can never
+  /// leave the button dead again.
   static Future<bool> openBatterySettings(String packageName) async {
-    final granted = await _requestIgnoreBatteryOptimizations();
-    return granted || await _openAppInfo();
+    final native = nativeBatteryOverride;
+    if (native != null) {
+      try {
+        return await native() || await _openAppInfo();
+      } catch (e) {
+        debugPrint('[BrandSettings] Native battery override failed: $e');
+        return _openAppInfo();
+      }
+    }
+
+    try {
+      final ok = await _packageChannel
+          .invokeMethod<bool>('openMiuiBatterySettings')
+          .timeout(const Duration(seconds: 5));
+      if (ok == true) return true;
+    } on MissingPluginException {
+      debugPrint(
+        '[BrandSettings] openMiuiBatterySettings channel unavailable.',
+      );
+    } on PlatformException catch (e) {
+      debugPrint('[BrandSettings] openMiuiBatterySettings failed: ${e.code}');
+    } catch (e) {
+      // TimeoutException and friends — never leave the button silent.
+      debugPrint('[BrandSettings] openMiuiBatterySettings did not answer: $e');
+    }
+    return _openAppInfo();
   }
 
   // ── Samsung (One UI) ─────────────────────────────────────────────
@@ -147,9 +180,10 @@ class BrandSettings {
   /// Open the standard App Info page (works on all Android devices).
   static Future<bool> openAppSettings(String packageName) => _openAppInfo();
 
-  /// Open standard Android battery optimization settings.
+  /// Open standard Android battery optimization settings. Delegates to the
+  /// native battery chain (PowerKeeper page → AOSP prompt → App Info).
   static Future<bool> openBatteryOptimizationSettings() =>
-      _requestIgnoreBatteryOptimizations();
+      openBatterySettings(AppConstants.packageName);
 
   // ── Launch mechanisms ────────────────────────────────────────────
 
@@ -173,25 +207,6 @@ class BrandSettings {
       return true;
     } catch (e) {
       debugPrint('[BrandSettings] openAppSettings failed: $e');
-      return false;
-    }
-  }
-
-  static Future<bool> _requestIgnoreBatteryOptimizations() async {
-    final override = batteryRequestOverride;
-    if (override != null) {
-      try {
-        return await override();
-      } catch (e) {
-        debugPrint('[BrandSettings] Battery request failed: $e');
-        return false;
-      }
-    }
-    try {
-      final status = await ph.Permission.ignoreBatteryOptimizations.request();
-      return status.isGranted || status.isLimited;
-    } catch (e) {
-      debugPrint('[BrandSettings] Battery request failed: $e');
       return false;
     }
   }

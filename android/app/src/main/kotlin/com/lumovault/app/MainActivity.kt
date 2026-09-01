@@ -25,6 +25,8 @@ class MainActivity : FlutterFragmentActivity() {
                 when (call.method) {
                     "getPackageName" -> result.success(packageName)
                     "openMiuiAutostart" -> result.success(openMiuiAutostart())
+                    "openMiuiBatterySettings" ->
+                        result.success(openMiuiBatterySettings())
                     else -> result.notImplemented()
                 }
             }
@@ -69,6 +71,83 @@ class MainActivity : FlutterFragmentActivity() {
 
         // Nothing matched: open the App Info page, where MIUI surfaces this
         // app's "Other permissions" and battery controls.
+        return try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+    }
+
+    /**
+     * Opens the battery-saver / background-activity settings for this app,
+     * falling back through progressively more generic pages.
+     *
+     * MIUI replaces Android's stock battery-optimization dialog with its own
+     * PowerKeeper/Security Center pages, and the generic
+     * `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` prompt is suppressed or
+     * silently no-ops on many MIUI/HyperOS builds — so the explicit per-app
+     * PowerKeeper activity is tried first, exactly like [openMiuiAutostart].
+     *
+     * Every candidate launch failure surfaces as [ActivityNotFoundException]
+     * (or [SecurityException]), so each is tried in order and the first
+     * success wins; the final fallback is the always-resolvable App Info
+     * page.
+     */
+    private fun openMiuiBatterySettings(): Boolean {
+        val appName = applicationInfo.loadLabel(packageManager).toString()
+        val miuiCandidates = listOf(
+            // PowerKeeper: MIUI's per-app "Battery saver" page, where
+            // "No restrictions" and background-activity controls live.
+            Intent().setClassName(
+                "com.miui.powerkeeper",
+                "com.miui.powerkeeper.ui.HiddenAppsConfigActivity",
+            )
+                .putExtra("package_name", packageName)
+                .putExtra("package_label", appName),
+            // Some builds expose PowerKeeper's UI under the Security Center.
+            Intent().setClassName(
+                "com.miui.securitycenter",
+                "com.miui.powerkeeper.ui.HiddenAppsConfigActivity",
+            )
+                .putExtra("package_name", packageName)
+                .putExtra("package_label", appName),
+        )
+        for (intent in miuiCandidates) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                startActivity(intent)
+                return true
+            } catch (_: ActivityNotFoundException) {
+                // Candidate not present on this MIUI version — try the next.
+            } catch (_: SecurityException) {
+                // Build refuses third-party starts of this activity — try the next.
+            }
+        }
+
+        // AOSP battery-optimization prompt: the correct destination on stock
+        // Android (Samsung/Huawei/OnePlus/Oppo builds reach this after their
+        // MIUI candidates miss).
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:$packageName"),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            return true
+        } catch (_: ActivityNotFoundException) {
+            // ROM strips the prompt — fall through to App Info.
+        } catch (_: SecurityException) {
+            // Manifest permission not honored on this build — fall through.
+        }
+
+        // App Info: always resolvable, exposes the per-app battery controls.
         return try {
             startActivity(
                 Intent(

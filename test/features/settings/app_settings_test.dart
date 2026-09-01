@@ -156,6 +156,49 @@ void main() {
       });
     });
 
+    group('hasTelegramAccount', () {
+      test('defaults to false for a user who never signed in', () {
+        const settings = AppSettings();
+
+        expect(settings.hasTelegramAccount, false);
+      });
+
+      test('copyWith toggles the flag on and off', () {
+        const original = AppSettings();
+
+        final signedIn = original.copyWith(hasTelegramAccount: true);
+        expect(signedIn.hasTelegramAccount, true);
+
+        // copyWith(false) must be able to clear the flag — it's a plain
+        // bool?, so an explicit false always wins over the current value.
+        final signedOut = signedIn.copyWith(hasTelegramAccount: false);
+        expect(signedOut.hasTelegramAccount, false);
+      });
+
+      test('survives a JSON round-trip', () {
+        const settings = AppSettings(hasTelegramAccount: true);
+
+        final restored = AppSettings.fromJsonString(settings.toJsonString());
+
+        expect(restored.hasTelegramAccount, true);
+      });
+
+      test('is false when absent from persisted JSON (pre-flag installs)', () {
+        // Settings written by an app version before this flag existed must
+        // deserialize to false rather than throwing — a fresh install over an
+        // existing account still restores its Telegram session at bootstrap
+        // and re-persists the flag there.
+        final legacy = const AppSettings(
+          onboardingCompleted: true,
+        ).toJsonString();
+
+        final restored = AppSettings.fromJsonString(legacy);
+
+        expect(restored.hasTelegramAccount, false);
+        expect(restored.onboardingCompleted, true);
+      });
+    });
+
     group('equality', () {
       test('equal settings are equal', () {
         const a = AppSettings(languageCode: 'en', autoBackupEnabled: false);

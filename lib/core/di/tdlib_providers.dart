@@ -116,9 +116,42 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
 });
 
 /// Internal stream provider that bridges the auth service's stateStream.
-final _authStateStreamProvider = StreamProvider<AuthState>((ref) {
+///
+/// Seeds the current state on subscription: the repository's broadcast stream
+/// does not replay its latest value to new listeners, so an auth transition
+/// that fires before the first widget watches this provider (e.g. the session
+/// restored during bootstrap, which can finish before the first frame) would
+/// be dropped and [isAuthenticatedProvider] would stay cached on `false` for
+/// the whole run. Yielding the current state first guarantees a value from
+/// the very first watch, then forwards live transitions.
+final _authStateStreamProvider = StreamProvider<AuthState>((ref) async* {
   final authService = ref.watch(authServiceProvider);
-  return authService.stateStream;
+  yield authService.currentState;
+  await for (final state in authService.stateStream) {
+    yield state;
+  }
+});
+
+/// Whether Telegram auth has finished resolving at least once this run.
+///
+/// On every cold start the app is "not authenticated yet" for the first
+/// seconds while TDLib restores the persisted session —
+/// [isAuthenticatedProvider] alone cannot distinguish that from "genuinely
+/// signed out". Consumers (e.g. the timeline's empty state) use this to
+/// avoid flashing a sign-in prompt at a signed-in user whose session is
+/// still coming up. Resolves (to `true`) once TDLib is connected and the
+/// auth state has settled — even when the settled answer is "not signed in",
+/// so callers always fall through to the actionable UI.
+final authSettledProvider = FutureProvider<bool>((ref) async {
+  try {
+    await ref.watch(tdLibInitializedProvider.future);
+    await ref.watch(authServiceProvider).initialize();
+  } catch (_) {
+    // Connection or auth bootstrap failed. Report settled anyway: an error
+    // here must surface as the actionable prompt (or retry path), not as an
+    // eternal connecting spinner.
+  }
+  return true;
 });
 
 /// In-flight (or completed) database-key resolution.

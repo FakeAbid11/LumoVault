@@ -294,6 +294,10 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
           (s) => s.copyWith(
             onboardingCompleted: true,
             includedFolders: selectedFolders.toList(),
+            // Durable "this user has a Telegram account" signal — lets the
+            // timeline's empty state wait for the session to restore on the
+            // next cold start instead of showing the sign-in prompt again.
+            hasTelegramAccount: true,
           ),
         );
 

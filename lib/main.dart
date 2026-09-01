@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/auth/auth_service.dart';
 import 'core/database/app_database.dart';
 import 'core/di/backup_providers.dart';
 import 'core/di/database_providers.dart';
 import 'core/di/gallery_providers.dart';
 import 'core/di/production_providers.dart';
+import 'core/di/tdlib_providers.dart';
 import 'core/error_handling/global_error_handler.dart';
 import 'core/error_handling/crash_reporter.dart';
 import 'core/logging/app_logger.dart';
@@ -149,6 +151,45 @@ Future<ProviderContainer> _bootstrap() async {
   // Schedules the WorkManager tasks that drive periodic backup. Providers are
   // lazy, so this read is what makes background backup exist at all.
   container.read(backgroundBackupSyncProvider);
+
+  // Hydrate auth state in the UI isolate. Nothing here used to initialize
+  // TDLib/auth at cold start: TelegramAuthRepository boots as
+  // `unauthenticated`, its broadcast stateStream does not replay the current
+  // state to late subscribers, and `ensureTdLibConnected` (which does call
+  // initialize()) only ever ran lazily from manual backup/restore/account
+  // paths. The WorkManager background isolate builds its own container and
+  // connected fine, which masked the gap — meanwhile the foreground UI stayed
+  // "signed out" until the user did something that touched auth. That single
+  // gap produced three user-visible bugs:
+  //   1. after reinstall, the channel scan never ran (its gate saw
+  //      isAuthenticated == false) so the timeline showed empty despite a
+  //      full backup channel;
+  //   2. auto-backup enqueued items but refused to drain the queue
+  //      (BackupForegroundSync only calls startBackup() when authenticated);
+  //   3. a user who skipped login, signed in, and restarted saw the timeline
+  //      sign-in prompt again even though the session was intact.
+  // Fire-and-forget (initialize() itself waits for TDLib init, settles the
+  // authorization state, and has its own 10s timeout when offline) — the
+  // first frame must not wait on the network. AsyncError below also sets
+  // the zone error handler; the catch keeps the failure observable.
+  unawaited(() async {
+    try {
+      await container.read(tdLibInitializedProvider.future);
+      await container.read(authServiceProvider).initialize();
+      // Session restored successfully — persist that this user has a
+      // Telegram account so the timeline's empty state knows to wait for
+      // restore rather than show the sign-in prompt. Idempotent write when
+      // already true.
+      if (container.read(authServiceProvider).currentState ==
+          AuthState.authenticated) {
+        await container
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(hasTelegramAccount: true));
+      }
+    } catch (e) {
+      debugPrint('[Bootstrap] Auth hydration failed: $e');
+    }
+  }());
 
   return container;
 }

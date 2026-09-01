@@ -36,6 +36,12 @@ class AppSettings {
     // General
     this.languageCode = 'en',
     this.onboardingCompleted = false,
+    // True once the user has ever completed a Telegram login in this app.
+    // Persists across restarts so the timeline can distinguish a genuine
+    // skip-user (never signed in → show the sign-in prompt) from a signed-in
+    // user whose session is still being restored on cold start (show
+    // "Connecting…" instead of flashing a misleading prompt).
+    this.hasTelegramAccount = false,
     // Backup
     this.autoBackupEnabled = true,
     this.wifiOnly = true,
@@ -87,6 +93,7 @@ class AppSettings {
       return AppSettings(
         languageCode: map['languageCode'] as String? ?? 'en',
         onboardingCompleted: map['onboardingCompleted'] as bool? ?? false,
+        hasTelegramAccount: map['hasTelegramAccount'] as bool? ?? false,
         autoBackupEnabled: map['autoBackupEnabled'] as bool? ?? true,
         wifiOnly: map['wifiOnly'] as bool? ?? true,
         chargingOnly: map['chargingOnly'] as bool? ?? false,
@@ -148,6 +155,15 @@ class AppSettings {
   final String languageCode;
   final bool onboardingCompleted;
 
+  /// True once the user has ever completed a Telegram login in this app.
+  ///
+  /// TDLib restores the persisted session asynchronously, so a cold start is
+  /// "not yet authenticated" for the first seconds regardless of whether the
+  /// user has an account. This flag is the durable signal for "this user has
+  /// a Telegram account, wait for the session to come up" vs. "this user
+  /// skipped login, show the sign-in prompt immediately".
+  final bool hasTelegramAccount;
+
   // -- Backup --
   final bool autoBackupEnabled;
   final bool wifiOnly;
@@ -205,6 +221,7 @@ class AppSettings {
   AppSettings copyWith({
     String? languageCode,
     bool? onboardingCompleted,
+    bool? hasTelegramAccount,
     bool? autoBackupEnabled,
     bool? wifiOnly,
     bool? chargingOnly,
@@ -243,6 +260,7 @@ class AppSettings {
     return AppSettings(
       languageCode: languageCode ?? this.languageCode,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      hasTelegramAccount: hasTelegramAccount ?? this.hasTelegramAccount,
       autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
       wifiOnly: wifiOnly ?? this.wifiOnly,
       chargingOnly: chargingOnly ?? this.chargingOnly,
@@ -291,6 +309,7 @@ class AppSettings {
   Map<String, dynamic> _toJson() => {
     'languageCode': languageCode,
     'onboardingCompleted': onboardingCompleted,
+    'hasTelegramAccount': hasTelegramAccount,
     'autoBackupEnabled': autoBackupEnabled,
     'wifiOnly': wifiOnly,
     'chargingOnly': chargingOnly,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/account_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
+import '../../../../features/settings/presentation/providers/settings_providers.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Account screen — shows the signed-in Telegram account, or a sign-in
@@ -126,6 +127,12 @@ class _SignedIn extends ConsumerWidget {
     if (confirmed != true) return;
 
     await ref.read(authServiceProvider).logout();
+    // Clear the durable "has a Telegram account" signal so the timeline's
+    // empty state goes back to offering the sign-in prompt immediately,
+    // instead of showing "Connecting…" while nothing can restore.
+    await ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(hasTelegramAccount: false));
     if (!context.mounted) return;
     ref.invalidate(accountInfoProvider);
   }

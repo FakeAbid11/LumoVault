@@ -91,6 +91,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       return _buildEmptyState(
         context,
         isAuthenticated: ref.watch(isAuthenticatedProvider),
+        authSettled: ref.watch(authSettledProvider).valueOrNull ?? false,
+        hasTelegramAccount: ref.watch(appSettingsProvider).hasTelegramAccount,
       );
     }
 
@@ -231,7 +233,27 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   Widget _buildEmptyState(
     BuildContext context, {
     required bool isAuthenticated,
+    required bool authSettled,
+    required bool hasTelegramAccount,
   }) {
+    // A cold start is "not authenticated yet" for the first seconds while
+    // TDLib restores the persisted session. For a user known to have a
+    // Telegram account, show a brief connecting state instead of flashing a
+    // sign-in prompt that would be wrong a moment later (bug: a skip-user
+    // who later signed in saw the prompt again on every restart). When auth
+    // HAS settled and we're still unauthenticated, fall through to the
+    // prompt below — the session genuinely failed to restore and the user
+    // needs an actionable path.
+    if (!isAuthenticated && !authSettled && hasTelegramAccount) {
+      return const EmptyState(
+        icon: Icons.cloud_sync,
+        title: 'Connecting to Telegram…',
+        message:
+            'Restoring your session — your backup\nwill appear in a '
+            'moment.',
+      );
+    }
+
     // A user who skipped Telegram login during onboarding lands here with an
     // empty timeline — offer the way back into login instead of the generic
     // backup CTA (which can't do anything without a channel).

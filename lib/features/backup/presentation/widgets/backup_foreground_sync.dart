@@ -38,12 +38,32 @@ class _BackupForegroundSyncState extends ConsumerState<BackupForegroundSync>
   /// can fire several times in quick succession on some OEMs.
   DateTime? _lastRun;
 
+  /// Live subscription to the auth state, cancelled in [dispose].
+  ProviderSubscription<bool>? _authSubscription;
+
   static const _minInterval = Duration(seconds: 45);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Drain the queue the moment auth lands. The post-frame run below fires
+    // before the bootstrap session restore finishes, so its startBackup()
+    // was skipped (isAuthenticated still false) and freshly-enqueued items
+    // sat "in queue" until the user manually resumed or the next lifecycle
+    // event — the classic "selected folder photos are not backing up" report.
+    // This listener catches the false→true flip (both on cold-start restore
+    // and when a skip-user signs in later) and re-runs the sync immediately;
+    // resetting the debounce marker so the 45s window can't swallow it.
+    _authSubscription = ref.listenManual<bool>(isAuthenticatedProvider, (
+      previous,
+      next,
+    ) {
+      if (next && previous != next) {
+        _lastRun = null;
+        unawaited(_maybeSync());
+      }
+    });
     // A cold start begins already in `resumed`, so didChangeAppLifecycleState
     // won't fire for the first launch — kick off the initial run once the
     // first frame is up.
@@ -54,6 +74,7 @@ class _BackupForegroundSyncState extends ConsumerState<BackupForegroundSync>
 
   @override
   void dispose() {
+    _authSubscription?.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

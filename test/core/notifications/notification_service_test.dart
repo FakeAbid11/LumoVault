@@ -329,7 +329,7 @@ void main() {
 
   group('NotificationType', () {
     test('has all expected types', () {
-      expect(NotificationType.values.length, equals(5));
+      expect(NotificationType.values.length, equals(6));
       expect(
         NotificationType.values.toSet(),
         equals({
@@ -338,6 +338,7 @@ void main() {
           NotificationType.backupFailed,
           NotificationType.restoreCompleted,
           NotificationType.storageWarning,
+          NotificationType.faceScan,
         }),
       );
     });

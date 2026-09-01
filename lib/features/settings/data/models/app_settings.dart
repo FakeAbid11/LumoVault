@@ -48,6 +48,7 @@ class AppSettings {
     this.chargingOnly = false,
     this.minBatteryLevel = 20,
     this.backgroundBackupEnabled = true,
+    this.faceScanNotification = true,
     this.maxParallelUploads = 3,
     this.backupVideos = true,
     this.backupPhotos = true,
@@ -100,6 +101,7 @@ class AppSettings {
         minBatteryLevel: map['minBatteryLevel'] as int? ?? 20,
         backgroundBackupEnabled:
             map['backgroundBackupEnabled'] as bool? ?? true,
+        faceScanNotification: map['faceScanNotification'] as bool? ?? true,
         maxParallelUploads: map['maxParallelUploads'] as int? ?? 3,
         backupVideos: map['backupVideos'] as bool? ?? true,
         backupPhotos: map['backupPhotos'] as bool? ?? true,
@@ -170,6 +172,9 @@ class AppSettings {
   final bool chargingOnly;
   final int minBatteryLevel;
   final bool backgroundBackupEnabled;
+
+  /// Whether people-grouping progress/completion notifications may post.
+  final bool faceScanNotification;
   final int maxParallelUploads;
   final bool backupVideos;
   final bool backupPhotos;
@@ -227,6 +232,7 @@ class AppSettings {
     bool? chargingOnly,
     int? minBatteryLevel,
     bool? backgroundBackupEnabled,
+    bool? faceScanNotification,
     int? maxParallelUploads,
     bool? backupVideos,
     bool? backupPhotos,
@@ -267,6 +273,7 @@ class AppSettings {
       minBatteryLevel: minBatteryLevel ?? this.minBatteryLevel,
       backgroundBackupEnabled:
           backgroundBackupEnabled ?? this.backgroundBackupEnabled,
+      faceScanNotification: faceScanNotification ?? this.faceScanNotification,
       maxParallelUploads: maxParallelUploads ?? this.maxParallelUploads,
       backupVideos: backupVideos ?? this.backupVideos,
       backupPhotos: backupPhotos ?? this.backupPhotos,
@@ -315,6 +322,7 @@ class AppSettings {
     'chargingOnly': chargingOnly,
     'minBatteryLevel': minBatteryLevel,
     'backgroundBackupEnabled': backgroundBackupEnabled,
+    'faceScanNotification': faceScanNotification,
     'maxParallelUploads': maxParallelUploads,
     'backupVideos': backupVideos,
     'backupPhotos': backupPhotos,

@@ -9,6 +9,7 @@ import 'core/theme/app_motion.dart';
 import 'core/theme/app_theme.dart';
 import 'features/app_lock/presentation/widgets/app_lock_gate.dart';
 import 'features/backup/presentation/widgets/backup_foreground_sync.dart';
+import 'features/people/presentation/widgets/face_scan_background_handoff.dart';
 import 'features/settings/presentation/providers/settings_providers.dart';
 
 /// Root widget for the LumoVault application.
@@ -61,7 +62,9 @@ class LumoVaultApp extends ConsumerWidget {
             themeMode: themeMode,
             routerConfig: router,
             builder: (context, child) => BackupForegroundSync(
-              child: AppLockGate(child: child ?? const SizedBox.shrink()),
+              child: FaceScanBackgroundHandoff(
+                child: AppLockGate(child: child ?? const SizedBox.shrink()),
+              ),
             ),
           ),
         );

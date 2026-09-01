@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/database_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/database/daos/face_dao.dart';
+import '../../../../core/storage/isolate_run_lock.dart';
 import '../../data/repositories/face_repository.dart';
+import '../../data/repositories/face_scan_lock.dart';
 import '../../data/services/face_detection_service.dart';
 import '../../data/services/face_clustering_service.dart';
 
@@ -110,6 +115,7 @@ class FaceScanController {
 
   final Ref _ref;
   bool _isScanning = false;
+  IsolateRunLock? _lock;
 
   bool get isScanning => _isScanning;
 
@@ -118,6 +124,19 @@ class FaceScanController {
 
     final assets = await _ref.read(deviceAssetsProvider.future);
     if (assets.isEmpty) return;
+
+    // Only one face-scan pipeline at a time: the background kFaceScanTask
+    // handler takes the same lock, so a user-initiated scan and a scheduled
+    // background scan (or a pending hand-off run) never run concurrently
+    // with two ONNX sessions.
+    final lock = IsolateRunLock(name: kFaceScanLockName);
+    if (!await lock.tryAcquire()) {
+      debugPrint(
+        '[FaceScanController] Scan skipped: a background scan is running',
+      );
+      return;
+    }
+    _lock = lock;
 
     _isScanning = true;
     _setProgress(
@@ -132,6 +151,7 @@ class FaceScanController {
           _setProgress(
             FaceScanProgress(current: current, total: total, isScanning: true),
           );
+          unawaited(lock.heartbeat());
         },
         // Runs every FaceRepository.scanBatchSize (50) photos: cluster what
         // has been found so far and refresh the grid, then scanning resumes.
@@ -146,6 +166,8 @@ class FaceScanController {
       await repository.clusterFaces();
     } finally {
       _isScanning = false;
+      await _lock?.release();
+      _lock = null;
       _setProgress(
         const FaceScanProgress(current: 0, total: 0, isScanning: false),
       );

@@ -15,7 +15,9 @@ import 'core/error_handling/global_error_handler.dart';
 import 'core/error_handling/crash_reporter.dart';
 import 'core/logging/app_logger.dart';
 import 'core/storage/thumbnail_cache.dart';
+import 'features/backup/engine/background_backup_service.dart';
 import 'features/metadata/presentation/providers/metadata_providers.dart';
+import 'features/people/data/repositories/face_scan_lock.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'features/settings/presentation/providers/settings_providers.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -151,6 +153,13 @@ Future<ProviderContainer> _bootstrap() async {
   // Schedules the WorkManager tasks that drive periodic backup. Providers are
   // lazy, so this read is what makes background backup exist at all.
   container.read(backgroundBackupSyncProvider);
+
+  // Wire the face-scan background hand-off (FaceScanBackgroundHandoff reads
+  // this hook when the app is backgrounded mid-scan). The people feature
+  // cannot import the backup engine directly (import cycle), and WorkManager
+  // is unavailable on test hosts, so this indirection is intentional.
+  scheduleOneOffFaceScan =
+      BackgroundBackupService.instance.registerFaceScanOneOff;
 
   // Hydrate auth state in the UI isolate. Nothing here used to initialize
   // TDLib/auth at cold start: TelegramAuthRepository boots as

@@ -120,6 +120,34 @@ void main() {
       },
     );
 
+    test(
+      'the face scan skips when another isolate holds the face lock',
+      () async {
+        final runner = BackgroundTaskRunner(
+          containerFactory: () => throw StateError('should not build'),
+          runLock: _NeverAcquiringLock(),
+        )..faceScanLockForTesting = _NeverAcquiringLock();
+
+        // The container factory throws, so a true result here proves the
+        // face-scan lock short-circuited before any work started.
+        expect(await runner.run(kFaceScanTask), isTrue);
+      },
+    );
+
+    test(
+      'a failing face scan is reported as retryable (never silently dropped)',
+      () async {
+        final runner = BackgroundTaskRunner(
+          containerFactory: () => throw StateError('boom'),
+          runLock: _AlwaysAcquiringLock(),
+        )..faceScanLockForTesting = _AlwaysAcquiringLock();
+
+        // The old behaviour swallowed every failure and reported success,
+        // which is how a broken background scan stayed invisible forever.
+        expect(await runner.run(kFaceScanTask), isFalse);
+      },
+    );
+
     test('a throwing task is reported as a retryable failure', () async {
       final runner = BackgroundTaskRunner(
         containerFactory: () => throw StateError('boom'),
@@ -150,6 +178,7 @@ void main() {
         kBackupSchedulerTask,
         kMetadataRepairTask,
         kThumbnailRebuildTask,
+        kFaceScanTask,
       ];
 
       expect(names.toSet(), hasLength(names.length));

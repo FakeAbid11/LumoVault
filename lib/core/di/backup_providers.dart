@@ -391,6 +391,11 @@ final backupEngineProvider =
           await ref.read(tdLibInitializedProvider.future);
           await ref.read(authServiceProvider).initialize();
         },
+        seedEnvironment: () {
+          return ref
+              .read(backupEnvironmentProvider.notifier)
+              .seedFromPlatform();
+        },
       );
 
       ref.listen<BackupSettings>(backupSettingsProvider, (prev, next) {
@@ -440,6 +445,7 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
     onBackupTimestampsChanged,
     Future<void> Function()? ensureTdLibConnected,
     TransferQueuePersistence? queuePersistence,
+    this.seedEnvironment,
   }) : super(BackupEngineState.idle) {
     _engine = BackupEngine(
       galleryRepository: galleryRepository,
@@ -462,6 +468,15 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
 
   final GalleryRepository galleryRepository;
   final UploadService uploadService;
+
+  /// Re-reads connectivity/battery from the platform before a user-initiated
+  /// start. The engine's environment is seeded asynchronously at startup
+  /// (BackupEnvironmentNotifier.seedFromPlatform), so on a cold start it can
+  /// still hold unseeded defaults when the user taps "Start Backup Now" — the
+  /// Wi-Fi-only gate then refuses even though Wi-Fi is up. Awaiting this
+  /// before every start guarantees the gates evaluate fresh platform state.
+  final Future<void> Function()? seedEnvironment;
+
   late final BackupEngine _engine;
   StreamSubscription<BackupEngineState>? _stateSubscription;
 
@@ -481,6 +496,7 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
   }
 
   Future<void> startBackup() async {
+    await seedEnvironment?.call();
     await _engine.startBackup();
   }
 
@@ -489,10 +505,12 @@ class BackupEngineNotifier extends StateNotifier<BackupEngineState> {
   }
 
   Future<void> resumeBackup() async {
+    await seedEnvironment?.call();
     await _engine.resumeBackup();
   }
 
   Future<void> retryFailed() async {
+    await seedEnvironment?.call();
     await _engine.retryFailed();
   }
 

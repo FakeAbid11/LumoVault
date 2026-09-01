@@ -61,6 +61,7 @@ class BackupStats {
     this.lastBackupAt,
     this.totalBytes = 0,
     this.backedUpBytes = 0,
+    this.blockedReason,
   });
   final int totalMediaItems;
   final int backedUpCount;
@@ -72,6 +73,12 @@ class BackupStats {
   final int totalBytes;
   final int backedUpBytes;
 
+  /// Why the most recent start attempt was refused (a scheduler gate or a
+  /// TDLib connection failure), or null when the engine is free to run.
+  /// Surfaced on the dashboard so a stalled queue is explainable instead of
+  /// silently "in queue" forever.
+  final String? blockedReason;
+
   BackupStats copyWith({
     int? totalMediaItems,
     int? backedUpCount,
@@ -82,6 +89,7 @@ class BackupStats {
     DateTime? lastBackupAt,
     int? totalBytes,
     int? backedUpBytes,
+    String? blockedReason,
   }) {
     return BackupStats(
       totalMediaItems: totalMediaItems ?? this.totalMediaItems,
@@ -93,6 +101,7 @@ class BackupStats {
       lastBackupAt: lastBackupAt ?? this.lastBackupAt,
       totalBytes: totalBytes ?? this.totalBytes,
       backedUpBytes: backedUpBytes ?? this.backedUpBytes,
+      blockedReason: blockedReason ?? this.blockedReason,
     );
   }
 
@@ -222,6 +231,7 @@ class BackupEngine {
   );
   BackupEngineState _state = BackupEngineState.idle;
   BackupStats _stats = const BackupStats();
+  String? _blockedReason;
   bool _isPaused = false;
   BackupEnvironment _environment = const BackupEnvironment();
 
@@ -261,6 +271,12 @@ class BackupEngine {
   BackupStats get stats => _stats;
   bool get isPaused => _isPaused;
 
+  /// Why the most recent start attempt was refused - a scheduler gate
+  /// ("Waiting for Wi-Fi connection.") or a TDLib connection failure. Null
+  /// once a run proceeds. Refusals used to be silent debugPrints, which
+  /// left queued items sitting with no visible explanation.
+  String? get blockedReason => _blockedReason;
+
   Stream<BackupEngineState> get stateStream => _stateController.stream;
   Stream<BackupStats> get statsStream => _statsController.stream;
 
@@ -290,6 +306,10 @@ class BackupEngine {
     try {
       // No folders selected — nothing to back up.
       if (settings.includedFolders.isEmpty) {
+        _setBlocked(
+          'No folders are selected for backup. Choose at least one folder '
+          'in backup settings.',
+        );
         _setState(BackupEngineState.idle);
         return;
       }
@@ -345,6 +365,9 @@ class BackupEngine {
       await ensureTdLibConnected?.call();
     } catch (e) {
       debugPrint('[BackupEngine] TDLib connection failed: $e');
+      _setBlocked(
+        'Cannot reach Telegram. Check your connection and try again.',
+      );
       _setState(BackupEngineState.error);
       return;
     }
@@ -356,9 +379,14 @@ class BackupEngine {
 
     if (!schedulerResult.canProceed) {
       debugPrint('[BackupEngine] Cannot start: ${schedulerResult.reason}');
+      // Surface the refusal instead of silently returning - this is what
+      // made "Start Backup Now" taps look like no-ops and the queue look
+      // stuck with nothing uploading.
+      _setBlocked(schedulerResult.reason ?? 'Backup cannot start right now.');
       return;
     }
 
+    _clearBlocked();
     _setState(BackupEngineState.uploading);
     await _processQueue();
   }
@@ -518,6 +546,9 @@ class BackupEngine {
       await ensureTdLibConnected?.call();
     } catch (e) {
       debugPrint('[BackupEngine] TDLib connection failed: $e');
+      _setBlocked(
+        'Cannot reach Telegram. Check your connection and try again.',
+      );
       return const SingleBackupResult(
         SingleBackupOutcome.failed,
         message: 'Could not connect to Telegram.',
@@ -538,6 +569,7 @@ class BackupEngine {
     if (finished == null || finished.status == UploadStatus.completed) {
       // Completed tasks are pruned from the persisted queue, so a missing task
       // here means it finished and was cleaned up.
+      _clearBlocked();
       return const SingleBackupResult(SingleBackupOutcome.uploaded);
     }
     if (finished.status == UploadStatus.queued) {
@@ -971,6 +1003,21 @@ class BackupEngine {
     _schedulePersistQueue();
   }
 
+  /// Records why the engine refused to start/drain, and clears it when a
+  /// run is allowed through. No-op when the reason is unchanged, so a
+  /// repeated blocked start does not spam the stats stream.
+  void _setBlocked(String reason) {
+    if (_blockedReason == reason) return;
+    _blockedReason = reason;
+    _updateStatsImmediate();
+  }
+
+  void _clearBlocked() {
+    if (_blockedReason == null) return;
+    _blockedReason = null;
+    _updateStatsImmediate();
+  }
+
   void _applyStats() {
     _stats = BackupStats(
       totalMediaItems: galleryRepository.totalCount,
@@ -982,6 +1029,7 @@ class BackupEngine {
       lastBackupAt: settings.lastBackupAt,
       totalBytes: _queue.totalBytes,
       backedUpBytes: _queue.backedUpBytes,
+      blockedReason: _blockedReason,
     );
     _statsController.add(_stats);
   }

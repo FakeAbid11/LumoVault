@@ -100,15 +100,24 @@ class IncrementalScanner {
     var grandTotal = 0;
     for (final album in albums) {
       if (includedFolders != null && includedFolders.isNotEmpty) {
-        if (!includedFolders.contains(album.name)) continue;
+        // Selections are keyed on the album id; accept display names too so
+        // lists persisted by older builds still match.
+        if (!includedFolders.contains(album.id) &&
+            !includedFolders.contains(album.name)) {
+          continue;
+        }
       }
       grandTotal += await album.assetCountAsync;
     }
 
     for (final album in albums) {
-      // Filter by included folders if specified.
+      // Filter by included folders if specified (id key, with display-name
+      // tolerance for older selections).
       if (includedFolders != null && includedFolders.isNotEmpty) {
-        if (!includedFolders.contains(album.name)) continue;
+        if (!includedFolders.contains(album.id) &&
+            !includedFolders.contains(album.name)) {
+          continue;
+        }
       }
 
       final assetCount = await album.assetCountAsync;
@@ -173,6 +182,10 @@ class IncrementalScanner {
               // folder.
               final item = built.copyWith(
                 deviceFolder: album.id,
+                // The display name lets the scheduler's folder gate fall back
+                // to name matching against selections persisted by older
+                // builds, which keyed folders by name instead of bucket id.
+                albumName: album.name,
                 isExcluded: filterActive ? false : built.isExcluded,
               );
               newItems.add(item);
@@ -194,6 +207,8 @@ class IncrementalScanner {
               if (built != null) {
                 final updated = built.copyWith(
                   deviceFolder: album.id,
+                  // See the matching comment on the new-item copy above.
+                  albumName: album.name,
                   isExcluded: filterActive ? false : built.isExcluded,
                 );
                 updatedItems.add(updated);

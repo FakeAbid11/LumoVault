@@ -184,11 +184,7 @@ class _BackupSettingsScreenV2State
             leading: const Icon(Symbols.play_circle),
             title: const Text('Start Backup Now'),
             subtitle: const Text('Begin backing up pending items'),
-            onTap: isBackupActive
-                ? null
-                : () {
-                    ref.read(backupEngineProvider.notifier).startBackup();
-                  },
+            onTap: isBackupActive ? null : _onStartBackupPressed,
           ),
           ListTile(
             leading: const Icon(Symbols.refresh),
@@ -290,6 +286,25 @@ class _BackupSettingsScreenV2State
         ],
       ),
     );
+  }
+
+  /// Runs the manual start and surfaces the engine's refusal reason, if any.
+  ///
+  /// startBackup() returns silently when a scheduler gate (Wi-Fi-only,
+  /// charging-only, low battery) or a TDLib connection failure blocks the
+  /// run; without this feedback the tap looks like a no-op and the queue
+  /// looks stuck. The engine also records the same reason in
+  /// stats.blockedReason for the dashboard banner.
+  Future<void> _onStartBackupPressed() async {
+    final notifier = ref.read(backupEngineProvider.notifier);
+    await notifier.startBackup();
+    if (!mounted) return;
+    final reason = notifier.engine.blockedReason;
+    if (reason != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(reason)));
+    }
   }
 
   Future<void> _openMiuiAutostart(BuildContext context) async {

@@ -494,6 +494,76 @@ void main() {
       expect(engine.queue.getTaskForMediaItem('z'), isNotNull);
     });
   });
+
+  group('BackupEngine start gating', () {
+    test('records the scheduler refusal in stats.blockedReason', () async {
+      // Default BackupSettings has wifiOnly: true while the engine's
+      // environment here keeps its unseeded default (no Wi-Fi) — exactly the
+      // cold-start race the engine used to swallow as a debugPrint, leaving
+      // the queue silently stalled with nothing uploading.
+      final engine = _engine(settings: const BackupSettings(wifiOnly: true));
+      addTearDown(engine.dispose);
+      // The _engine helper seeds a Wi-Fi environment so upload tests pass the
+      // scheduler; reset it to the unseeded default (no Wi-Fi) to reproduce
+      // the cold-start race this test covers.
+      engine.updateEnvironment(const BackupEnvironment());
+
+      final seen = <String?>[];
+      final sub = engine.statsStream.listen((s) => seen.add(s.blockedReason));
+      addTearDown(sub.cancel);
+
+      await engine.startBackup();
+      // Broadcast stream deliveries land on the event queue; drain it before
+      // asserting what the listener captured.
+      await pumpEventQueue();
+
+      expect(engine.state, BackupEngineState.idle);
+      expect(engine.blockedReason, contains('Wi-Fi'));
+      expect(engine.stats.blockedReason, contains('Wi-Fi'));
+      expect(seen.whereType<String>().last, contains('Wi-Fi'));
+    });
+
+    test('records a TDLib connection failure as the blocked reason', () async {
+      final engine = _engine(
+        ensureTdLibConnected: () async {
+          throw StateError('tdlib down');
+        },
+      );
+      addTearDown(engine.dispose);
+
+      await engine.startBackup();
+
+      expect(engine.state, BackupEngineState.error);
+      expect(engine.blockedReason, contains('Telegram'));
+      expect(engine.stats.blockedReason, contains('Telegram'));
+    });
+
+    test(
+      'clears the blocked reason once a run is allowed to proceed',
+      () async {
+        final repo = _repo([_item('a')]);
+        final uploads = _FakeUploadService();
+        final engine = _engine(repo: repo, uploads: uploads);
+        addTearDown(engine.dispose);
+        // The queue must actually hold work — an empty batch drains to idle
+        // without ever attempting an upload.
+        engine.addToQueue(repo.mediaItems.single);
+
+        final seen = <String?>[];
+        final sub = engine.statsStream.listen((s) => seen.add(s.blockedReason));
+        addTearDown(sub.cancel);
+
+        await engine.startBackup();
+        await pumpEventQueue();
+
+        expect(uploads.attempts, 1);
+        expect(engine.blockedReason, isNull);
+        expect(engine.stats.blockedReason, isNull);
+        // No blocked state ever reached the stats stream on the happy path.
+        expect(seen.whereType<String>(), isEmpty);
+      },
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +575,7 @@ BackupEngine _engine({
   _FakeUploadService? uploads,
   BackupSettings settings = const BackupSettings(),
   bool cacheChannelId = true,
+  Future<void> Function()? ensureTdLibConnected,
 }) {
   // TdLibClient is a singleton whose methods are never reached here: caching
   // a channel id short-circuits _resolveChannelId before any request. The
@@ -520,6 +591,7 @@ BackupEngine _engine({
     settings: settings.copyWith(uploadDelayMs: 0),
     storageChannelService: channels,
     statsThrottleDuration: Duration.zero,
+    ensureTdLibConnected: ensureTdLibConnected,
   );
 
   // BackupSettings defaults wifiOnly: true while BackupEnvironment defaults

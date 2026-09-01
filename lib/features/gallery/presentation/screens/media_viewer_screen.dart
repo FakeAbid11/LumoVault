@@ -394,7 +394,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         case SingleBackupOutcome.queued:
           _notify(context, 'Queued — a backup is already running');
         case SingleBackupOutcome.skipped:
-          _notify(context, result.message ?? 'Skipped by your backup settings');
+          _notify(context, friendlySkipMessage(result.message));
         case SingleBackupOutcome.needsMobileDataConfirmation:
           _notify(
             context,
@@ -730,4 +730,24 @@ class _AssetPreviewState extends State<_AssetPreview>
       },
     );
   }
+}
+
+/// Maps a raw scheduler skip reason to a message a person can act on.
+///
+/// The scheduler's folder-gate text leaks internal identifiers (a raw OS
+/// bucket id like "-1313584517") and jargon ("included list"). The viewer's
+/// Back-Up button is the one place a user hits that refusal directly, so
+/// translate it into what to do about it; anything unrecognized passes
+/// through unchanged.
+String friendlySkipMessage(String? message) {
+  if (message == null) return 'Skipped by your backup settings';
+  if (message.contains('is not in your backup folders') ||
+      message.contains('is not in included list')) {
+    return 'This folder isn\'t in your backup folders — enable it under '
+        'Backup settings > Folders';
+  }
+  if (message.contains('is excluded')) {
+    return 'This folder is on your backup exclusion list';
+  }
+  return message;
 }

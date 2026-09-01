@@ -3,6 +3,30 @@ import 'package:lumovault/features/backup/data/models/backup_settings.dart';
 import 'package:lumovault/features/backup/engine/backup_scheduler.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
 
+/// A minimal [MediaItem] with controllable folder keys.
+///
+/// [deviceFolder] models the OS bucket id the scanners tag items with;
+/// [albumName] models the display name carried alongside it by current
+/// scans (and the only key older scans set).
+MediaItem _folderItem({String? deviceFolder, String? albumName}) {
+  final now = DateTime.now();
+  return MediaItem(
+    localId: '1',
+    fileHash: 'hash1',
+    filePath: '/path/test.jpg',
+    fileName: 'test.jpg',
+    mimeType: 'image/jpeg',
+    fileSize: 1024,
+    width: 1920,
+    height: 1080,
+    createdAt: now,
+    modifiedAt: now,
+    scannedAt: now,
+    deviceFolder: deviceFolder,
+    albumName: albumName,
+  );
+}
+
 void main() {
   group('BackupScheduler', () {
     group('evaluate', () {
@@ -290,6 +314,90 @@ void main() {
         );
 
         expect(result.included, isFalse);
+      });
+
+      test('includes items whose folder key matches by album id', () {
+        // Current scanners tag items with the OS bucket id and folder
+        // selection stores the same id — this is the fixed, primary path.
+        const settings = BackupSettings(includedFolders: ['-1313584517']);
+        final item = _folderItem(deviceFolder: '-1313584517');
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: item,
+          settings: settings,
+        );
+
+        expect(result.included, isTrue);
+      });
+
+      test(
+        'includes items matching only through a legacy name-keyed selection',
+        () {
+          // Selections persisted before the id-keying fix store display
+          // names; items now carry the bucket id, so the gate falls back to
+          // the item's album name. Without this tolerance every old install
+          // would stop matching after the upgrade.
+          const settings = BackupSettings(includedFolders: ['Screenshots']);
+          final item = _folderItem(
+            deviceFolder: '-1313584517',
+            albumName: 'Screenshots',
+          );
+
+          final result = BackupScheduler.evaluateMediaItem(
+            item: item,
+            settings: settings,
+          );
+
+          expect(result.included, isTrue);
+        },
+      );
+
+      test('still includes items without any folder key', () {
+        // No folder metadata — the gate cannot apply, same as before the fix.
+        const settings = BackupSettings(includedFolders: ['-1313584517']);
+        final item = _folderItem();
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: item,
+          settings: settings,
+        );
+
+        expect(result.included, isTrue);
+      });
+
+      test('excludes items whose keys match no included folder', () {
+        const settings = BackupSettings(includedFolders: ['Camera']);
+        final item = _folderItem(
+          deviceFolder: '-1313584517',
+          albumName: 'Screenshots',
+        );
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: item,
+          settings: settings,
+        );
+
+        expect(result.included, isFalse);
+      });
+
+      test('excludes an item when any of its folder keys is excluded', () {
+        // Exclusion wins over inclusion regardless of which key matched.
+        const settings = BackupSettings(
+          includedFolders: ['-1313584517'],
+          excludedFolders: ['Screenshots'],
+        );
+        final item = _folderItem(
+          deviceFolder: '-1313584517',
+          albumName: 'Screenshots',
+        );
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: item,
+          settings: settings,
+        );
+
+        expect(result.included, isFalse);
+        expect(result.reason, contains('excluded'));
       });
 
       test('excludes files with excluded hash', () {

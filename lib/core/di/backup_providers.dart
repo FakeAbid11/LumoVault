@@ -168,8 +168,34 @@ final backupEnvironmentProvider =
       return BackupEnvironmentNotifier();
     });
 
+/// Pulls a one-shot connectivity snapshot. Injectable so tests can drive
+/// [BackupEnvironmentNotifier.seedFromPlatform] without platform channels.
+typedef ConnectivityChecker = Future<List<ConnectivityResult>> Function();
+
+/// Streams connectivity changes.
+typedef ConnectivityStreamSource = Stream<List<ConnectivityResult>> Function();
+
+/// Pulls the current battery level percentage.
+typedef BatteryLevelReader = Future<int> Function();
+
+/// Streams battery state changes (plug/unplug).
+typedef BatteryStateStreamSource = Stream<BatteryState> Function();
+
 class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
-  BackupEnvironmentNotifier() : super(const BackupEnvironment()) {
+  BackupEnvironmentNotifier({
+    ConnectivityChecker? checkConnectivity,
+    ConnectivityStreamSource? connectivityStream,
+    BatteryLevelReader? batteryLevelReader,
+    BatteryStateStreamSource? batteryStateStream,
+  }) : _checkConnectivity =
+           checkConnectivity ?? (() => Connectivity().checkConnectivity()),
+       _connectivityStream =
+           connectivityStream ?? (() => Connectivity().onConnectivityChanged),
+       _batteryLevelReader =
+           batteryLevelReader ?? (() => Battery().batteryLevel),
+       _batteryStateStream =
+           batteryStateStream ?? (() => Battery().onBatteryStateChanged),
+       super(const BackupEnvironment()) {
     _initConnectivityListener();
     _initBatteryListener();
   }
@@ -177,10 +203,14 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   StreamSubscription<BatteryState>? _batterySubscription;
   Timer? _batteryLevelTimer;
-  final _battery = Battery();
+
+  final ConnectivityChecker _checkConnectivity;
+  final ConnectivityStreamSource _connectivityStream;
+  final BatteryLevelReader _batteryLevelReader;
+  final BatteryStateStreamSource _batteryStateStream;
 
   void _initConnectivityListener() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+    _connectivitySubscription = _connectivityStream().listen(
       _applyConnectivity,
     );
     // Seed the *current* connectivity immediately. onConnectivityChanged only
@@ -189,12 +219,25 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
     // default), BackupScheduler.evaluate() then refused to start a backup even
     // on live Wi-Fi ("Waiting for Wi-Fi connection."). Mirrors how
     // _initBatteryListener seeds the battery level below.
-    unawaited(
-      Connectivity()
-          .checkConnectivity()
-          .then(_applyConnectivity)
-          .catchError((_) {}),
-    );
+    unawaited(seedFromPlatform());
+  }
+
+  /// Pulls the current connectivity and battery state into [state], awaited.
+  ///
+  /// The constructor seeds both fire-and-forget, which is fine for the UI
+  /// isolate — but each background WorkManager task builds a fresh container
+  /// and can reach `BackupScheduler.evaluate` before that async seed lands,
+  /// reading the `isWifiConnected: false` default and refusing a run the OS
+  /// had already cleared (the task only fired because WorkManager's own
+  /// network constraint passed). Background tasks await this instead.
+  Future<void> seedFromPlatform() async {
+    try {
+      final results = await _checkConnectivity();
+      _applyConnectivity(results);
+    } catch (e) {
+      debugPrint('[BackupEnvironment] Connectivity seed failed: $e');
+    }
+    await _refreshBatteryLevel();
   }
 
   void _applyConnectivity(List<ConnectivityResult> results) {
@@ -218,7 +261,7 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
   /// background (the scheduler runs on minute-ish cadence anyway).
   void _initBatteryListener() {
     try {
-      _batterySubscription = _battery.onBatteryStateChanged.listen(
+      _batterySubscription = _batteryStateStream().listen(
         (batteryState) => updateCharging(_isPluggedIn(batteryState)),
       );
     } catch (e) {
@@ -234,7 +277,7 @@ class BackupEnvironmentNotifier extends StateNotifier<BackupEnvironment> {
 
   Future<void> _refreshBatteryLevel() async {
     try {
-      final level = await _battery.batteryLevel;
+      final level = await _batteryLevelReader();
       // Some devices report -1 while the level is unknown; anything outside
       // 0-100 is garbage and would trip the scheduler's low-battery gate.
       if (level < 0 || level > 100) return;

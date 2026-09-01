@@ -474,8 +474,25 @@ class BackgroundTaskRunner {
 
     StreamSubscription<BackupStats>? progress;
     try {
+      // Hydrate before ANY run, not only scanning ones. The upload-worker
+      // path (scan: false) uploads from the persisted queue, and without
+      // hydration `markUploaded` silently no-ops against this isolate's
+      // empty in-memory model: the drift row stays `pending`, the metadata
+      // layer never learns of the upload, and the next scan re-enqueues and
+      // re-uploads the same file into the channel.
+      await container.read(galleryRepositoryProvider).hydrate();
+
+      // WorkManager already enforced the network/battery constraints before
+      // this task was allowed to run, but this isolate's fresh environment
+      // still holds the `isWifiConnected: false` default until its
+      // fire-and-forget connectivity seed resolves — startBackup() would
+      // then refuse a perfectly valid run ("Waiting for Wi-Fi connection.").
+      // Seed synchronously so the scheduler re-check sees reality.
+      await container
+          .read(backupEnvironmentProvider.notifier)
+          .seedFromPlatform();
+
       if (scan) {
-        await container.read(galleryRepositoryProvider).hydrate();
         await engine.scanAndEnqueue();
       }
 

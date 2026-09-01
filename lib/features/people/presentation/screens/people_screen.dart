@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
+import '../../../../shared/widgets/settings_gear_button.dart';
 import '../providers/people_providers.dart';
 import '../widgets/person_tile.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -111,6 +112,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               ),
             ),
           ),
+        const SettingsGearButton(),
       ],
     );
   }

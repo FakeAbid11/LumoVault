@@ -16,6 +16,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
+import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/repositories/gallery_repository.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
@@ -178,9 +179,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     tooltip: 'More options',
                     onSelected: (value) {
                       switch (value) {
-                        case 'settings':
-                          // Settings is a bottom-nav branch — switch tabs.
-                          context.go('/settings');
                         case 'restore':
                           context.push('/restore');
                         case 'refresh':
@@ -188,13 +186,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                       }
                     },
                     itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'settings',
-                        child: ListTile(
-                          leading: Icon(Symbols.settings),
-                          title: Text('Settings'),
-                        ),
-                      ),
                       PopupMenuItem(
                         value: 'restore',
                         child: ListTile(
@@ -211,6 +202,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                       ),
                     ],
                   ),
+                  const SettingsGearButton(),
                 ],
               ),
         floatingActionButton: _isMultiSelectMode

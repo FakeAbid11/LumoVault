@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
 import '../widgets/media_tile.dart';
@@ -40,7 +41,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: const [SettingsGearButton()],
+      ),
       body: photosAsync.when(
         loading: () => _buildMapOnly(),
         error: (error, _) => Center(

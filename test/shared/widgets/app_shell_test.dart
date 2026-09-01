@@ -59,16 +59,6 @@ void main() {
                   ),
                 ],
               ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: '/settings',
-                    builder: (_, __) => const Scaffold(
-                      body: Center(child: Text('Settings Content')),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ],
@@ -90,7 +80,10 @@ void main() {
       expect(find.text('Cloud'), findsOneWidget);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('People'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+      // Settings left the bottom bar: it lives behind the top-right gear on
+      // each tab's app bar (Google Photos style).
+      expect(find.text('Settings'), findsNothing);
+      expect(find.byType(NavigationDestination), findsNWidgets(4));
     });
 
     testWidgets('renders navigation rail on tablet', (tester) async {
@@ -122,7 +115,7 @@ void main() {
       expect(find.text('Map Content'), findsOneWidget);
     });
 
-    testWidgets('displays correct tab content on settings tap', (tester) async {
+    testWidgets('does not host a settings tab', (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -130,13 +123,11 @@ void main() {
       await tester.pumpWidget(buildTestWidget(width: 400));
       await tester.pumpAndSettle();
 
-      expect(find.text('Local Content'), findsOneWidget);
-
-      await tester.tap(find.byIcon(Symbols.settings));
-      await tester.pumpAndSettle();
-
-      expect(navigationShell.currentIndex, equals(4));
-      expect(find.text('Settings Content'), findsOneWidget);
+      // Tapping the gear is the settings entry point, and the gear belongs
+      // to the individual tab screens — not to the shell. The shell only
+      // offers the four content destinations.
+      expect(find.byIcon(Symbols.settings), findsNothing);
+      expect(navigationShell.currentIndex, equals(0));
     });
 
     testWidgets('displays correct tab content on people tap', (tester) async {

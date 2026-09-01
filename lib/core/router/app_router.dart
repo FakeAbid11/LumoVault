@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -200,23 +200,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-
-          // Tab 5: Settings
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/settings',
-                pageBuilder: (context, state) => CustomTransitionPage<void>(
-                  key: state.pageKey,
-                  child: const SettingsScreen(),
-                  transitionDuration: Duration.zero,
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) => child,
-                ),
-              ),
-            ],
-          ),
         ],
+      ),
+
+      // Settings — opened from the top-right gear on every tab's app bar
+      // (Google Photos style): a regular route instead of a shell branch,
+      // so the bottom bar only holds content tabs and Settings slides in
+      // full-screen with a back arrow.
+      GoRoute(
+        path: '/settings',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const SettingsScreen(), state),
       ),
 
       // Restore flow

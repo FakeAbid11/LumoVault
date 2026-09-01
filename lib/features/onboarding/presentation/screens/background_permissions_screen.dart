@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/device/brand_settings.dart';
 import '../../../../core/device/device_info_service.dart';
 import '../providers/onboarding_provider.dart';
@@ -25,6 +26,7 @@ class _BackgroundPermissionsScreenState
   int _currentStep = 0;
   String? _packageName;
   DeviceBrand _brand = DeviceBrand.other;
+  bool _brandLoaded = false;
   final Set<int> _completedSteps = {};
 
   List<_Step> _steps = [];
@@ -38,13 +40,23 @@ class _BackgroundPermissionsScreenState
   Future<void> _loadBrand() async {
     final deviceInfo = DeviceInfoService();
     final brand = await deviceInfo.getDeviceBrand();
-    _packageName = 'com.lumovault.app';
+    // Resolved from the platform so a renamed applicationId never desyncs
+    // the deep links (was previously hardcoded to 'com.lumovault.app').
+    final packageName = await BrandSettings.resolvePackageName();
 
     if (!mounted) return;
     setState(() {
       _brand = brand;
+      _packageName = packageName;
       _steps = _getSteps(brand);
+      _brandLoaded = true;
     });
+
+    // Stock devices (Pixel, Nokia, …) have no per-brand steps. This screen is
+    // normally gated behind _needsBackgroundGuide, but a manual navigation or
+    // a missed manufacturer flag would otherwise strand the user on an
+    // infinite spinner — record the step and move on instead.
+    if (_steps.isEmpty) _finish();
   }
 
   List<_Step> _getSteps(DeviceBrand brand) {
@@ -115,7 +127,13 @@ class _BackgroundPermissionsScreenState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    if (!_brandLoaded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     if (_steps.isEmpty) {
+      // _loadBrand auto-advances empty-brand devices; show a neutral frame
+      // for the one frame before the navigation lands.
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -176,7 +194,7 @@ class _BackgroundPermissionsScreenState
                     const SizedBox(height: 24),
                     _InstructionCard(
                       instruction: step.instruction,
-                      packageName: _packageName ?? 'com.lumovault.app',
+                      packageName: _packageName ?? AppConstants.packageName,
                       onOpenSettings: step.onOpenSettings,
                       isManualStep: step.isManual,
                       isCompleted: _completedSteps.contains(_currentStep),
@@ -262,6 +280,22 @@ class _InstructionCard extends StatelessWidget {
   final bool isCompleted;
   final VoidCallback onMarkCompleted;
 
+  /// Launches the step's settings page, surfacing a fallback hint when every
+  /// launch path fails instead of failing silently. The messenger is
+  /// captured before the await: after Settings opens, this card's context
+  /// may be deactivated.
+  Future<void> _openSettings(BuildContext context) async {
+    final open = onOpenSettings;
+    if (open == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await open(packageName);
+    if (!ok) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(kOpenSettingsFallbackHint)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -298,11 +332,7 @@ class _InstructionCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () async {
-                    if (onOpenSettings != null) {
-                      await onOpenSettings!(packageName);
-                    }
-                  },
+                  onPressed: () => _openSettings(context),
                   icon: const Icon(Symbols.open_in_new, size: 18),
                   label: const Text('Open Settings'),
                 ),

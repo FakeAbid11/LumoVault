@@ -174,6 +174,21 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
     });
   }
 
+  /// Runs one of the card's "Open Settings" launches, surfacing a fallback
+  /// hint when every launch path fails instead of failing silently. The
+  /// messenger is captured before the await: after Settings opens, this
+  /// widget's context may be deactivated.
+  Future<void> _openSettingsSafely(Future<bool> Function()? open) async {
+    if (open == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await open();
+    if (!ok) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(kOpenSettingsFallbackHint)),
+      );
+    }
+  }
+
   Widget _buildStep(
     BuildContext context, {
     required int stepNumber,
@@ -182,7 +197,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
     required IconData icon,
     required bool isCompleted,
     required VoidCallback onToggle,
-    VoidCallback? onOpenSettings,
+    Future<bool> Function()? onOpenSettings,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -246,7 +261,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
                 if (onOpenSettings != null && !isCompleted) ...[
                   const SizedBox(height: 4),
                   TextButton.icon(
-                    onPressed: onOpenSettings,
+                    onPressed: () => _openSettingsSafely(onOpenSettings),
                     icon: const Icon(Symbols.open_in_new, size: 16),
                     label: const Text('Open Settings'),
                     style: TextButton.styleFrom(

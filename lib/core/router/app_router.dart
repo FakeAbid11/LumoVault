@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -90,6 +90,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnboardingRoute = state.matchedLocation.startsWith('/onboarding');
       if (!onboardingCompleted.value) {
         return isOnboardingRoute ? null : '/onboarding/welcome';
+      }
+      // Onboarding is complete, but a user who skipped Telegram login can
+      // return to it deliberately (Timeline's sign-in prompt pushes this
+      // route with the reentry marker).
+      final isLoginReentry =
+          state.matchedLocation == '/onboarding/telegram' &&
+          state.uri.queryParameters['reentry'] == 'true';
+      if (isLoginReentry) {
+        return null;
       }
       return isOnboardingRoute ? '/local' : null;
     },

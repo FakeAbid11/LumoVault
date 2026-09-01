@@ -54,6 +54,29 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
     }
   }
 
+  /// Complete onboarding without a Telegram account. The app stays fully
+  /// usable for local galleries; the Timeline tab's sign-in prompt is how a
+  /// skipped user returns to this screen when they're ready.
+  Future<void> _skipForNow() async {
+    ref.read(onboardingProvider.notifier).completeOnboarding();
+    ref.read(onboardingCompletedProvider.notifier).state = true;
+
+    // Single-write contract, same as _onAuthSuccess: persist onboarding
+    // completion (and any folders picked in the previous step) together.
+    final selectedFolders = ref.read(onboardingProvider).selectedFolders;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .updateField(
+          (s) => s.copyWith(
+            onboardingCompleted: true,
+            includedFolders: selectedFolders.toList(),
+          ),
+        );
+
+    if (!mounted) return;
+    context.go('/local');
+  }
+
   /// Explain what the 2FA password is and where to reset it.
   ///
   /// This used to be a dead button — TDLib offers no in-app reset here
@@ -640,6 +663,22 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                 currentStep: onboarding.currentStep,
               ),
             ),
+
+            // Skip button — lets a user defer Telegram login and explore the
+            // app first. Only offered while unauthenticated: once signed in,
+            // completing onboarding is the only path forward. The Timeline
+            // tab's sign-in prompt is how a skipped user returns here.
+            if (_authState == AuthState.unauthenticated)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: _skipForNow,
+                    child: const Text('Skip for now'),
+                  ),
+                ),
+              ),
 
             // Back button
             if (_authState != AuthState.authenticated)

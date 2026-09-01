@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/tdlib_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
@@ -87,7 +88,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     int total,
   ) {
     if (uploadedItems.isEmpty && !isScanning) {
-      return _buildEmptyState(context);
+      return _buildEmptyState(
+        context,
+        isAuthenticated: ref.watch(isAuthenticatedProvider),
+      );
     }
 
     if (uploadedItems.isEmpty && isScanning) {
@@ -224,7 +228,28 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(
+    BuildContext context, {
+    required bool isAuthenticated,
+  }) {
+    // A user who skipped Telegram login during onboarding lands here with an
+    // empty timeline — offer the way back into login instead of the generic
+    // backup CTA (which can't do anything without a channel).
+    if (!isAuthenticated) {
+      return EmptyState(
+        icon: Symbols.cloud_off,
+        title: 'Sign in to Telegram',
+        message:
+            'Your backups live in a private channel\nin your own Telegram '
+            'account. Sign in to start\nbacking up your photos.',
+        action: FilledButton.icon(
+          onPressed: () => context.push('/onboarding/telegram?reentry=true'),
+          icon: const Icon(Icons.telegram),
+          label: const Text('Sign in'),
+        ),
+      );
+    }
+
     return EmptyState(
       icon: Symbols.cloud_done,
       title: 'No backed up photos yet',

@@ -139,5 +139,42 @@ void main() {
       expect(find.byType(LocalScreen), findsOneWidget);
       expect(container.read(routerProvider).state.uri.path, '/local');
     });
+
+    testWidgets(
+      'admits the flagged telegram login route after onboarding completed',
+      (tester) async {
+        // Simulates a user who skipped login during onboarding coming back
+        // via the Timeline tab's sign-in prompt.
+        final container = _container(onboardingCompleted: true);
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(_buildApp(container));
+        await tester.pumpAndSettle();
+
+        container.read(routerProvider).go('/onboarding/telegram?reentry=true');
+        await tester.pumpAndSettle();
+
+        expect(
+          container.read(routerProvider).state.uri.path,
+          '/onboarding/telegram',
+        );
+      },
+    );
+
+    testWidgets(
+      'still redirects unflagged onboarding routes after completion',
+      (tester) async {
+        final container = _container(onboardingCompleted: true);
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(_buildApp(container));
+        await tester.pumpAndSettle();
+
+        container.read(routerProvider).go('/onboarding/welcome');
+        await tester.pumpAndSettle();
+
+        expect(container.read(routerProvider).state.uri.path, '/local');
+      },
+    );
   });
 }

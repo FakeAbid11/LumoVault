@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/device/brand_settings.dart';
 import '../../../../core/device/device_info_service.dart';
+import '../../../../core/theme/status_color.dart';
 import '../providers/onboarding_provider.dart';
 
 /// Full-screen background permissions guide for aggressive Android skins.
@@ -314,7 +315,7 @@ class _InstructionCard extends StatelessWidget {
                 Icon(
                   isCompleted ? Symbols.check_circle : Symbols.info,
                   size: 20,
-                  color: isCompleted ? Colors.green : scheme.primary,
+                  color: isCompleted ? successColor : scheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -349,12 +350,12 @@ class _InstructionCard extends StatelessWidget {
             if (isCompleted)
               Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const Icon(Icons.check_circle, color: successColor, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Completed',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.green,
+                      color: successColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

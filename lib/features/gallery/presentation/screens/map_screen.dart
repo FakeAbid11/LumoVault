@@ -397,15 +397,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   /// Open a single photo in the media viewer.
-  void _openItem(BuildContext context, MediaItem item) {
-    AssetEntity.fromId(item.localId).then((asset) {
+  Future<void> _openItem(BuildContext context, MediaItem item) async {
+    try {
+      final asset = await AssetEntity.fromId(
+        item.localId,
+      ).timeout(const Duration(seconds: 15));
       if (asset != null && context.mounted) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: true),
         );
       }
-    });
+    } catch (_) {
+      // Missing asset, timeout, or revoked permission — nothing to open.
+    }
   }
 
   /// Open cluster photos in media viewer with full album swipe.
@@ -417,12 +422,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final validAssets = <AssetEntity>[];
     int targetIndex = 0;
     for (int i = 0; i < items.length; i++) {
-      final asset = await AssetEntity.fromId(items[i].localId);
-      if (asset != null) {
-        if (i == initialIndex) {
-          targetIndex = validAssets.length;
+      try {
+        final asset = await AssetEntity.fromId(
+          items[i].localId,
+        ).timeout(const Duration(seconds: 15));
+        if (asset != null) {
+          if (i == initialIndex) {
+            targetIndex = validAssets.length;
+          }
+          validAssets.add(asset);
         }
-        validAssets.add(asset);
+      } catch (_) {
+        // Skip unreadable assets rather than failing the whole cluster.
       }
     }
     if (validAssets.isNotEmpty && context.mounted) {

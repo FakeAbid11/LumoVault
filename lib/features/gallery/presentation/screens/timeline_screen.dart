@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
@@ -43,10 +42,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch backup stats only for the loading indicator — don't rebuild the
-    // entire screen on every upload progress tick.
-    ref.watch(backupStatsProvider);
-    // Watch gallery changes (channel scan adds items here).
+    // Watch gallery changes (channel scan adds items here). Deliberately no
+    // watch of backupStatsProvider — upload progress ticks are high-frequency
+    // and would rebuild this whole screen (the grid already scopes its own
+    // reload generation below).
     final repository = ref.watch(galleryRepositoryProvider);
 
     // Watch channel scan progress for loading indicator.
@@ -181,11 +180,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  void _onItemTap(
+  Future<void> _onItemTap(
     BuildContext context,
     MediaItem item,
     List<MediaItem> allItems,
-  ) {
+  ) async {
     if (item.isTelegram) {
       // Telegram-only items have no local asset to open — show them in the
       // Telegram viewer, swiping through every Telegram item in the timeline.
@@ -199,16 +198,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     }
 
     // For local items, try to find the corresponding AssetEntity and open
-    // the media viewer.
-    final assetFuture = AssetEntity.fromId(item.localId);
-    assetFuture.then((asset) {
+    // the media viewer. Same defensive pattern as MediaTile's loader:
+    // photo_manager platform calls can stall or throw (permission revoked
+    // mid-session), and an uncaught error here would be fatal.
+    try {
+      final asset = await AssetEntity.fromId(
+        item.localId,
+      ).timeout(const Duration(seconds: 15));
       if (asset != null && context.mounted) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0),
         );
       }
-    });
+    } catch (_) {
+      // Missing asset, timeout, or revoked permission — nothing to open.
+    }
   }
 
   Widget _buildScanningState(int scanned, int total) {

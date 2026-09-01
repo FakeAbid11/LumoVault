@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,8 +29,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   int _scanProgress = 0;
   int _scanTotal = 0;
 
+  /// Debounces keystrokes so the O(n) substring filter over the whole library
+  /// (via [searchProvider]) runs once per pause in typing, not per character.
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -44,7 +51,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: TextField(
               controller: _controller,
               autofocus: true,
-              onChanged: (value) => setState(() => _query = value.trim()),
+              onChanged: (value) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 250), () {
+                  if (mounted) setState(() => _query = value.trim());
+                });
+              },
               decoration: InputDecoration(
                 hintText: 'Search photos, videos, or AI labels...',
                 prefixIcon: const Icon(Symbols.search),
@@ -52,7 +64,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ? null
                     : IconButton(
                         icon: const Icon(Symbols.close),
+                        tooltip: 'Clear search',
                         onPressed: () {
+                          _debounce?.cancel();
                           _controller.clear();
                           setState(() => _query = '');
                         },
@@ -382,6 +396,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
       if (!classifier.isReady) {
         debugPrint('[SearchScreen] Classifier failed to initialize');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not start the AI scanner on this device.'),
+            ),
+          );
+        }
         return;
       }
 
@@ -403,6 +424,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     } catch (e) {
       debugPrint('[SearchScreen] Scan failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI scan failed. Please try again.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _scanning = false);

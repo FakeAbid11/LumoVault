@@ -168,6 +168,9 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
   }
 
   Future<void> _verifyCode() async {
+    // Re-entry guard: the button is disabled while loading, but this also
+    // stops a rapid second tap from re-firing the TDLib request mid-flight.
+    if (_authState == AuthState.loading) return;
     final authService = ref.read(authServiceProvider);
     final code = _codeController.text.trim();
 
@@ -211,6 +214,8 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
   }
 
   Future<void> _submitPassword() async {
+    // Re-entry guard: same rationale as _verifyCode.
+    if (_authState == AuthState.loading) return;
     final authService = ref.read(authServiceProvider);
     final password = _passwordController.text;
 
@@ -518,7 +523,9 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: _verifyCode,
+                          onPressed: _authState == AuthState.loading
+                              ? null
+                              : _verifyCode,
                           child: const Text('Verify'),
                         ),
                       ),
@@ -562,6 +569,9 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                                   ? Symbols.visibility_off
                                   : Symbols.visibility,
                             ),
+                            tooltip: _passwordVisible
+                                ? 'Hide password'
+                                : 'Show password',
                             onPressed: () {
                               setState(() {
                                 _passwordVisible = !_passwordVisible;
@@ -576,7 +586,9 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: _submitPassword,
+                          onPressed: _authState == AuthState.loading
+                              ? null
+                              : _submitPassword,
                           child: const Text('Verify'),
                         ),
                       ),

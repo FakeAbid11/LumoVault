@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/theme/status_color.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../backup/engine/backup_engine.dart';
 import '../../../gallery/data/models/device_folder.dart';
@@ -63,7 +64,7 @@ class StorageInsightsScreen extends ConsumerWidget {
                       label: 'Backed Up',
                       count: '${usage.telegramItemCount}',
                       size: formatBytes(usage.telegramBytes),
-                      color: Colors.green,
+                      color: successColor,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -580,7 +581,7 @@ class _BackupHealthSection extends StatelessWidget {
               icon: Symbols.cloud_done,
               label: 'Last backup',
               value: lastBackupText,
-              color: lastBackup != null ? Colors.green : scheme.error,
+              color: lastBackup != null ? successColor : scheme.error,
             ),
             const SizedBox(height: 8),
             if (stats.failedCount > 0)

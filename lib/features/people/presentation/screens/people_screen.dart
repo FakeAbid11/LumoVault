@@ -75,6 +75,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       return AppBar(
         leading: IconButton(
           icon: const Icon(Symbols.close),
+          tooltip: 'Exit selection',
           onPressed: _exitSelection,
         ),
         title: Text('${_selectedIds.length} selected'),

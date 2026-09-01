@@ -9,6 +9,7 @@ import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
+import '../../../../core/theme/status_color.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../data/models/media_item.dart';
 import '../screens/location_picker_screen.dart';
@@ -230,7 +231,7 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
           children: [
             Icon(
               isUploaded ? Symbols.cloud_done : Symbols.cloud_queue,
-              color: isUploaded ? Colors.green : colorScheme.onSurfaceVariant,
+              color: isUploaded ? successColor : colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(width: 12),

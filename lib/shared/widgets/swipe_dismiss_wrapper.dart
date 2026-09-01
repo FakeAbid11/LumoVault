@@ -33,7 +33,7 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
   int _pointerCount = 0;
 
   late final AnimationController _resetController;
-  late Animation<double> _resetAnimation;
+  Animation<double>? _resetAnimation;
 
   @override
   void initState() {
@@ -42,10 +42,22 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+    // One persistent listener for the widget's whole life. The reset
+    // animation is re-created per drag (see _onVerticalDragEnd); attaching a
+    // listener there instead used to accumulate one per drag on this shared
+    // controller — N gestures meant N setState calls per animation tick.
+    _resetController.addListener(_onResetTick);
+  }
+
+  void _onResetTick() {
+    final animation = _resetAnimation;
+    if (animation == null || !mounted) return;
+    setState(() => _dragOffset = animation.value);
   }
 
   @override
   void dispose() {
+    _resetController.removeListener(_onResetTick);
     _resetController.dispose();
     super.dispose();
   }
@@ -119,14 +131,9 @@ class _SwipeDismissWrapperState extends State<SwipeDismissWrapper>
         Navigator.of(context).pop();
       }
     } else {
-      _resetAnimation =
-          Tween<double>(begin: _dragOffset, end: 0.0).animate(
-            CurvedAnimation(parent: _resetController, curve: Curves.easeOut),
-          )..addListener(() {
-            setState(() {
-              _dragOffset = _resetAnimation.value;
-            });
-          });
+      _resetAnimation = Tween<double>(begin: _dragOffset, end: 0.0).animate(
+        CurvedAnimation(parent: _resetController, curve: Curves.easeOut),
+      );
       _resetController.forward(from: 0.0);
     }
   }

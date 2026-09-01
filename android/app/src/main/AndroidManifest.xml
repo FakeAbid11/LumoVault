@@ -58,6 +58,17 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- Force the Skia renderer instead of Impeller. Impeller's present
+             path on some OEM builds (MIUI/HyperOS especially) reports black
+             frames to MediaProjection-based screen recorders while the
+             physical display renders fine — reported as the gallery going
+             black the moment bulk-select added new raster layers. Skia has
+             no such capture regression. Revisit when the engine fix lands
+             upstream (flutter/flutter Impeller MediaProjection issues). -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
         <!-- WorkManager's foreground service hosts long-running backup runs.
              On Android 14+ (API 34) a running foreground service must declare
              its type; dataSync matches the ForegroundInfo built in the vendored

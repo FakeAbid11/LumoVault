@@ -2,7 +2,6 @@ package com.lumovault.app
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.SecurityException
 import android.net.Uri
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity

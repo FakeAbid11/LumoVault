@@ -89,27 +89,28 @@ class PhotoManagerScannerService implements MediaScannerService {
     // reported against one consistent grand total throughout the scan.
     int grandTotal = 0;
     for (final album in albums) {
-      final albumName = p.basename(album.name);
-      if (includedFolders != null && !includedFolders.contains(albumName)) {
+      // Key on the OS album id, matching what folder selection stores —
+      // album display names are neither unique nor rename-stable.
+      if (includedFolders != null && !includedFolders.contains(album.id)) {
         continue;
       }
       grandTotal += await album.assetCountAsync;
     }
 
     for (final album in albums) {
-      final albumName = p.basename(album.name);
-
-      if (includedFolders != null && !includedFolders.contains(albumName)) {
+      // Same filter as the grand-total loop above.
+      if (includedFolders != null && !includedFolders.contains(album.id)) {
         continue;
       }
 
       final assetCount = await album.assetCountAsync;
+      final albumName = p.basename(album.name);
 
       folders.add(
         DeviceFolder(
-          path: album.name,
+          path: album.id,
           name: albumName,
-          isIncluded: includedFolders?.contains(albumName) ?? true,
+          isIncluded: includedFolders?.contains(album.id) ?? true,
           totalItems: assetCount,
           totalSize: 0,
           lastScannedAt: DateTime.now(),

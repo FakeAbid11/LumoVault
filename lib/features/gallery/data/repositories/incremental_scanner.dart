@@ -167,11 +167,12 @@ class IncrementalScanner {
               asset,
             ).timeout(const Duration(seconds: 90), onTimeout: () => null);
             if (built != null) {
-              // deviceFolder := album.name (the value stored in includedFolders,
-              // and what the full scanner uses) so the scheduler's folder gate
-              // matches; auto-include when the user filtered to this folder.
+              // deviceFolder := the album's stable id (the value stored in
+              // includedFolders, and what the full scanner uses) so the scheduler's
+              // folder gate matches; auto-include when the user filtered to this
+              // folder.
               final item = built.copyWith(
-                deviceFolder: album.name,
+                deviceFolder: album.id,
                 isExcluded: filterActive ? false : built.isExcluded,
               );
               newItems.add(item);
@@ -192,7 +193,7 @@ class IncrementalScanner {
               ).timeout(const Duration(seconds: 90), onTimeout: () => null);
               if (built != null) {
                 final updated = built.copyWith(
-                  deviceFolder: album.name,
+                  deviceFolder: album.id,
                   isExcluded: filterActive ? false : built.isExcluded,
                 );
                 updatedItems.add(updated);

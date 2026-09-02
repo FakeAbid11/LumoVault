@@ -52,7 +52,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         actions: const [SettingsGearButton()],
       ),
       body: photosAsync.when(
-        loading: () => _buildMapOnly(),
+        loading: () => _buildLoadingMap(),
         // The one failure the tile layer can't show for itself: the photo
         // data failed to load. Keep the basemap visible (it has its own
         // error handling) and layer the problem message over it, instead of
@@ -60,6 +60,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         error: (error, _) => Stack(
           children: [
             _buildMapOnly(),
+            _mapStatusOverlay(),
             _ErrorCard(message: 'Could not load the map: $error'),
           ],
         ),
@@ -88,6 +89,45 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  /// Map plus a progress hint, shown until the photo-location stream emits.
+  /// Resolving GPS for a large library takes seconds — without this pill the
+  /// tab reads as a blank, broken map rather than a loading one. The status
+  /// overlay covers the tiles' own failure mode even before photo data is
+  /// ready.
+  Widget _buildLoadingMap() {
+    return Stack(
+      children: [
+        _buildMapOnly(),
+        _mapStatusOverlay(),
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 48,
+          child: Center(child: _StatusPill(label: 'Loading photos…')),
+        ),
+      ],
+    );
+  }
+
+  /// The offline / tile-failure banner (or nothing), positioned over the top
+  /// of the map. Shared by every body branch so the basemap's failure state
+  /// is visible no matter what the photo data is doing — including while it
+  /// is still loading.
+  Widget _mapStatusOverlay() {
+    final offline = !ref.watch(isOnlineProvider);
+    final tileError = ref.watch(mapTileStatusProvider).hasFailures;
+    if (!offline && !tileError) return const SizedBox.shrink();
+    return Positioned(
+      top: 8,
+      left: 12,
+      right: 12,
+      child: SafeArea(
+        bottom: false,
+        child: offline ? const _OfflineBanner() : const MapTileErrorBanner(),
+      ),
+    );
+  }
+
   Widget _buildBody(BuildContext context, List<MediaItem> photos) {
     if (photos.isEmpty) return _buildEmptyState(context);
 
@@ -101,35 +141,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
-    // The basemap fails silently on its own: surface both failure modes we
-    // can detect — device offline (connectivity) and tile fetch errors (the
-    // tile layer reports into mapTileStatusProvider) — as a banner overlay.
-    final offline = !ref.watch(isOnlineProvider);
-    final tileError = ref.watch(mapTileStatusProvider).hasFailures;
-    final showBanner = offline || tileError;
-
     return Stack(
       children: [
-        if (showBanner)
-          Positioned(
-            top: 8,
-            left: 12,
-            right: 12,
-            child: SafeArea(
-              bottom: false,
-              child: offline
-                  ? const _OfflineBanner()
-                  : const MapTileErrorBanner(),
-            ),
-          ),
+        _mapStatusOverlay(),
         Padding(
           padding: EdgeInsets.only(bottom: capsuleClearance),
           child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: points.first,
-              initialZoom: 4,
-              initialCameraFit: points.length > 1
+              initialZoom: _pointsHaveSpan(points) ? 4 : 14,
+              // A zero-area bounds (every photo sharing one GPS fix — burst
+              // shots, same-second captures) makes CameraFit produce an
+              // infinite/NaN camera that renders nothing: no tiles, no pins,
+              // and no tile errors to raise the failure banner (the
+              // blank-map report). Only fit when the points span an area.
+              initialCameraFit: _pointsHaveSpan(points)
                   ? CameraFit.bounds(
                       bounds: LatLngBounds.fromPoints(points),
                       padding: const EdgeInsets.all(48),
@@ -185,18 +212,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  /// Whether the points cover a non-degenerate area. A small epsilon counts
+  /// near-identical GPS fixes (re-reads of the same shot) as one location.
+  bool _pointsHaveSpan(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = minLat;
+    var minLng = points.first.longitude;
+    var maxLng = minLng;
+    for (final p in points) {
+      minLat = math.min(minLat, p.latitude);
+      maxLat = math.max(maxLat, p.latitude);
+      minLng = math.min(minLng, p.longitude);
+      maxLng = math.max(maxLng, p.longitude);
+    }
+    const epsilon = 1e-6; // ~0.1 m.
+    return (maxLat - minLat) > epsilon || (maxLng - minLng) > epsilon;
+  }
+
   void _fitAllPoints(List<LatLng> points) {
     HapticFeedback.lightImpact();
-    if (points.length == 1) {
-      _mapController.move(points.first, 14);
-    } else if (points.length > 1) {
-      _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(points),
-          padding: const EdgeInsets.all(48),
-        ),
-      );
+    // Same degenerate-bounds guard as the initial camera fit: fitting a
+    // zero-area bounds would move the camera to an infinite/NaN zoom.
+    if (points.isEmpty || !_pointsHaveSpan(points)) {
+      if (points.isNotEmpty) _mapController.move(points.first, 14);
+      return;
     }
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(48),
+      ),
+    );
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
@@ -651,6 +697,32 @@ class _OfflineBanner extends StatelessWidget {
               ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small rounded hint pill (e.g. "Loading photos…") so a slow state reads as
+/// progress rather than a silently broken map.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
         ),
       ),
     );

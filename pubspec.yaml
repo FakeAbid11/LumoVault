@@ -47,10 +47,13 @@ dependencies:
   # no API key; latlong2 supplies its LatLng type; the marker-cluster plugin
   # collapses nearby pins. geolocator is used ONLY to center the map on the
   # device's current location — photo coordinates come from photo_manager EXIF.
+  # http is a direct dependency so the tile layer can bound fetches with a
+  # request timeout (flutter_map's default client has none — see OsmTileLayer).
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   flutter_map_marker_cluster: ^1.4.0
   geolocator: ^13.0.1
+  http: ^1.2.0
 
   # Battery/Charging State
   battery_plus: ^6.2.0

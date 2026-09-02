@@ -12,6 +12,7 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
+import '../../../../shared/utils/snackbars.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
@@ -441,9 +442,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${ids.length} selected for backup')),
-    );
+    showLumoSnackBar(context, '${ids.length} selected for backup');
     setState(() {});
   }
 
@@ -488,27 +487,18 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       ref.invalidate(trashedItemsProvider);
       setState(_multiSelected.clear);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${trashed.length} moved to trash · deletes in 30 days',
-          ),
-        ),
+      showLumoSnackBar(
+        context,
+        '${trashed.length} moved to trash · deletes in 30 days',
       );
     } on PlatformException {
       // moveToTrash is Android 11+ (API 30) only — older versions have no
       // MediaStore trash, so there's no 30-day-recovery delete to offer.
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Moving to trash needs Android 11 or newer'),
-        ),
-      );
+      showLumoSnackBar(context, 'Moving to trash needs Android 11 or newer');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t move these to trash')),
-      );
+      showLumoSnackBar(context, 'Couldn’t move these to trash');
     }
   }
 

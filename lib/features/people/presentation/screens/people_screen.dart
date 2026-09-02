@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/utils/snackbars.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/settings_gear_button.dart';
@@ -19,10 +20,22 @@ class PeopleScreen extends ConsumerStatefulWidget {
 class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   final Set<int> _selectedIds = {};
 
-  bool get _selectionMode => _selectedIds.isNotEmpty;
+  /// Explicitly entered via the app bar's Select action; long-pressing a
+  /// tile also implies it. Kept separate from [_selectedIds] so Select can
+  /// open an empty multi-select instead of preselecting someone.
+  bool _selectMode = false;
+
+  /// A destructive mutation (merge/delete) is in flight — buttons are
+  /// disabled while true so the operation can't be fired twice.
+  bool _isMutating = false;
+
+  bool get _selectionMode => _selectMode || _selectedIds.isNotEmpty;
 
   void _exitSelection() {
-    setState(() => _selectedIds.clear());
+    setState(() {
+      _selectMode = false;
+      _selectedIds.clear();
+    });
   }
 
   void _toggleSelection(int personId) {
@@ -35,10 +48,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     });
   }
 
-  void _enterSelection(int personId) {
+  void _enterSelection([int? personId]) {
     setState(() {
+      _selectMode = true;
       _selectedIds.clear();
-      _selectedIds.add(personId);
+      if (personId != null) {
+        _selectedIds.add(personId);
+      }
     });
   }
 
@@ -54,7 +70,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         if (!didPop) _exitSelection();
       },
       child: Scaffold(
-        appBar: _buildAppBar(scanProgress),
+        appBar: _buildAppBar(scanProgress, peopleAsync),
         body: Stack(
           children: [
             _buildBody(context, ref, peopleAsync, scanProgress, unscannedAsync),
@@ -71,7 +87,10 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(FaceScanProgress scanProgress) {
+  PreferredSizeWidget _buildAppBar(
+    FaceScanProgress scanProgress,
+    AsyncValue<List<dynamic>> peopleAsync,
+  ) {
     if (_selectionMode) {
       return AppBar(
         leading: IconButton(
@@ -84,14 +103,14 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
           IconButton(
             icon: const Icon(Symbols.merge),
             tooltip: 'Merge selected',
-            onPressed: _selectedIds.length >= 2
+            onPressed: !_isMutating && _selectedIds.length >= 2
                 ? () => _showMergeDialog()
                 : null,
           ),
           IconButton(
             icon: const Icon(Symbols.delete),
             tooltip: 'Delete selected',
-            onPressed: () => _showDeleteDialog(),
+            onPressed: _isMutating ? null : () => _showDeleteDialog(),
           ),
         ],
       );
@@ -112,6 +131,10 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               ),
             ),
           ),
+        // Visible entry point for multi-select — long-press alone is
+        // undiscoverable (and unreachable via switch access/screen readers).
+        if (peopleAsync.valueOrNull?.isNotEmpty ?? false)
+          TextButton(onPressed: _enterSelection, child: const Text('Select')),
         const SettingsGearButton(),
       ],
     );
@@ -179,7 +202,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               if (people.isEmpty) {
                 return _buildScanningState(scanProgress);
               }
-              return _buildPeopleGrid(context, ref, people, unscannedAsync);
+              return _buildPeopleGrid(
+                context,
+                ref,
+                people,
+                unscannedAsync,
+                scanProgress,
+              );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) =>
@@ -245,11 +274,12 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     WidgetRef ref,
     List<dynamic> people,
     AsyncValue<bool> unscannedAsync,
+    FaceScanProgress scanProgress,
   ) {
     final hasUnscanned = unscannedAsync.valueOrNull ?? false;
     return Column(
       children: [
-        if (hasUnscanned && !ref.read(faceScanControllerProvider).isScanning)
+        if (hasUnscanned && !scanProgress.isScanning)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Card(
@@ -354,9 +384,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   Future<void> _showMergeDialog() async {
     if (_selectedIds.length < 2) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Select at least 2 people to merge')),
-        );
+        showLumoSnackBar(context, 'Select at least 2 people to merge');
       }
       return;
     }
@@ -417,12 +445,21 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     if (confirmed != true || !mounted) return;
 
     final sourceIds = _selectedIds.where((id) => id != targetId).toList();
-    await ref
-        .read(faceRepositoryProvider)
-        .bulkMergePersons(sourceIds, targetId);
-    ref.invalidate(peopleProvider);
-    ref.invalidate(faceCountProvider);
-    _exitSelection();
+    setState(() => _isMutating = true);
+    try {
+      await ref
+          .read(faceRepositoryProvider)
+          .bulkMergePersons(sourceIds, targetId);
+      ref.invalidate(peopleProvider);
+      ref.invalidate(faceCountProvider);
+      if (mounted) _exitSelection();
+    } catch (_) {
+      if (mounted) {
+        showLumoSnackBar(context, 'Couldn’t merge — please try again');
+      }
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
+    }
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -459,11 +496,20 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    await ref
-        .read(faceRepositoryProvider)
-        .bulkDeletePersons(_selectedIds.toList());
-    ref.invalidate(peopleProvider);
-    ref.invalidate(faceCountProvider);
-    _exitSelection();
+    setState(() => _isMutating = true);
+    try {
+      await ref
+          .read(faceRepositoryProvider)
+          .bulkDeletePersons(_selectedIds.toList());
+      ref.invalidate(peopleProvider);
+      ref.invalidate(faceCountProvider);
+      if (mounted) _exitSelection();
+    } catch (_) {
+      if (mounted) {
+        showLumoSnackBar(context, 'Couldn’t delete — please try again');
+      }
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
+    }
   }
 }

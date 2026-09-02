@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
+import '../../../../shared/utils/snackbars.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
@@ -81,41 +84,52 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget _buildBody(BuildContext context, List<MediaItem> photos) {
     if (photos.isEmpty) return _buildEmptyState(context);
 
+    // The shell floats its navigation capsule over this tab's body
+    // (Scaffold.extendBody) — keep the map canvas, attribution and FABs
+    // clear of it. 84 = SafeArea minimum bottom (28) + NavigationBar (56).
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final double capsuleClearance = MediaQuery.sizeOf(context).width < 600
+        ? math.max(bottomInset, 84)
+        : bottomInset;
+
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: points.first,
-            initialZoom: 4,
-            initialCameraFit: points.length > 1
-                ? CameraFit.bounds(
-                    bounds: LatLngBounds.fromPoints(points),
-                    padding: const EdgeInsets.all(48),
-                  )
-                : null,
-          ),
-          children: [
-            const OsmTileLayer(),
-            _buildClusterLayer(context, photos),
-            RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution(
-                  'OpenStreetMap contributors',
-                  onTap: () => launchUrl(
-                    Uri.parse('https://openstreetmap.org/copyright'),
-                  ),
-                ),
-              ],
+        Padding(
+          padding: EdgeInsets.only(bottom: capsuleClearance),
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: points.first,
+              initialZoom: 4,
+              initialCameraFit: points.length > 1
+                  ? CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints(points),
+                      padding: const EdgeInsets.all(48),
+                    )
+                  : null,
             ),
-          ],
+            children: [
+              const OsmTileLayer(),
+              _buildClusterLayer(context, photos),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: () => launchUrl(
+                      Uri.parse('https://openstreetmap.org/copyright'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         // Floating map controls: Fit All Photos & My Location
         Positioned(
           right: 16,
-          bottom: 16,
+          bottom: capsuleClearance + 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -479,9 +493,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showLumoSnackBar(context, message);
   }
 }
 

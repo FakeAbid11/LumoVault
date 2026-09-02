@@ -18,8 +18,11 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
+import '../widgets/map_tile_error_banner.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
+import '../../../../shared/providers/connectivity_provider.dart';
+import '../../../../shared/providers/map_tile_status_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Immich & Google Photos style photo map: plots every device photo that carries GPS EXIF as a
@@ -50,11 +53,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
       body: photosAsync.when(
         loading: () => _buildMapOnly(),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Could not load the map: $error'),
-          ),
+        // The one failure the tile layer can't show for itself: the photo
+        // data failed to load. Keep the basemap visible (it has its own
+        // error handling) and layer the problem message over it, instead of
+        // a blank page with no way to see the map.
+        error: (error, _) => Stack(
+          children: [
+            _buildMapOnly(),
+            _ErrorCard(message: 'Could not load the map: $error'),
+          ],
         ),
         data: (photos) => _buildBody(context, photos),
       ),
@@ -94,8 +101,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
+    // The basemap fails silently on its own: surface both failure modes we
+    // can detect — device offline (connectivity) and tile fetch errors (the
+    // tile layer reports into mapTileStatusProvider) — as a banner overlay.
+    final offline = !ref.watch(isOnlineProvider);
+    final tileError = ref.watch(mapTileStatusProvider).hasFailures;
+    final showBanner = offline || tileError;
+
     return Stack(
       children: [
+        if (showBanner)
+          Positioned(
+            top: 8,
+            left: 12,
+            right: 12,
+            child: SafeArea(
+              bottom: false,
+              child: offline
+                  ? const _OfflineBanner()
+                  : const MapTileErrorBanner(),
+            ),
+          ),
         Padding(
           padding: EdgeInsets.only(bottom: capsuleClearance),
           child: FlutterMap(
@@ -559,6 +585,74 @@ class _PhotoMarkerState extends State<_PhotoMarker> {
       widget.item.isVideo ? Symbols.videocam : Symbols.image,
       size: 20,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+  }
+}
+
+/// Overlay shown when the map's photo data fails to load. The basemap stays
+/// interactive underneath — this just explains why there are no pins.
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Positioned(
+      left: 24,
+      right: 24,
+      bottom: 48,
+      child: Card(
+        color: colors.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Symbols.error, color: colors.error),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact overlay shown when the device has no connectivity — the tile
+/// fetches will fail anyway, so this pre-empts the tile-error banner with
+/// the more actionable cause.
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Symbols.wifi_off, size: 18, color: colors.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              "You're offline — the map needs a connection.",
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

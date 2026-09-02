@@ -392,18 +392,27 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
                   _zoomAnimation != null) {
                 _transformationController.value = _zoomAnimation!.value;
               }
-              return InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 1.0,
-                maxScale: 4.5,
-                panEnabled: true,
-                scaleEnabled: true,
-                clipBehavior: Clip.none,
-                child: Center(
-                  // No Hero here either — see media_viewer_screen.dart for
-                  // the duplicate-tag rationale.
-                  child: Image.file(File(filePath), fit: BoxFit.contain),
-                ),
+              return ValueListenableBuilder<Matrix4>(
+                valueListenable: _transformationController,
+                builder: (context, value, _) {
+                  final scale = value.getMaxScaleOnAxis();
+                  return InteractiveViewer(
+                    transformationController: _transformationController,
+                    minScale: 1.0,
+                    maxScale: 4.5,
+                    // Pan only while zoomed: at scale 1.0 an active pan
+                    // recognizer steals the horizontal drags the PageView
+                    // needs for photo-to-photo swiping.
+                    panEnabled: scale > 1.05,
+                    scaleEnabled: true,
+                    clipBehavior: Clip.none,
+                    child: Center(
+                      // No Hero here either — see media_viewer_screen.dart
+                      // for the duplicate-tag rationale.
+                      child: Image.file(File(filePath), fit: BoxFit.contain),
+                    ),
+                  );
+                },
               );
             },
           ),

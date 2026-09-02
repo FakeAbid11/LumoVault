@@ -108,7 +108,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       onRefresh: () async {
         HapticFeedback.mediumImpact();
         final scanNotifier = ref.read(channelScanStateProvider.notifier);
-        await scanNotifier.scan(forceRescan: true);
+        // Incremental: walk only the newest window of the channel so a
+        // pull-to-refresh surfaces recently uploaded photos in about a
+        // second, instead of re-paging the entire history (that full walk
+        // stays available via the overflow menu's "Rescan channel").
+        await scanNotifier.scan(incremental: true);
       },
       child: _buildGrid(context, uploadedItems, grouped),
     );

@@ -456,6 +456,90 @@ void main() {
       expect(await ThumbnailCache.instance.contains('msg_1'), isTrue);
     });
   });
+
+  group('ChannelScanService incremental refresh', () {
+    test(
+      'bounded walk stops at the message budget (page granularity)',
+      () async {
+        final client = _FakeTdRequests([
+          _page([for (var i = 1; i <= 100; i++) i]),
+          _page([for (var i = 101; i <= 200; i++) i]),
+          _page([for (var i = 201; i <= 300; i++) i]),
+          _page(const []),
+        ]);
+        final service = _service(client);
+
+        final incremental = await service.scanChannel(incremental: true);
+
+        // The budget is checked BEFORE fetching the next page, so the walk
+        // overshoots by at most one page: 3 requests, 300 messages, and the
+        // 4th request never happens. A full scan would have fetched 4 pages.
+        expect(client.calls.length, 3);
+        expect(incremental.totalItems, 300);
+        expect(incremental.newItems, 300);
+        expect(service.hasScanned, isTrue);
+      },
+    );
+
+    test(
+      'incremental bypasses the completed-scan replay and must not poison it',
+      () async {
+        final client = _FakeTdRequests([
+          {
+            'messages': [_document(1), _document(2)],
+          },
+          _page(const []),
+        ]);
+        final service = _service(client);
+
+        final full = await service.scanChannel();
+        expect(full.totalItems, 2);
+
+        // Pull-to-refresh: walk only the newest window. The completed-scan
+        // replay must not short-circuit this into returning the old result.
+        client.nextPages = [
+          {
+            'messages': [_document(3)],
+          },
+          _page(const []),
+        ];
+        final incremental = await service.scanChannel(incremental: true);
+        expect(incremental.alreadyScanned, isFalse);
+        expect(incremental.totalItems, 1);
+        expect(incremental.newItems, 1);
+
+        // A later plain scan() replays the FULL scan's result — the
+        // incremental totals only saw the newest window and must not
+        // replace it (that would under-report the library).
+        final replay = await service.scanChannel();
+        expect(replay.alreadyScanned, isTrue);
+        expect(replay.totalItems, 2);
+        expect(replay.hasBackup, isTrue);
+      },
+    );
+
+    test('incremental-first session seeds the replay result', () async {
+      final client = _FakeTdRequests([
+        {
+          'messages': [_document(1), _document(2)],
+        },
+        _page(const []),
+      ]);
+      final service = _service(client);
+
+      // No full scan ever ran — the incremental pass IS the first scan.
+      final first = await service.scanChannel(incremental: true);
+      expect(first.totalItems, 2);
+      expect(first.hasBackup, isTrue);
+
+      // A later plain scan() replays the seeded result instead of the
+      // zeroed "no backup" result (the historical replay bug).
+      final replay = await service.scanChannel();
+      expect(replay.alreadyScanned, isTrue);
+      expect(replay.totalItems, 2);
+      expect(replay.hasBackup, isTrue);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

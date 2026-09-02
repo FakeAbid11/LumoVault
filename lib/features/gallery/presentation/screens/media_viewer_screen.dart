@@ -570,6 +570,41 @@ class _AssetPreviewState extends State<_AssetPreview>
   /// photo instead of a bare spinner on black while the 1600px decode runs.
   Uint8List? _posterBytes;
 
+  /// Progressive hi-res zoom layer. The base decode is 1600px so the photo
+  /// opens instantly; past [_hiresZoomTrigger] a bounded 2800px decode runs
+  /// once and swaps in with gapless playback, so deep pinch-zoom stays sharp
+  /// instead of going soft. Uses thumbnailDataWithSize (platform-decoded,
+  /// cache-friendly) rather than originBytes — full-resolution bytes of a
+  /// 40MP+ photo would spike memory by hundreds of MB. The layer is dropped
+  /// when the user returns to fit-scale so paging through photos doesn't pin
+  /// large bitmaps in memory.
+  static const double _hiresZoomTrigger = 1.8;
+
+  Uint8List? _hiresBytes;
+  bool _hiresStarted = false;
+
+  /// Runs on every transformation tick (from the zoom target's build —
+  /// field mutation only, no setState; the decode completion below triggers
+  /// the real rebuild when it lands).
+  void _updateHiresLayer(double scale) {
+    if (_hiresBytes != null && scale <= 1.05) {
+      // Back at fit-scale: release the hi-res bitmap and allow a future
+      // zoom-in to fetch it again.
+      _hiresBytes = null;
+      _hiresStarted = false;
+      return;
+    }
+    if (_hiresStarted || scale <= _hiresZoomTrigger) return;
+    _hiresStarted = true;
+    widget.asset.thumbnailDataWithSize(const ThumbnailSize(2800, 2800)).then((
+      bytes,
+    ) {
+      if (mounted && bytes != null) {
+        setState(() => _hiresBytes = bytes);
+      }
+    }, onError: (Object _) {});
+  }
+
   final TransformationController _transformationController =
       TransformationController();
   late final AnimationController _zoomAnimationController;
@@ -709,20 +744,37 @@ class _AssetPreviewState extends State<_AssetPreview>
                   _zoomAnimation != null) {
                 _transformationController.value = _zoomAnimation!.value;
               }
-              return InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 1.0,
-                maxScale: 4.5,
-                panEnabled: true,
-                scaleEnabled: true,
-                clipBehavior: Clip.none,
-                child: Center(
-                  // No Hero here: tiles dropped their heroes because
-                  // Local/Timeline/Search kept mounted heroes for the same
-                  // asset id under the IndexedStack shell, and duplicate
-                  // tags corrupt hero flights in release builds.
-                  child: Image.memory(bytes, fit: BoxFit.contain),
-                ),
+              return ValueListenableBuilder<Matrix4>(
+                valueListenable: _transformationController,
+                builder: (context, value, _) {
+                  final scale = value.getMaxScaleOnAxis();
+                  _updateHiresLayer(scale);
+                  return InteractiveViewer(
+                    transformationController: _transformationController,
+                    minScale: 1.0,
+                    maxScale: 4.5,
+                    // Pan only while zoomed: at scale 1.0 there's nothing to
+                    // pan, and an active pan recognizer steals the horizontal
+                    // drags the PageView needs for photo-to-photo swiping.
+                    // Derived from the live matrix (not a flag) so it can't
+                    // drift out of sync with the actual zoom state.
+                    panEnabled: scale > 1.05,
+                    scaleEnabled: true,
+                    clipBehavior: Clip.none,
+                    child: Center(
+                      // No Hero here: tiles dropped their heroes because
+                      // Local/Timeline/Search kept mounted heroes for the same
+                      // asset id under the IndexedStack shell, and duplicate
+                      // tags corrupt hero flights in release builds.
+                      // Double-tap handling lives on the wrapper above.
+                      child: Image.memory(
+                        _hiresBytes ?? bytes,
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

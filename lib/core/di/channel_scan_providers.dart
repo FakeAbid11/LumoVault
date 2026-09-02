@@ -201,10 +201,23 @@ class ChannelScanNotifier extends StateNotifier<ChannelScanState> {
   /// Trigger a scan of the existing backup channel.
   ///
   /// Idempotent — if a scan has already completed successfully, this is
-  /// a no-op unless [forceRescan] is true.
-  Future<void> scan({bool forceRescan = false}) async {
+  /// a no-op unless [forceRescan] or [incremental] is true.
+  ///
+  /// [incremental] is the pull-to-refresh path: walk only the newest window
+  /// of the channel ([ChannelScanService.incrementalMessageBudget] messages)
+  /// so newly uploaded photos appear without paging the whole history. The
+  /// service's completed-scan replay is bypassed, but its scan state is NOT
+  /// reset (unlike [forceRescan], which re-walks everything).
+  Future<void> scan({
+    bool forceRescan = false,
+    bool incremental = false,
+  }) async {
     if (state.status == ChannelScanStatus.scanning) return;
-    if (state.status == ChannelScanStatus.completed && !forceRescan) return;
+    if (state.status == ChannelScanStatus.completed &&
+        !forceRescan &&
+        !incremental) {
+      return;
+    }
 
     state = const ChannelScanState(status: ChannelScanStatus.scanning);
 
@@ -236,6 +249,7 @@ class ChannelScanNotifier extends StateNotifier<ChannelScanState> {
     ChannelScanResult result;
     try {
       result = await service.scanChannel(
+        incremental: incremental,
         onProgress: (current, total, fileName) {
           state = state.copyWith(
             scannedItems: current,

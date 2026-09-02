@@ -72,6 +72,47 @@ CustomTransitionPage<void> _slideFromRight(Widget child, GoRouterState state) {
   );
 }
 
+/// Fade + slight scale transition for the media viewers.
+///
+/// The viewers are full-bleed black surfaces; a horizontal slide makes them
+/// read as "another page" instead of "this photo got bigger". A soft fade
+/// with a touch of scale gives the Photos-style sense of the photo opening
+/// up, without reintroducing per-tile Hero flights (removed because
+/// duplicate tags under the IndexedStack shell corrupt flights in release
+/// builds — see media_viewer_screen.dart).
+CustomTransitionPage<void> _zoomInFromCenter(
+  Widget child,
+  GoRouterState state,
+) {
+  if (!AppMotion.enabled) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          child,
+    );
+  }
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 250),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      final scale = Tween<double>(begin: 1.08, end: 1.0).animate(curved);
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(scale: scale, child: child),
+      );
+    },
+  );
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   final onboardingCompleted = ValueNotifier<bool>(
     ref.read(onboardingCompletedProvider),
@@ -241,7 +282,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 int initialIndex,
                 bool allowDeviceDelete,
               })) {
-            return _slideFromRight(
+            return _zoomInFromCenter(
               MediaViewerScreen(
                 assets: extra.assets,
                 initialIndex: extra.initialIndex,
@@ -251,7 +292,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           }
           if (extra is ({List<AssetEntity> assets, int initialIndex})) {
-            return _slideFromRight(
+            return _zoomInFromCenter(
               MediaViewerScreen(
                 assets: extra.assets,
                 initialIndex: extra.initialIndex,
@@ -267,7 +308,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final extra = state.extra;
           if (extra is ({List<MediaItem> items, int initialIndex})) {
-            return _slideFromRight(
+            return _zoomInFromCenter(
               TelegramMediaViewerScreen(
                 items: extra.items,
                 initialIndex: extra.initialIndex,

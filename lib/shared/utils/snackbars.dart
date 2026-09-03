@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 /// The app shell draws its bottom navigation as a floating capsule with
 /// `Scaffold.extendBody: true`, so on the four main tabs there is no inner
 /// `bottomNavigationBar` to lift a floating snackbar above it — snackbars
-/// shown there would render inside the capsule's zone (which reaches ~84px
-/// above the bottom edge: 28px SafeArea minimum + 56px NavigationBar).
+/// shown there would render inside the capsule's zone (which reaches ~96px
+/// above the bottom edge: 40px SafeArea minimum + 56px NavigationBar).
 ///
 /// On phone-width surfaces this helper anchors the snackbar above the
 /// capsule; everywhere else (pushed routes, tablets with rail/drawer) it
@@ -21,7 +21,7 @@ void showLumoSnackBar(
   final double bottomInset = MediaQuery.paddingOf(context).bottom;
   final bool hasCapsule = MediaQuery.sizeOf(context).width < 600;
   final double bottomMargin = hasCapsule
-      ? math.max(bottomInset + 16, 92)
+      ? math.max(bottomInset + 16, 104)
       : bottomInset + 16;
 
   ScaffoldMessenger.of(context).showSnackBar(

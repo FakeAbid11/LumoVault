@@ -133,10 +133,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     // The shell floats its navigation capsule over this tab's body
     // (Scaffold.extendBody) — keep the map canvas, attribution and FABs
-    // clear of it. 84 = SafeArea minimum bottom (28) + NavigationBar (56).
+    // clear of it. 96 = SafeArea minimum bottom (40) + NavigationBar (56).
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
     final double capsuleClearance = MediaQuery.sizeOf(context).width < 600
-        ? math.max(bottomInset, 84)
+        ? math.max(bottomInset, 96)
         : bottomInset;
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];

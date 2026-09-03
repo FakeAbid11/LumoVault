@@ -35,9 +35,9 @@ void main() {
 
     final snackbar = tester.widget<SnackBar>(find.byType(SnackBar));
     final margin = snackbar.margin! as EdgeInsets;
-    // Capsule zone ≈ 28 (SafeArea minimum) + 56 (NavigationBar) = 84; the
+    // Capsule zone ≈ 40 (SafeArea minimum) + 56 (NavigationBar) = 96; the
     // snackbar must clear it even when no system inset is reported.
-    expect(margin.bottom, greaterThanOrEqualTo(92));
+    expect(margin.bottom, greaterThanOrEqualTo(104));
     expect(find.text('Done'), findsOneWidget);
   });
 
@@ -73,7 +73,7 @@ void main() {
 
     final snackbar = tester.widget<SnackBar>(find.byType(SnackBar));
     final margin = snackbar.margin! as EdgeInsets;
-    // max(24 + 16, 92) — the capsule floor wins over the inset-based value.
-    expect(margin.bottom, 92);
+    // max(24 + 16, 104) — the capsule floor wins over the inset-based value.
+    expect(margin.bottom, 104);
   });
 }

@@ -48,11 +48,11 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 480),
+            constraints: const BoxConstraints(maxWidth: 340),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(24),

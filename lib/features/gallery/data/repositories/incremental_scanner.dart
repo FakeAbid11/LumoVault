@@ -266,6 +266,15 @@ class IncrementalScanner {
   /// asset, on demand — for when the user acts on one specific photo (e.g.
   /// toggling it in/out of backup from the viewer) before it's ever been
   /// through a full scan, rather than needing to wait for one.
+  ///
+  /// The returned item carries no folder key: [BackupScheduler]'s folder
+  /// gate compares keys against the folder *selection*, and an explicitly
+  /// requested single backup is its own consent — stamping a key here (the
+  /// old `asset.relativePath` did) made the gate reject the request with
+  /// "not in your backup folders" whenever that key didn't match an
+  /// id-keyed selection, dead-ending individual backup for photos that had
+  /// never been through a bulk scan. The bulk path stamps the correct keys
+  /// itself (see the copyWith calls in [scanForChanges]).
   Future<MediaItem?> buildSingleItem(AssetEntity asset) =>
       _buildMediaItemFromAsset(asset);
 
@@ -340,7 +349,13 @@ class IncrementalScanner {
         // scanner had never seen before, so this default only actually
         // governs the bulk-scan discovery path.
         isExcluded: true,
-        deviceFolder: asset.relativePath,
+        // Deliberately no deviceFolder/albumName here: the folder gate must
+        // not apply to items built for an explicit single-item request —
+        // an AssetEntity carries no album id, and stamping the wrong key
+        // (the old `relativePath`, a filesystem path that never matches the
+        // id-keyed folder selection) dead-ended individual backup with a
+        // bogus "not in your backup folders" skip. The bulk scan stamps the
+        // album id/name itself after this build.
         latitude: lat,
         longitude: lng,
       );

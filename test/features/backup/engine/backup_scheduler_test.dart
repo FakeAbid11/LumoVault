@@ -354,6 +354,8 @@ void main() {
 
       test('still includes items without any folder key', () {
         // No folder metadata — the gate cannot apply, same as before the fix.
+        // This is also what the on-demand single-item build produces: an
+        // explicitly requested backup must not die on the folder gate.
         const settings = BackupSettings(includedFolders: ['-1313584517']);
         final item = _folderItem();
 
@@ -364,6 +366,27 @@ void main() {
 
         expect(result.included, isTrue);
       });
+
+      test(
+        'excludes an item keyed by a filesystem path against id selection',
+        () {
+          // The trap that dead-ended individual backup: relativePath is a
+          // filesystem path (or null), never the OS album id the folder
+          // selection stores. An item stamped with such a key can never
+          // match — which is why the on-demand build must carry no folder
+          // key at all.
+          const settings = BackupSettings(includedFolders: ['-1313584517']);
+          final item = _folderItem(deviceFolder: 'DCIM/Camera');
+
+          final result = BackupScheduler.evaluateMediaItem(
+            item: item,
+            settings: settings,
+          );
+
+          expect(result.included, isFalse);
+          expect(result.reason, contains('not in your backup folders'));
+        },
+      );
 
       test('excludes items whose keys match no included folder', () {
         const settings = BackupSettings(includedFolders: ['Camera']);

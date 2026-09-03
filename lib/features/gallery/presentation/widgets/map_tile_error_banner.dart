@@ -9,9 +9,11 @@ import '../../../../shared/providers/map_tile_status_provider.dart';
 /// Tile layers show nothing when their HTTP fetches fail — there is no error
 /// UI anywhere below [OsmTileLayer] — so fetch errors are reported into
 /// [mapTileStatusProvider] and surfaced here: a compact rounded banner for
-/// the top of the map with a Retry action (drop + re-request every tile) and
-/// a dismiss. Retry hides the banner immediately and reloads; if tiles fail
-/// again the banner re-raises.
+/// the top of the map. Retry *cycles the tile source* (primary → mirror →
+/// …) before reloading, which is the escape hatch for networks that block or
+/// intercept the primary domain — the failure mode that produces a blank map
+/// with no error at all. Dismiss clears the state without refetching; the
+/// banner re-raises if tiles fail again.
 class MapTileErrorBanner extends ConsumerWidget {
   const MapTileErrorBanner({super.key});
 
@@ -19,6 +21,14 @@ class MapTileErrorBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(mapTileStatusProvider);
     if (!status.hasFailures) return const SizedBox.shrink();
+
+    // After the first source switch, the wording reflects what Retry does —
+    // a plain "check your connection" would be misleading when the user has
+    // already established the connection is not the problem.
+    final switched = status.sourceIndex > 0;
+    final message = switched
+        ? 'Still failing — Retry tries a different map server.'
+        : 'Map tiles failed to load. Check your connection.';
 
     final colors = Theme.of(context).colorScheme;
     return Material(
@@ -32,7 +42,7 @@ class MapTileErrorBanner extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Map tiles failed to load. Check your connection.',
+                message,
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: colors.onErrorContainer),
@@ -41,7 +51,7 @@ class MapTileErrorBanner extends ConsumerWidget {
             TextButton(
               onPressed: () =>
                   ref.read(mapTileStatusProvider.notifier).requestReload(),
-              child: const Text('Retry'),
+              child: Text(switched ? 'Next server' : 'Retry'),
             ),
             IconButton(
               icon: const Icon(Symbols.close, size: 18),

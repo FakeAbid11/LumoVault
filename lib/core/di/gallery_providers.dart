@@ -308,19 +308,36 @@ final imageClassifierProvider = Provider<ImageClassifierService>((ref) {
   return ImageClassifierService.instance;
 });
 
-/// Media items that have not yet been labeled by the AI classifier.
-/// Used to drive the "AI Scan" button — shows how many items remain.
-final unlabeledItemsProvider = Provider<List<MediaItem>>((ref) {
+/// The pool the AI scan draws from: every image on the device that has no AI
+/// labels yet — including photos that have never been through a scan.
+///
+/// Label state lives on gallery records (written when a photo is scanned or
+/// built on demand via [GalleryRepository.upsertFromAsset]), so "already
+/// labeled" can only be evaluated for photos that have a record; photos
+/// without one are always unlabeled, and the scan creates their record
+/// before classifying. Hidden/trashed records stay out of the pool,
+/// matching the exclusions the repository-based pool used to apply.
+final aiScanPoolProvider = FutureProvider.autoDispose<List<AssetEntity>>((
+  ref,
+) async {
+  final assets = await ref.watch(deviceAssetsProvider.future);
   final repository = ref.watch(galleryRepositoryProvider);
-  return repository.mediaItems
-      .where(
-        (item) =>
-            !item.isHidden &&
-            !item.isTrashed &&
-            item.mediaType == MediaType.image &&
-            item.aiLabels.isEmpty,
-      )
-      .toList();
+
+  final recordsById = {
+    for (final item in repository.mediaItems) item.localId: item,
+  };
+
+  bool isUnlabeled(AssetEntity asset) {
+    final item = recordsById[asset.id];
+    if (item == null) return true; // never scanned — always needs labeling
+    if (item.isHidden || item.isTrashed) return false;
+    return item.aiLabels.isEmpty;
+  }
+
+  return [
+    for (final asset in assets)
+      if (asset.type == AssetType.image && isUnlabeled(asset)) asset,
+  ];
 });
 
 /// Count of items that have been AI-labeled.

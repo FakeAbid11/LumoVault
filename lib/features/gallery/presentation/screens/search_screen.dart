@@ -132,8 +132,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildHint() {
-    final unlabeled = ref.watch(unlabeledItemsProvider);
     final labeledCount = ref.watch(labeledCountProvider);
+    final poolAsync = ref.watch(aiScanPoolProvider);
 
     return Center(
       child: SingleChildScrollView(
@@ -189,38 +189,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    if (unlabeled.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _scanning ? null : () => _startScan(),
-                          icon: _scanning
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Symbols.smart_toy, size: 18),
-                          label: Text(
-                            _scanning
-                                ? 'Scanning...'
-                                : 'AI Scan (${unlabeled.length} remaining)',
+                    ...poolAsync.when(
+                      loading: () => const [
+                        SizedBox(height: 12),
+                        Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
-                      ),
-                    ] else if (labeledCount > 0) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'All photos have been labeled',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                      ],
+                      error: (_, __) => const [],
+                      data: (unlabeled) => unlabeled.isNotEmpty
+                          ? [
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: _scanning
+                                      ? null
+                                      : () => _startScan(),
+                                  icon: _scanning
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Symbols.smart_toy, size: 18),
+                                  label: Text(
+                                    _scanning
+                                        ? 'Scanning...'
+                                        : 'AI Scan (${unlabeled.length} remaining)',
+                                  ),
+                                ),
+                              ),
+                            ]
+                          : labeledCount > 0
+                          ? [
+                              const SizedBox(height: 8),
+                              Text(
+                                'All photos have been labeled',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ]
+                          : const [],
+                    ),
                   ],
                 ),
               ),
@@ -380,13 +402,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _startScan() async {
-    final unlabeled = ref.read(unlabeledItemsProvider);
-    if (unlabeled.isEmpty) return;
+    final pool = await ref.read(aiScanPoolProvider.future);
+    if (pool.isEmpty) return;
 
     setState(() {
       _scanning = true;
       _scanProgress = 0;
-      _scanTotal = unlabeled.length;
+      _scanTotal = pool.length;
     });
 
     try {
@@ -406,16 +428,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         return;
       }
 
-      for (var i = 0; i < unlabeled.length; i++) {
+      for (var i = 0; i < pool.length; i++) {
         if (!_scanning) break;
 
-        final item = unlabeled[i];
-        final asset = await AssetEntity.fromId(item.localId);
-        if (asset == null) continue;
+        final asset = pool[i];
+        // Never-scanned photos have no gallery record yet — create one so
+        // the label has somewhere to live (and the photo becomes visible to
+        // search and backup). Null means the platform can't resolve the
+        // file (cloud-only, corrupt); skip it, don't fail the scan.
+        await repository.upsertFromAsset(asset);
 
         final labels = await classifier.classify(asset);
         if (labels.isNotEmpty) {
-          await repository.labelMediaItem(item.localId, labels);
+          await repository.labelMediaItem(asset.id, labels);
         }
 
         if (mounted) {
@@ -432,7 +457,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     } finally {
       if (mounted) {
         setState(() => _scanning = false);
-        ref.invalidate(unlabeledItemsProvider);
+        ref.invalidate(aiScanPoolProvider);
         ref.invalidate(labeledCountProvider);
       }
     }

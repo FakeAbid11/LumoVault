@@ -658,6 +658,32 @@ class GalleryRepository {
     }
   }
 
+  /// Returns the gallery record for a device asset, creating it on demand if
+  /// the asset has never been through a scan.
+  ///
+  /// Used by paths that act on one photo the user is looking at right now
+  /// (the viewer's backup button, the AI scan labeling a never-scanned
+  /// photo) — where waiting for a full hash scan would make the feature feel
+  /// broken. The created record is identical to what a bulk scan produces
+  /// (real file hash, correct metadata, the `isExcluded: true` opt-in
+  /// default), so it is fully backup-ready and merges cleanly with later
+  /// scans.
+  ///
+  /// Returns null when the platform can't resolve the asset's file (deleted,
+  /// cloud-only, permission revoked) — callers should skip, not fail.
+  Future<MediaItem?> upsertFromAsset(AssetEntity asset) async {
+    final index = _indexOfLocalId(asset.id);
+    if (index != -1) return _mediaItems[index];
+
+    final built = await _incrementalScanner.buildSingleItem(asset);
+    if (built == null) return null;
+
+    _mediaItems.add(built);
+    _indexByLocalId[built.localId] = _mediaItems.length - 1;
+    await _persistItem(built);
+    return built;
+  }
+
   /// Persists AI-generated labels for a media item.
   ///
   /// Labels should be prefixed with `ai_` (e.g. `ai_beach`, `ai_sunset`).

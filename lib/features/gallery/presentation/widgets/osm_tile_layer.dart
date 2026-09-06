@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../../shared/providers/map_tile_status_provider.dart';
 
 /// Tile sources — the primary domain and a mirror. When the primary is blocked
 /// or intercepted (e.g. an HTTP 200 with an empty image), [requestReload]
@@ -17,22 +14,21 @@ const double _darkDimFactor = 0.72;
 
 /// OpenStreetMap tile layer, dimmed under a dark theme.
 ///
-/// Watches [mapTileStatusProvider] to select the active tile source. On retry
-/// the provider advances [MapTileStatus.sourceIndex], and the layer reads it
-/// to switch the URL template.
-class OsmTileLayer extends ConsumerWidget {
-  const OsmTileLayer({super.key});
+/// Optionally accepts [urlTemplate] for tile-source cycling (see
+/// [MapTileStatusProvider]). When null, uses the primary source.
+class OsmTileLayer extends StatelessWidget {
+  const OsmTileLayer({this.urlTemplate, super.key});
 
   /// Available tile sources, indexed by [MapTileStatus.sourceIndex].
   static const tileSources = _tileSources;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sourceIndex = ref.watch(mapTileStatusProvider).sourceIndex;
-    final urlTemplate = tileSources[sourceIndex % tileSources.length];
+  /// The active tile URL template. Defaults to the primary source.
+  final String? urlTemplate;
 
+  @override
+  Widget build(BuildContext context) {
     final layer = TileLayer(
-      urlTemplate: urlTemplate,
+      urlTemplate: urlTemplate ?? _tileSources[0],
       userAgentPackageName: 'com.lumovault.app',
     );
 

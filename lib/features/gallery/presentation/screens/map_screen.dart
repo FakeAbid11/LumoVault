@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -13,16 +11,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
-import '../../../../shared/utils/snackbars.dart';
+import '../../../../shared/providers/map_tile_status_provider.dart';
 import '../../../../shared/widgets/empty_state.dart';
-import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
-import '../widgets/map_tile_error_banner.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
-import '../../../../shared/providers/connectivity_provider.dart';
-import '../../../../shared/providers/map_tile_status_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Immich & Google Photos style photo map: plots every device photo that carries GPS EXIF as a
@@ -46,36 +40,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
+    final sourceIndex = ref.watch(mapTileStatusProvider).sourceIndex;
+    final tileUrl =
+        OsmTileLayer.tileSources[sourceIndex % OsmTileLayer.tileSources.length];
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Map'),
-        actions: const [SettingsGearButton()],
-      ),
+      appBar: AppBar(title: const Text('Map')),
       body: photosAsync.when(
-        loading: () => _buildLoadingMap(),
-        // The one failure the tile layer can't show for itself: the photo
-        // data failed to load. Keep the basemap visible (it has its own
-        // error handling) and layer the problem message over it, instead of
-        // a blank page with no way to see the map.
-        error: (error, _) => Stack(
-          children: [
-            _buildMapOnly(),
-            _mapStatusOverlay(),
-            _ErrorCard(message: 'Could not load the map: $error'),
-          ],
+        loading: () => _buildMapOnly(tileUrl),
+        error: (error, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Could not load the map: $error'),
+          ),
         ),
-        data: (photos) => _buildBody(context, photos),
+        data: (photos) => _buildBody(context, photos, tileUrl),
       ),
     );
   }
 
   /// Map tiles only — shown while the first stream emission arrives.
-  Widget _buildMapOnly() {
+  Widget _buildMapOnly(String tileUrl) {
     return FlutterMap(
       mapController: _mapController,
       options: const MapOptions(initialCenter: LatLng(0, 0), initialZoom: 2),
       children: [
-        const OsmTileLayer(),
+        OsmTileLayer(urlTemplate: tileUrl),
         RichAttributionWidget(
           attributions: [
             TextSourceAttribution(
@@ -89,100 +78,44 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  /// Map plus a progress hint, shown until the photo-location stream emits.
-  /// Resolving GPS for a large library takes seconds — without this pill the
-  /// tab reads as a blank, broken map rather than a loading one. The status
-  /// overlay covers the tiles' own failure mode even before photo data is
-  /// ready.
-  Widget _buildLoadingMap() {
-    return Stack(
-      children: [
-        _buildMapOnly(),
-        _mapStatusOverlay(),
-        const Positioned(
-          left: 0,
-          right: 0,
-          bottom: 48,
-          child: Center(child: _StatusPill(label: 'Loading photos…')),
-        ),
-      ],
-    );
-  }
-
-  /// The offline / tile-failure banner (or nothing), positioned over the top
-  /// of the map. Shared by every body branch so the basemap's failure state
-  /// is visible no matter what the photo data is doing — including while it
-  /// is still loading.
-  Widget _mapStatusOverlay() {
-    final offline = !ref.watch(isOnlineProvider);
-    final tileError = ref.watch(mapTileStatusProvider).hasFailures;
-    if (!offline && !tileError) return const SizedBox.shrink();
-    return Positioned(
-      top: 8,
-      left: 12,
-      right: 12,
-      child: SafeArea(
-        bottom: false,
-        child: offline ? const _OfflineBanner() : const MapTileErrorBanner(),
-      ),
-    );
-  }
-
-  Widget _buildBody(BuildContext context, List<MediaItem> photos) {
+  Widget _buildBody(BuildContext context, List<MediaItem> photos, String tileUrl) {
     if (photos.isEmpty) return _buildEmptyState(context);
-
-    // The shell floats its navigation capsule over this tab's body
-    // (Scaffold.extendBody) — keep the map canvas, attribution and FABs
-    // clear of it. 96 = SafeArea minimum bottom (40) + NavigationBar (56).
-    final double bottomInset = MediaQuery.paddingOf(context).bottom;
-    final double capsuleClearance = MediaQuery.sizeOf(context).width < 600
-        ? math.max(bottomInset, 96)
-        : bottomInset;
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
     return Stack(
       children: [
-        _mapStatusOverlay(),
-        Padding(
-          padding: EdgeInsets.only(bottom: capsuleClearance),
-          child: FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: points.first,
-              initialZoom: _pointsHaveSpan(points) ? 4 : 14,
-              // A zero-area bounds (every photo sharing one GPS fix — burst
-              // shots, same-second captures) makes CameraFit produce an
-              // infinite/NaN camera that renders nothing: no tiles, no pins,
-              // and no tile errors to raise the failure banner (the
-              // blank-map report). Only fit when the points span an area.
-              initialCameraFit: _pointsHaveSpan(points)
-                  ? CameraFit.bounds(
-                      bounds: LatLngBounds.fromPoints(points),
-                      padding: const EdgeInsets.all(48),
-                    )
-                  : null,
-            ),
-            children: [
-              const OsmTileLayer(),
-              _buildClusterLayer(context, photos),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () => launchUrl(
-                      Uri.parse('https://openstreetmap.org/copyright'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: points.first,
+            initialZoom: 4,
+            initialCameraFit: points.length > 1
+                ? CameraFit.bounds(
+                    bounds: LatLngBounds.fromPoints(points),
+                    padding: const EdgeInsets.all(48),
+                  )
+                : null,
           ),
+          children: [
+            OsmTileLayer(urlTemplate: tileUrl),
+            _buildClusterLayer(context, photos),
+            RichAttributionWidget(
+              attributions: [
+                TextSourceAttribution(
+                  'OpenStreetMap contributors',
+                  onTap: () => launchUrl(
+                    Uri.parse('https://openstreetmap.org/copyright'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         // Floating map controls: Fit All Photos & My Location
         Positioned(
           right: 16,
-          bottom: capsuleClearance + 16,
+          bottom: 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -212,37 +145,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  /// Whether the points cover a non-degenerate area. A small epsilon counts
-  /// near-identical GPS fixes (re-reads of the same shot) as one location.
-  bool _pointsHaveSpan(List<LatLng> points) {
-    var minLat = points.first.latitude;
-    var maxLat = minLat;
-    var minLng = points.first.longitude;
-    var maxLng = minLng;
-    for (final p in points) {
-      minLat = math.min(minLat, p.latitude);
-      maxLat = math.max(maxLat, p.latitude);
-      minLng = math.min(minLng, p.longitude);
-      maxLng = math.max(maxLng, p.longitude);
-    }
-    const epsilon = 1e-6; // ~0.1 m.
-    return (maxLat - minLat) > epsilon || (maxLng - minLng) > epsilon;
-  }
-
   void _fitAllPoints(List<LatLng> points) {
     HapticFeedback.lightImpact();
-    // Same degenerate-bounds guard as the initial camera fit: fitting a
-    // zero-area bounds would move the camera to an infinite/NaN zoom.
-    if (points.isEmpty || !_pointsHaveSpan(points)) {
-      if (points.isNotEmpty) _mapController.move(points.first, 14);
-      return;
+    if (points.length == 1) {
+      _mapController.move(points.first, 14);
+    } else if (points.length > 1) {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.all(48),
+        ),
+      );
     }
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints(points),
-        padding: const EdgeInsets.all(48),
-      ),
-    );
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
@@ -487,20 +401,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   /// Open a single photo in the media viewer.
-  Future<void> _openItem(BuildContext context, MediaItem item) async {
-    try {
-      final asset = await AssetEntity.fromId(
-        item.localId,
-      ).timeout(const Duration(seconds: 15));
+  void _openItem(BuildContext context, MediaItem item) {
+    AssetEntity.fromId(item.localId).then((asset) {
       if (asset != null && context.mounted) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: true),
         );
       }
-    } catch (_) {
-      // Missing asset, timeout, or revoked permission — nothing to open.
-    }
+    });
   }
 
   /// Open cluster photos in media viewer with full album swipe.
@@ -512,18 +421,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final validAssets = <AssetEntity>[];
     int targetIndex = 0;
     for (int i = 0; i < items.length; i++) {
-      try {
-        final asset = await AssetEntity.fromId(
-          items[i].localId,
-        ).timeout(const Duration(seconds: 15));
-        if (asset != null) {
-          if (i == initialIndex) {
-            targetIndex = validAssets.length;
-          }
-          validAssets.add(asset);
+      final asset = await AssetEntity.fromId(items[i].localId);
+      if (asset != null) {
+        if (i == initialIndex) {
+          targetIndex = validAssets.length;
         }
-      } catch (_) {
-        // Skip unreadable assets rather than failing the whole cluster.
+        validAssets.add(asset);
       }
     }
     if (validAssets.isNotEmpty && context.mounted) {
@@ -565,8 +468,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    showLumoSnackBar(context, message);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -631,100 +535,6 @@ class _PhotoMarkerState extends State<_PhotoMarker> {
       widget.item.isVideo ? Symbols.videocam : Symbols.image,
       size: 20,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-  }
-}
-
-/// Overlay shown when the map's photo data fails to load. The basemap stays
-/// interactive underneath — this just explains why there are no pins.
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Positioned(
-      left: 24,
-      right: 24,
-      bottom: 48,
-      child: Card(
-        color: colors.surface,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(Symbols.error, color: colors.error),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Compact overlay shown when the device has no connectivity — the tile
-/// fetches will fail anyway, so this pre-empts the tile-error banner with
-/// the more actionable cause.
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Symbols.wifi_off, size: 18, color: colors.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Text(
-              "You're offline — the map needs a connection.",
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Small rounded hint pill (e.g. "Loading photos…") so a slow state reads as
-/// progress rather than a silently broken map.
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-        ),
-      ),
     );
   }
 }

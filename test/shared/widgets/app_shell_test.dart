@@ -59,16 +59,6 @@ void main() {
                   ),
                 ],
               ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: '/settings',
-                    builder: (_, __) => const Scaffold(
-                      body: Center(child: Text('Settings Content')),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ],
@@ -90,7 +80,7 @@ void main() {
       expect(find.text('Cloud'), findsOneWidget);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('People'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Settings'), findsNothing);
     });
 
     testWidgets('renders navigation rail on tablet', (tester) async {
@@ -120,23 +110,6 @@ void main() {
 
       expect(navigationShell.currentIndex, equals(2));
       expect(find.text('Map Content'), findsOneWidget);
-    });
-
-    testWidgets('displays correct tab content on settings tap', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      await tester.pumpWidget(buildTestWidget(width: 400));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Local Content'), findsOneWidget);
-
-      await tester.tap(find.byIcon(Symbols.settings));
-      await tester.pumpAndSettle();
-
-      expect(navigationShell.currentIndex, equals(4));
-      expect(find.text('Settings Content'), findsOneWidget);
     });
 
     testWidgets('displays correct tab content on people tap', (tester) async {

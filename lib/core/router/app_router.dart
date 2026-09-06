@@ -191,23 +191,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-
-          // Tab 5: Settings
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/settings',
-                pageBuilder: (context, state) => CustomTransitionPage<void>(
-                  key: state.pageKey,
-                  child: const SettingsScreen(),
-                  transitionDuration: Duration.zero,
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) => child,
-                ),
-              ),
-            ],
-          ),
         ],
+      ),
+
+      // Settings (pushed as a standalone route, not a nav tab)
+      GoRoute(
+        path: '/settings',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const SettingsScreen(), state),
       ),
 
       // Restore flow

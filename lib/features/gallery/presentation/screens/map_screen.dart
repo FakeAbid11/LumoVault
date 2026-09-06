@@ -16,6 +16,7 @@ import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
 import '../widgets/media_tile.dart';
 import '../widgets/osm_tile_layer.dart';
+import '../../../../shared/widgets/settings_gear_button.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Immich & Google Photos style photo map: plots every device photo that carries GPS EXIF as a
@@ -40,7 +41,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: const [SettingsGearButton()],
+      ),
       body: photosAsync.when(
         loading: () => _buildMapOnly(),
         error: (error, _) => Center(

@@ -14,6 +14,7 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/lumo_loading.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
+import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/date_header.dart';
 import '../widgets/media_tile.dart';
@@ -74,6 +75,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
+          const SettingsGearButton(),
         ],
       ),
       body: _buildBody(context, uploadedItems, isScanning, scanned, total),

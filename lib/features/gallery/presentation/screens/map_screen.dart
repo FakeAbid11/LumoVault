@@ -78,7 +78,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, List<MediaItem> photos, String tileUrl) {
+  Widget _buildBody(
+    BuildContext context,
+    List<MediaItem> photos,
+    String tileUrl,
+  ) {
     if (photos.isEmpty) return _buildEmptyState(context);
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];

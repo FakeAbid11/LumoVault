@@ -256,7 +256,9 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
                       } catch (_) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text(kOpenSettingsFallbackHint)),
+                            const SnackBar(
+                              content: Text(kOpenSettingsFallbackHint),
+                            ),
                           );
                         }
                       }

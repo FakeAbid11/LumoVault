@@ -26,7 +26,8 @@ void main() {
     tester,
   ) async {
     BrandSettings.nativeAutostartOverride = () async => false;
-    BrandSettings.openAppInfoOverride = () => throw Exception('no settings activity');
+    BrandSettings.openAppInfoOverride = () =>
+        throw Exception('no settings activity');
 
     await pumpCard(tester);
     await tester.tap(find.text('Open Settings').first);

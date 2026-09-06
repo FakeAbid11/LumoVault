@@ -670,7 +670,9 @@ class GalleryRepository {
       try {
         await _persistItem(updated);
       } catch (e) {
-        debugPrint('[GalleryRepository] Failed to persist labels for $localId: $e');
+        debugPrint(
+          '[GalleryRepository] Failed to persist labels for $localId: $e',
+        );
       }
     }
   }

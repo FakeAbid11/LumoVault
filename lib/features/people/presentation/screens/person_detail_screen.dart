@@ -264,9 +264,9 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
       ref.invalidate(peopleProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save name: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save name: $e')));
       }
     }
   }

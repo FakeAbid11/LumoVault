@@ -318,10 +318,6 @@ class UploadQueue {
   void updateTask(UploadTask updatedTask) {
     final existing = _taskIndex[updatedTask.id];
     if (existing != null) {
-      // Handle backed-up bytes transition before _unindex/_index update counters.
-      if (existing.status == UploadStatus.completed) {
-        _backedUpBytes -= existing.fileSize;
-      }
       _queue.remove(existing);
       _unindex(existing);
     }

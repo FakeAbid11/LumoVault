@@ -41,7 +41,7 @@ class LandmarksConverter
     if (decoded is! Map) return const {};
     return decoded.map((key, value) {
       if (value is List && value.length == 2) {
-        return MapEntry(key, (value[0] as double, value[1] as double));
+        return MapEntry(key, ((value[0] as num).toDouble(), (value[1] as num).toDouble()));
       }
       return MapEntry(key, (0.0, 0.0));
     });

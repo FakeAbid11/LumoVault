@@ -78,15 +78,17 @@ class MediaTile extends StatefulWidget {
       bytes = await asset
           .thumbnailDataWithSize(const ThumbnailSize(300, 300))
           .timeout(const Duration(seconds: 15));
-    } catch (_) {
+    } catch (e) {
       // Timeout, photo permission revoked, platform error, etc. — fall
       // through to the on-disk file rather than giving up.
+      debugPrint('[MediaTile] Thumbnail lookup failed for ${item.localId}: $e');
     }
     if (bytes != null) {
       try {
         await ThumbnailCache.instance.put(item.localId, bytes);
-      } catch (_) {
+      } catch (e) {
         // Cache write failure is non-fatal — render the bytes anyway.
+        debugPrint('[MediaTile] Cache write failed for ${item.localId}: $e');
       }
       return bytes;
     }
@@ -108,12 +110,14 @@ class MediaTile extends StatefulWidget {
       if (bytes.isEmpty) return null;
       try {
         await ThumbnailCache.instance.put(item.localId, bytes);
-      } catch (_) {
+      } catch (e) {
         // Non-fatal — the tile still renders from [bytes].
+        debugPrint('[MediaTile] Cache write failed for ${item.localId}: $e');
       }
       return bytes;
-    } catch (_) {
+    } catch (e) {
       // Unreadable or missing file — the placeholder is the correct fallback.
+      debugPrint('[MediaTile] File fallback failed for ${item.localId}: $e');
       return null;
     }
   }
@@ -193,12 +197,15 @@ class _MediaTileState extends State<MediaTile> {
         }
         final bytes = snapshot.data;
         if (bytes != null) {
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildPlaceholder(context),
+          return Hero(
+            tag: 'media_${widget.mediaItem.localId}',
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildPlaceholder(context),
+            ),
           );
         }
         return _buildPlaceholder(context);

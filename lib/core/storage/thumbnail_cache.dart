@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -18,7 +19,8 @@ class ThumbnailCache {
   static ThumbnailCache get instance => _instance ??= ThumbnailCache._();
 
   Directory? _cacheDir;
-  final _memoryCache = <String, Uint8List>{};
+  // ignore: prefer_collection_literals
+  final _memoryCache = LinkedHashMap<String, Uint8List>();
   int _currentMemoryBytes = 0;
   static const int _maxMemoryBytes =
       AppConstants.thumbnailCacheSizeMB * 1024 * 1024 ~/ 4; // ~25% for memory

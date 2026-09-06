@@ -349,6 +349,7 @@ class StorageChannelService {
       );
     } catch (e) {
       // Non-critical: channel is created even if archiving fails.
+      debugPrint('[StorageChannelService] Failed to archive channel: $e');
     }
 
     return chatId;

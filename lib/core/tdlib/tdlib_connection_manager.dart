@@ -81,7 +81,13 @@ class TdLibConnectionManager {
   /// [databaseKey] is passed to the underlying [TdLibClient.initialize].
   /// Throws [TdLibException] if initialization fails permanently.
   Future<void> connect({required String databaseKey}) async {
-    if (_status == ConnectionStatus.connected) return;
+    if (_status == ConnectionStatus.connected ||
+        _status == ConnectionStatus.connecting) {
+      return;
+    }
+
+    // Cancel any pending reconnect so it doesn't race with this connect.
+    _stopReconnect();
 
     // Remember the key so reconnects reuse the exact same value.
     _databaseKey = databaseKey;

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Reverse geocoding result with city, state, and country.
@@ -82,8 +83,9 @@ class GeocodingService {
       } else {
         _diskCache = {};
       }
-    } catch (_) {
+    } catch (e) {
       _diskCache = {};
+      debugPrint('[GeocodingService] Failed to load cache from disk: $e');
     } finally {
       _initializing = false;
     }
@@ -95,8 +97,9 @@ class GeocodingService {
       final file = File('${dir.path}/$_cacheFileName');
       final json = _diskCache!.map((k, v) => MapEntry(k, v?.toJson()));
       await file.writeAsString(jsonEncode(json));
-    } catch (_) {
+    } catch (e) {
       // Best-effort persistence.
+      debugPrint('[GeocodingService] Failed to persist cache: $e');
     }
   }
 

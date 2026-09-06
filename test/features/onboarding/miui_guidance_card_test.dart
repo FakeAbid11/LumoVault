@@ -7,8 +7,8 @@ import 'package:material_symbols_icons/symbols.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(resetBrandSettingsOverrides);
-  tearDown(resetBrandSettingsOverrides);
+  setUp(BrandSettings.resetOverrides);
+  tearDown(BrandSettings.resetOverrides);
 
   Future<void> pumpCard(WidgetTester tester) async {
     await tester.pumpWidget(
@@ -25,8 +25,8 @@ void main() {
   testWidgets('shows a fallback hint when every launch path fails', (
     tester,
   ) async {
-    nativeAutostartOverride = () async => false;
-    openAppInfoOverride = () => throw Exception('no settings activity');
+    BrandSettings.nativeAutostartOverride = () async => false;
+    BrandSettings.openAppInfoOverride = () => throw Exception('no settings activity');
 
     await pumpCard(tester);
     await tester.tap(find.text('Open Settings').first);
@@ -37,7 +37,7 @@ void main() {
   });
 
   testWidgets('shows no hint when the settings page opens', (tester) async {
-    nativeAutostartOverride = () async => true;
+    BrandSettings.nativeAutostartOverride = () async => true;
 
     await pumpCard(tester);
     await tester.tap(find.text('Open Settings').first);

@@ -114,5 +114,6 @@ class SettingsRepository {
 
   void dispose() {
     _changeController.close();
+    _errorController.close();
   }
 }

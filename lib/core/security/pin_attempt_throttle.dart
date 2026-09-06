@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Minimal key-value contract the throttle needs from secure storage.
@@ -105,6 +106,7 @@ class PinAttemptThrottle {
     } catch (e) {
       // Corrupt or unreadable state — fall through to a clean slate rather
       // than locking the user out of their own vault permanently.
+      debugPrint('[PinAttemptThrottle] Failed to read throttle state: $e');
     }
 
     return _cache = const PinLockoutState(failedAttempts: 0, lockedUntil: null);
@@ -136,6 +138,7 @@ class PinAttemptThrottle {
       await _store.delete(_storageKey);
     } catch (e) {
       // In-memory state is already reset; a stale blob only over-throttles.
+      debugPrint('[PinAttemptThrottle] Failed to delete throttle state: $e');
     }
   }
 
@@ -151,6 +154,7 @@ class PinAttemptThrottle {
       );
     } catch (e) {
       // Persistence failed — the cache still throttles this session.
+      debugPrint('[PinAttemptThrottle] Failed to persist throttle state: $e');
     }
     return state;
   }

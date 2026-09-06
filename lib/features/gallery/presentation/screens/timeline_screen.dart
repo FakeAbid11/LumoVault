@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/di/tdlib_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
@@ -53,6 +54,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     // Watch channel scan progress for loading indicator.
     final (scanned, total, isScanning) = ref.watch(channelScanProgressProvider);
 
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+
     final uploadedItems = repository.mediaItems
         .where(
           (item) =>
@@ -78,7 +81,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           const SettingsGearButton(),
         ],
       ),
-      body: _buildBody(context, uploadedItems, isScanning, scanned, total),
+      body: _buildBody(
+        context,
+        uploadedItems,
+        isScanning,
+        scanned,
+        total,
+        isAuthenticated,
+      ),
     );
   }
 
@@ -88,7 +98,12 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     bool isScanning,
     int scanned,
     int total,
+    bool isAuthenticated,
   ) {
+    if (!isAuthenticated) {
+      return _buildNotConnectedState(context);
+    }
+
     if (uploadedItems.isEmpty && !isScanning) {
       return _buildEmptyState(context);
     }
@@ -211,6 +226,21 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         );
       }
     });
+  }
+
+  Widget _buildNotConnectedState(BuildContext context) {
+    return EmptyState(
+      icon: Symbols.login,
+      title: 'Not connected to Telegram',
+      message:
+          'Sign in to back up your photos\n'
+          'to the cloud.',
+      action: FilledButton.icon(
+        onPressed: () => context.push('/connect-telegram'),
+        icon: const Icon(Symbols.login),
+        label: const Text('Sign in to Telegram'),
+      ),
+    );
   }
 
   Widget _buildScanningState(int scanned, int total) {

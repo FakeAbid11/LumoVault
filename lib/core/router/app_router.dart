@@ -194,6 +194,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
+      // Telegram connect (standalone route — accessible after onboarding skip)
+      GoRoute(
+        path: '/connect-telegram',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const TelegramConnectScreen(), state),
+      ),
+
       // Settings (pushed as a standalone route, not a nav tab)
       GoRoute(
         path: '/settings',

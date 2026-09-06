@@ -251,6 +251,24 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
     }
   }
 
+  Future<void> _skipForNow() async {
+    ref.read(onboardingProvider.notifier).completeOnboarding();
+    ref.read(onboardingCompletedProvider.notifier).state = true;
+
+    final selectedFolders = ref.read(onboardingProvider).selectedFolders;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .updateField(
+          (s) => s.copyWith(
+            onboardingCompleted: true,
+            includedFolders: selectedFolders.toList(),
+          ),
+        );
+
+    if (!mounted) return;
+    context.go('/local');
+  }
+
   Future<void> _onAuthSuccess() async {
     ref.read(onboardingProvider.notifier).completeOnboarding();
     ref.read(onboardingCompletedProvider.notifier).state = true;
@@ -485,6 +503,15 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                               : const Text('Send Code'),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: TextButton(
+                          onPressed: _authState == AuthState.loading
+                              ? null
+                              : _skipForNow,
+                          child: const Text('Skip for now'),
+                        ),
+                      ),
                     ],
 
                     // Code verification phase
@@ -629,19 +656,28 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
               ),
             ),
 
-            // Back button
+            // Back + Skip buttons
             if (_authState != AuthState.authenticated)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 56),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      ref.read(onboardingProvider.notifier).previousStep();
-                      context.pop();
-                    },
-                    child: const Text('Back'),
-                  ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          ref.read(onboardingProvider.notifier).previousStep();
+                          context.pop();
+                        },
+                        child: const Text('Back'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _skipForNow,
+                      child: const Text('Skip for now'),
+                    ),
+                  ],
                 ),
               ),
           ],

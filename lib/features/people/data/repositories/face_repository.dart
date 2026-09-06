@@ -483,6 +483,7 @@ class FaceRepository {
   }
 
   Future<void> mergePersons(int sourceId, int targetId) async {
+    if (sourceId == targetId) return;
     await faceDao.mergePersons(sourceId, targetId);
     await recomputeCentroid(targetId);
     await reclusterOrphans();

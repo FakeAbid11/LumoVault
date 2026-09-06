@@ -255,12 +255,20 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
   Future<void> _saveName() async {
     final name = _nameController.text.trim();
     final repository = ref.read(faceRepositoryProvider);
-    await repository.updatePersonName(
-      widget.personId,
-      name.isEmpty ? null : name,
-    );
-    ref.invalidate(personProvider(widget.personId));
-    ref.invalidate(peopleProvider);
+    try {
+      await repository.updatePersonName(
+        widget.personId,
+        name.isEmpty ? null : name,
+      );
+      ref.invalidate(personProvider(widget.personId));
+      ref.invalidate(peopleProvider);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save name: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -290,6 +298,8 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
     if (confirmed == true && mounted) {
       await ref.read(faceRepositoryProvider).deletePerson(widget.personId);
       ref.invalidate(peopleProvider);
+      ref.invalidate(personProvider(widget.personId));
+      ref.invalidate(personMediaIdsProvider(widget.personId));
       if (mounted) context.pop();
     }
   }

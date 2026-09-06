@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
-import '../../../../shared/providers/map_tile_status_provider.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
@@ -40,31 +39,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
-    final sourceIndex = ref.watch(mapTileStatusProvider).sourceIndex;
-    final tileUrl =
-        OsmTileLayer.tileSources[sourceIndex % OsmTileLayer.tileSources.length];
     return Scaffold(
       appBar: AppBar(title: const Text('Map')),
       body: photosAsync.when(
-        loading: () => _buildMapOnly(tileUrl),
+        loading: () => _buildMapOnly(),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text('Could not load the map: $error'),
           ),
         ),
-        data: (photos) => _buildBody(context, photos, tileUrl),
+        data: (photos) => _buildBody(context, photos),
       ),
     );
   }
 
   /// Map tiles only — shown while the first stream emission arrives.
-  Widget _buildMapOnly(String tileUrl) {
+  Widget _buildMapOnly() {
     return FlutterMap(
       mapController: _mapController,
       options: const MapOptions(initialCenter: LatLng(0, 0), initialZoom: 2),
       children: [
-        OsmTileLayer(urlTemplate: tileUrl),
+        const OsmTileLayer(),
         RichAttributionWidget(
           attributions: [
             TextSourceAttribution(
@@ -78,11 +74,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    List<MediaItem> photos,
-    String tileUrl,
-  ) {
+  Widget _buildBody(BuildContext context, List<MediaItem> photos) {
     if (photos.isEmpty) return _buildEmptyState(context);
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
@@ -102,7 +94,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 : null,
           ),
           children: [
-            OsmTileLayer(urlTemplate: tileUrl),
+            const OsmTileLayer(),
             _buildClusterLayer(context, photos),
             RichAttributionWidget(
               attributions: [

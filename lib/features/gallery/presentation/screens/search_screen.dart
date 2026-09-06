@@ -118,7 +118,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildHint() {
-    final unlabeled = ref.watch(unlabeledItemsProvider);
     final labeledCount = ref.watch(labeledCountProvider);
 
     return Center(
@@ -147,69 +146,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 32),
             // AI Scan Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Symbols.auto_awesome,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'AI Photo Labels',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (labeledCount > 0)
-                      Text(
-                        '$labeledCount photos labeled',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    if (unlabeled.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _scanning ? null : () => _startScan(),
-                          icon: _scanning
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Symbols.smart_toy, size: 18),
-                          label: Text(
-                            _scanning
-                                ? 'Scanning...'
-                                : 'AI Scan (${unlabeled.length} remaining)',
-                          ),
-                        ),
-                      ),
-                    ] else if (labeledCount > 0) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'All photos have been labeled',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            _AiScanCard(
+              labeledCount: labeledCount,
+              scanning: _scanning,
+              onStartScan: _startScan,
+              onStopScan: () => setState(() => _scanning = false),
             ),
           ],
         ),
@@ -366,7 +307,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _startScan() async {
-    final unlabeled = ref.read(unlabeledItemsProvider);
+    // Fetch ALL device images — not just gallery items from included folders.
+    final allAssets = await ref.read(deviceAssetsProvider.future);
+    final deviceImages = allAssets
+        .where((a) => a.type == AssetType.image)
+        .toList();
+    if (deviceImages.isEmpty) return;
+
+    // Build the set of already-labeled IDs so we can skip them.
+    final repository = ref.read(galleryRepositoryProvider);
+    final labeledIds = repository.labeledLocalIds;
+    final unlabeled = deviceImages
+        .where((a) => !labeledIds.contains(a.id))
+        .toList();
     if (unlabeled.isEmpty) return;
 
     setState(() {
@@ -377,7 +330,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     try {
       final classifier = ref.read(imageClassifierProvider);
-      final repository = ref.read(galleryRepositoryProvider);
       await classifier.init();
 
       if (!classifier.isReady) {
@@ -388,18 +340,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       for (var i = 0; i < unlabeled.length; i++) {
         if (!mounted || !_scanning) break;
 
-        final item = unlabeled[i];
+        final asset = unlabeled[i];
         try {
-          final asset = await AssetEntity.fromId(item.localId);
-          if (asset == null) continue;
-
           final labels = await classifier.classify(asset);
           if (labels.isNotEmpty) {
-            await repository.labelMediaItem(item.localId, labels);
+            await repository.labelAnyMediaItem(asset.id, labels);
           }
         } catch (e) {
-          debugPrint('[SearchScreen] Failed to classify ${item.localId}: $e');
-          // Continue to next item instead of aborting the entire scan.
+          debugPrint('[SearchScreen] Failed to classify ${asset.id}: $e');
         }
 
         if (mounted) {
@@ -415,5 +363,101 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ref.invalidate(labeledCountProvider);
       }
     }
+  }
+}
+
+class _AiScanCard extends ConsumerWidget {
+  const _AiScanCard({
+    required this.labeledCount,
+    required this.scanning,
+    required this.onStartScan,
+    required this.onStopScan,
+  });
+
+  final int labeledCount;
+  final bool scanning;
+  final VoidCallback onStartScan;
+  final VoidCallback onStopScan;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final deviceAssetsAsync = ref.watch(deviceAssetsProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Symbols.auto_awesome,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'AI Photo Labels',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (labeledCount > 0)
+              Text(
+                '$labeledCount photos labeled',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            const SizedBox(height: 12),
+            deviceAssetsAsync.when(
+              data: (allAssets) {
+                final totalImages = allAssets
+                    .where((a) => a.type == AssetType.image)
+                    .length;
+                final remaining = totalImages - labeledCount;
+                if (remaining <= 0) {
+                  return Text(
+                    'All photos have been labeled',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  );
+                }
+                return SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: scanning ? null : onStartScan,
+                    icon: scanning
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Symbols.smart_toy, size: 18),
+                    label: Text(
+                      scanning
+                          ? 'Scanning...'
+                          : 'AI Scan ($remaining remaining)',
+                    ),
+                  ),
+                );
+              },
+              loading: () => const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              error: (_, __) => const Text('Could not load photos'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

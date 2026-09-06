@@ -677,6 +677,45 @@ class GalleryRepository {
     }
   }
 
+  /// Persists AI-generated labels for ANY device photo — including those
+  /// not yet in the scanned gallery.  Used by the AI scan to label every
+  /// photo on the device, not just ones from included folders.
+  Future<void> labelAnyMediaItem(String localId, List<String> labels) async {
+    final index = _indexOfLocalId(localId);
+    if (index != -1) {
+      final updated = _mediaItems[index].copyWith(aiLabels: labels);
+      _mediaItems[index] = updated;
+      try {
+        await _persistItem(updated);
+      } catch (e) {
+        debugPrint(
+          '[GalleryRepository] Failed to persist labels for $localId: $e',
+        );
+      }
+      return;
+    }
+
+    // Item not in the in-memory gallery — upsert a minimal record so labels
+    // are persisted.  The full scan will carry forward the labels later.
+    try {
+      final existing = await _mediaDao?.byLocalId(localId);
+      if (existing != null) {
+        final updated = existing.toDomain().copyWith(aiLabels: labels);
+        await _persistItem(updated);
+      }
+    } catch (e) {
+      debugPrint(
+        '[GalleryRepository] Failed to persist labels for $localId: $e',
+      );
+    }
+  }
+
+  /// Returns the set of localIds that already have AI labels.
+  Set<String> get labeledLocalIds => {
+    for (final item in _mediaItems)
+      if (item.aiLabels.isNotEmpty) item.localId,
+  };
+
   Future<void> moveToTrash(String localId) async {
     final index = _indexOfLocalId(localId);
     if (index != -1) {

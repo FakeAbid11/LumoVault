@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
-import '../../../../core/di/tdlib_providers.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
@@ -14,7 +14,6 @@ import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/lumo_loading.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
-import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/date_header.dart';
 import '../widgets/media_tile.dart';
@@ -44,10 +43,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch gallery changes (channel scan adds items here). Deliberately no
-    // watch of backupStatsProvider — upload progress ticks are high-frequency
-    // and would rebuild this whole screen (the grid already scopes its own
-    // reload generation below).
+    // Watch backup stats only for the loading indicator — don't rebuild the
+    // entire screen on every upload progress tick.
+    ref.watch(backupStatsProvider);
+    // Watch gallery changes (channel scan adds items here).
     final repository = ref.watch(galleryRepositoryProvider);
 
     // Watch channel scan progress for loading indicator.
@@ -64,7 +63,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Timeline'),
+        title: const Text('Cloud'),
         actions: [
           if (isScanning)
             const Padding(
@@ -75,7 +74,6 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          const SettingsGearButton(),
         ],
       ),
       body: _buildBody(context, uploadedItems, isScanning, scanned, total),
@@ -90,12 +88,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     int total,
   ) {
     if (uploadedItems.isEmpty && !isScanning) {
-      return _buildEmptyState(
-        context,
-        isAuthenticated: ref.watch(isAuthenticatedProvider),
-        authSettled: ref.watch(authSettledProvider).valueOrNull ?? false,
-        hasTelegramAccount: ref.watch(appSettingsProvider).hasTelegramAccount,
-      );
+      return _buildEmptyState(context);
     }
 
     if (uploadedItems.isEmpty && isScanning) {
@@ -108,11 +101,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       onRefresh: () async {
         HapticFeedback.mediumImpact();
         final scanNotifier = ref.read(channelScanStateProvider.notifier);
-        // Incremental: walk only the newest window of the channel so a
-        // pull-to-refresh surfaces recently uploaded photos in about a
-        // second, instead of re-paging the entire history (that full walk
-        // stays available via the overflow menu's "Rescan channel").
-        await scanNotifier.scan(incremental: true);
+        await scanNotifier.scan(forceRescan: true);
       },
       child: _buildGrid(context, uploadedItems, grouped),
     );
@@ -192,11 +181,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  Future<void> _onItemTap(
+  void _onItemTap(
     BuildContext context,
     MediaItem item,
     List<MediaItem> allItems,
-  ) async {
+  ) {
     if (item.isTelegram) {
       // Telegram-only items have no local asset to open — show them in the
       // Telegram viewer, swiping through every Telegram item in the timeline.
@@ -210,22 +199,16 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     }
 
     // For local items, try to find the corresponding AssetEntity and open
-    // the media viewer. Same defensive pattern as MediaTile's loader:
-    // photo_manager platform calls can stall or throw (permission revoked
-    // mid-session), and an uncaught error here would be fatal.
-    try {
-      final asset = await AssetEntity.fromId(
-        item.localId,
-      ).timeout(const Duration(seconds: 15));
+    // the media viewer.
+    final assetFuture = AssetEntity.fromId(item.localId);
+    assetFuture.then((asset) {
       if (asset != null && context.mounted) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0),
         );
       }
-    } catch (_) {
-      // Missing asset, timeout, or revoked permission — nothing to open.
-    }
+    });
   }
 
   Widget _buildScanningState(int scanned, int total) {
@@ -236,48 +219,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     );
   }
 
-  Widget _buildEmptyState(
-    BuildContext context, {
-    required bool isAuthenticated,
-    required bool authSettled,
-    required bool hasTelegramAccount,
-  }) {
-    // A cold start is "not authenticated yet" for the first seconds while
-    // TDLib restores the persisted session. For a user known to have a
-    // Telegram account, show a brief connecting state instead of flashing a
-    // sign-in prompt that would be wrong a moment later (bug: a skip-user
-    // who later signed in saw the prompt again on every restart). When auth
-    // HAS settled and we're still unauthenticated, fall through to the
-    // prompt below — the session genuinely failed to restore and the user
-    // needs an actionable path.
-    if (!isAuthenticated && !authSettled && hasTelegramAccount) {
-      return const EmptyState(
-        icon: Icons.cloud_sync,
-        title: 'Connecting to Telegram…',
-        message:
-            'Restoring your session — your backup\nwill appear in a '
-            'moment.',
-      );
-    }
-
-    // A user who skipped Telegram login during onboarding lands here with an
-    // empty timeline — offer the way back into login instead of the generic
-    // backup CTA (which can't do anything without a channel).
-    if (!isAuthenticated) {
-      return EmptyState(
-        icon: Symbols.cloud_off,
-        title: 'Sign in to Telegram',
-        message:
-            'Your backups live in a private channel\nin your own Telegram '
-            'account. Sign in to start\nbacking up your photos.',
-        action: FilledButton.icon(
-          onPressed: () => context.push('/onboarding/telegram?reentry=true'),
-          icon: const Icon(Icons.telegram),
-          label: const Text('Sign in'),
-        ),
-      );
-    }
-
+  Widget _buildEmptyState(BuildContext context) {
     return EmptyState(
       icon: Symbols.cloud_done,
       title: 'No backed up photos yet',

@@ -48,27 +48,26 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 480),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.15),
-                  blurRadius: 12,
+                  color: colorScheme.shadow.withValues(alpha: 0.12),
+                  blurRadius: 8,
                   spreadRadius: 0,
-                  offset: const Offset(0, 2),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(28),
               child: NavigationBar(
-                height: 56,
+                height: 64,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 selectedIndex: _currentIndex,

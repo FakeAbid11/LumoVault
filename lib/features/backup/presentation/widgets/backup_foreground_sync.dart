@@ -95,6 +95,35 @@ class _BackupForegroundSyncState extends ConsumerState<BackupForegroundSync>
     }
   }
 
+  /// Drain the backup queue when auth lands — separate from [_maybeSync]
+  /// because the scan already ran but was blocked on authentication. No
+  /// debounce needed; this only fires on a genuine auth state transition.
+  Future<void> _drainOnAuth() async {
+    if (_inFlight) return;
+    final settings = ref.read(appSettingsProvider);
+    if (!settings.onboardingCompleted || !settings.autoBackupEnabled) return;
+    if (!ref.read(isAuthenticatedProvider)) return;
+
+    _inFlight = true;
+    try {
+      final engine = ref.read(backupEngineProvider.notifier);
+      await engine.startBackup();
+    } catch (e) {
+      debugPrint('[BackupForegroundSync] auth drain failed: $e');
+    } finally {
+      _inFlight = false;
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // When auth state transitions to authenticated, drain any queued items
+    // so backed-up photos don't sit "in queue" until the next lifecycle event.
+    ref.listen<bool>(isAuthenticatedProvider, (previous, isAuth) {
+      if (isAuth) {
+        unawaited(_drainOnAuth());
+      }
+    });
+    return widget.child;
+  }
 }

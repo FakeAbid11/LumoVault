@@ -186,7 +186,7 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
     required IconData icon,
     required bool isCompleted,
     required VoidCallback onToggle,
-    VoidCallback? onOpenSettings,
+    Future<bool> Function()? onOpenSettings,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -252,7 +252,14 @@ class _MiuiGuidanceCardState extends State<MiuiGuidanceCard> {
                   TextButton.icon(
                     onPressed: () async {
                       try {
-                        onOpenSettings();
+                        final opened = await onOpenSettings();
+                        if (!opened && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(kOpenSettingsFallbackHint),
+                            ),
+                          );
+                        }
                       } catch (_) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

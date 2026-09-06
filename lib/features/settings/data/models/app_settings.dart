@@ -36,19 +36,12 @@ class AppSettings {
     // General
     this.languageCode = 'en',
     this.onboardingCompleted = false,
-    // True once the user has ever completed a Telegram login in this app.
-    // Persists across restarts so the timeline can distinguish a genuine
-    // skip-user (never signed in → show the sign-in prompt) from a signed-in
-    // user whose session is still being restored on cold start (show
-    // "Connecting…" instead of flashing a misleading prompt).
-    this.hasTelegramAccount = false,
     // Backup
     this.autoBackupEnabled = true,
     this.wifiOnly = true,
     this.chargingOnly = false,
     this.minBatteryLevel = 20,
     this.backgroundBackupEnabled = true,
-    this.faceScanNotification = true,
     this.maxParallelUploads = 3,
     this.backupVideos = true,
     this.backupPhotos = true,
@@ -94,14 +87,12 @@ class AppSettings {
       return AppSettings(
         languageCode: map['languageCode'] as String? ?? 'en',
         onboardingCompleted: map['onboardingCompleted'] as bool? ?? false,
-        hasTelegramAccount: map['hasTelegramAccount'] as bool? ?? false,
         autoBackupEnabled: map['autoBackupEnabled'] as bool? ?? true,
         wifiOnly: map['wifiOnly'] as bool? ?? true,
         chargingOnly: map['chargingOnly'] as bool? ?? false,
         minBatteryLevel: map['minBatteryLevel'] as int? ?? 20,
         backgroundBackupEnabled:
             map['backgroundBackupEnabled'] as bool? ?? true,
-        faceScanNotification: map['faceScanNotification'] as bool? ?? true,
         maxParallelUploads: map['maxParallelUploads'] as int? ?? 3,
         backupVideos: map['backupVideos'] as bool? ?? true,
         backupPhotos: map['backupPhotos'] as bool? ?? true,
@@ -157,24 +148,12 @@ class AppSettings {
   final String languageCode;
   final bool onboardingCompleted;
 
-  /// True once the user has ever completed a Telegram login in this app.
-  ///
-  /// TDLib restores the persisted session asynchronously, so a cold start is
-  /// "not yet authenticated" for the first seconds regardless of whether the
-  /// user has an account. This flag is the durable signal for "this user has
-  /// a Telegram account, wait for the session to come up" vs. "this user
-  /// skipped login, show the sign-in prompt immediately".
-  final bool hasTelegramAccount;
-
   // -- Backup --
   final bool autoBackupEnabled;
   final bool wifiOnly;
   final bool chargingOnly;
   final int minBatteryLevel;
   final bool backgroundBackupEnabled;
-
-  /// Whether people-grouping progress/completion notifications may post.
-  final bool faceScanNotification;
   final int maxParallelUploads;
   final bool backupVideos;
   final bool backupPhotos;
@@ -226,13 +205,11 @@ class AppSettings {
   AppSettings copyWith({
     String? languageCode,
     bool? onboardingCompleted,
-    bool? hasTelegramAccount,
     bool? autoBackupEnabled,
     bool? wifiOnly,
     bool? chargingOnly,
     int? minBatteryLevel,
     bool? backgroundBackupEnabled,
-    bool? faceScanNotification,
     int? maxParallelUploads,
     bool? backupVideos,
     bool? backupPhotos,
@@ -266,14 +243,12 @@ class AppSettings {
     return AppSettings(
       languageCode: languageCode ?? this.languageCode,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
-      hasTelegramAccount: hasTelegramAccount ?? this.hasTelegramAccount,
       autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
       wifiOnly: wifiOnly ?? this.wifiOnly,
       chargingOnly: chargingOnly ?? this.chargingOnly,
       minBatteryLevel: minBatteryLevel ?? this.minBatteryLevel,
       backgroundBackupEnabled:
           backgroundBackupEnabled ?? this.backgroundBackupEnabled,
-      faceScanNotification: faceScanNotification ?? this.faceScanNotification,
       maxParallelUploads: maxParallelUploads ?? this.maxParallelUploads,
       backupVideos: backupVideos ?? this.backupVideos,
       backupPhotos: backupPhotos ?? this.backupPhotos,
@@ -316,13 +291,11 @@ class AppSettings {
   Map<String, dynamic> _toJson() => {
     'languageCode': languageCode,
     'onboardingCompleted': onboardingCompleted,
-    'hasTelegramAccount': hasTelegramAccount,
     'autoBackupEnabled': autoBackupEnabled,
     'wifiOnly': wifiOnly,
     'chargingOnly': chargingOnly,
     'minBatteryLevel': minBatteryLevel,
     'backgroundBackupEnabled': backgroundBackupEnabled,
-    'faceScanNotification': faceScanNotification,
     'maxParallelUploads': maxParallelUploads,
     'backupVideos': backupVideos,
     'backupPhotos': backupPhotos,

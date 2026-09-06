@@ -45,9 +45,6 @@ class MiuiHealthCheck {
     VoidCallback? onDismissed,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Captured before the await in the action below: once Settings is in the
-    // foreground this banner's context is gone, but the messenger outlives it.
-    final messenger = ScaffoldMessenger.of(context);
     return MaterialBanner(
       content: Text(
         'Background backup hasn\'t run recently. On Xiaomi/Redmi devices, '
@@ -57,14 +54,7 @@ class MiuiHealthCheck {
       leading: Icon(Symbols.warning, color: colorScheme.error),
       actions: [
         TextButton(
-          onPressed: () async {
-            final opened = await BrandSettings.openBatterySettings(packageName);
-            if (!opened) {
-              messenger.showSnackBar(
-                const SnackBar(content: Text(kOpenSettingsFallbackHint)),
-              );
-            }
-          },
+          onPressed: () => BrandSettings.openBatterySettings(packageName),
           child: const Text('Open Settings'),
         ),
         if (onDismissed != null)

@@ -89,34 +89,27 @@ class PhotoManagerScannerService implements MediaScannerService {
     // reported against one consistent grand total throughout the scan.
     int grandTotal = 0;
     for (final album in albums) {
-      // Key on the OS album id, matching what folder selection stores —
-      // album display names are neither unique nor rename-stable. Names are
-      // still accepted so selections persisted by older builds (which keyed
-      // folders by name) keep matching.
-      if (includedFolders != null &&
-          !includedFolders.contains(album.id) &&
-          !includedFolders.contains(album.name)) {
+      final albumName = p.basename(album.name);
+      if (includedFolders != null && !includedFolders.contains(albumName)) {
         continue;
       }
       grandTotal += await album.assetCountAsync;
     }
 
     for (final album in albums) {
-      // Same filter as the grand-total loop above.
-      if (includedFolders != null &&
-          !includedFolders.contains(album.id) &&
-          !includedFolders.contains(album.name)) {
+      final albumName = p.basename(album.name);
+
+      if (includedFolders != null && !includedFolders.contains(albumName)) {
         continue;
       }
 
       final assetCount = await album.assetCountAsync;
-      final albumName = p.basename(album.name);
 
       folders.add(
         DeviceFolder(
-          path: album.id,
+          path: album.name,
           name: albumName,
-          isIncluded: includedFolders?.contains(album.id) ?? true,
+          isIncluded: includedFolders?.contains(albumName) ?? true,
           totalItems: assetCount,
           totalSize: 0,
           lastScannedAt: DateTime.now(),
@@ -214,13 +207,7 @@ class PhotoManagerScannerService implements MediaScannerService {
 
       folders.add(
         DeviceFolder(
-          // Key folder selection on the OS album/bucket id - the same
-          // identifier the scanners filter albums on and tag items with
-          // (deviceFolder). Selection previously stored the album's display
-          // name, so items tagged with a bucket-id deviceFolder could never
-          // match the folder gate ("Folder "-1313584517" is not in included
-          // list.").
-          path: album.id,
+          path: album.name,
           name: albumName,
           isIncluded: true,
           totalItems: assetCount,
@@ -333,10 +320,7 @@ class PhotoManagerScannerService implements MediaScannerService {
       // backed up, only that the app now knows it exists.
       isExcluded: true,
       albumName: albumName,
-      // The album id (bucket id), matching what folder selection stores and
-      // what IncrementalScanner tags items with — the scheduler's folder
-      // gate compares this key against includedFolders.
-      deviceFolder: album.id,
+      deviceFolder: album.name,
       latitude: lat,
       longitude: lng,
     );

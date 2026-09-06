@@ -48,11 +48,11 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: navigationShell,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 28),
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 340),
+            constraints: const BoxConstraints(maxWidth: 480),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(24),
@@ -102,6 +102,12 @@ class AppShell extends StatelessWidget {
                     label: 'People',
                     tooltip: 'Photos grouped by person',
                   ),
+                  NavigationDestination(
+                    icon: Icon(Symbols.settings, size: 22),
+                    selectedIcon: Icon(Symbols.settings, size: 22),
+                    label: 'Settings',
+                    tooltip: 'App settings and preferences',
+                  ),
                 ],
               ),
             ),
@@ -143,6 +149,11 @@ class AppShell extends StatelessWidget {
                 icon: Icon(Symbols.people),
                 selectedIcon: Icon(Symbols.people),
                 label: Text('People'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Symbols.settings),
+                selectedIcon: Icon(Symbols.settings),
+                label: Text('Settings'),
               ),
             ],
           ),
@@ -190,6 +201,11 @@ class AppShell extends StatelessWidget {
                 icon: Icon(Symbols.people),
                 selectedIcon: Icon(Symbols.people),
                 label: Text('People'),
+              ),
+              const NavigationDrawerDestination(
+                icon: Icon(Symbols.settings),
+                selectedIcon: Icon(Symbols.settings),
+                label: Text('Settings'),
               ),
             ],
           ),

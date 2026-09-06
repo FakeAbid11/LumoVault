@@ -12,12 +12,10 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
-import '../../../../shared/utils/snackbars.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
 import '../../../../shared/widgets/pinch_zoom_wrapper.dart';
-import '../../../../shared/widgets/settings_gear_button.dart';
 import '../../data/repositories/gallery_repository.dart';
 import '../widgets/asset_tile.dart';
 import '../widgets/date_header.dart';
@@ -180,6 +178,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     tooltip: 'More options',
                     onSelected: (value) {
                       switch (value) {
+                        case 'settings':
+                          // Settings is a bottom-nav branch — switch tabs.
+                          context.go('/settings');
                         case 'restore':
                           context.push('/restore');
                         case 'refresh':
@@ -187,6 +188,13 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                       }
                     },
                     itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'settings',
+                        child: ListTile(
+                          leading: Icon(Symbols.settings),
+                          title: Text('Settings'),
+                        ),
+                      ),
                       PopupMenuItem(
                         value: 'restore',
                         child: ListTile(
@@ -203,7 +211,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                       ),
                     ],
                   ),
-                  const SettingsGearButton(),
                 ],
               ),
         floatingActionButton: _isMultiSelectMode
@@ -442,7 +449,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     }
 
     if (!mounted) return;
-    showLumoSnackBar(context, '${ids.length} selected for backup');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${ids.length} selected for backup')),
+    );
     setState(() {});
   }
 
@@ -487,18 +496,27 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       ref.invalidate(trashedItemsProvider);
       setState(_multiSelected.clear);
       if (!mounted) return;
-      showLumoSnackBar(
-        context,
-        '${trashed.length} moved to trash · deletes in 30 days',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${trashed.length} moved to trash · deletes in 30 days',
+          ),
+        ),
       );
     } on PlatformException {
       // moveToTrash is Android 11+ (API 30) only — older versions have no
       // MediaStore trash, so there's no 30-day-recovery delete to offer.
       if (!mounted) return;
-      showLumoSnackBar(context, 'Moving to trash needs Android 11 or newer');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Moving to trash needs Android 11 or newer'),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
-      showLumoSnackBar(context, 'Couldn’t move these to trash');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t move these to trash')),
+      );
     }
   }
 

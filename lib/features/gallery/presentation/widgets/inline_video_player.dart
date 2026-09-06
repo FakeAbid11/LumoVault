@@ -28,72 +28,45 @@ class InlineVideoPlayer extends StatefulWidget {
   State<InlineVideoPlayer> createState() => _InlineVideoPlayerState();
 }
 
-class _InlineVideoPlayerState extends State<InlineVideoPlayer>
-    with WidgetsBindingObserver {
+class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
   late final VideoPlayerController _controller;
   bool _initialized = false;
   Object? _error;
 
-  /// Mirrors `_controller.value.isPlaying` so the play/pause overlay only
-  /// rebuilds on actual play-state transitions. The controller notifies on
-  /// every position tick, and rebuilding the whole subtree at that rate made
-  /// playback jank on slower devices.
-  bool _isPlaying = false;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _controller = VideoPlayerController.file(widget.file);
     _controller
         .initialize()
         .then((_) {
           if (!mounted) return;
-          setState(() {
-            _initialized = true;
-            _isPlaying = _controller.value.isPlaying;
-          });
+          setState(() => _initialized = true);
           if (widget.autoPlay) _controller.play();
         })
         .catchError((Object e) {
           if (mounted) setState(() => _error = e);
         });
-    // Rebuild only on play/pause transitions so the overlay icon stays in
-    // sync; the scrubber subscribes to the controller itself.
-    _controller.addListener(_onControllerChanged);
+    // Rebuild on play/pause and position changes so the overlay icon and the
+    // scrubber stay in sync.
+    _controller.addListener(_onTick);
   }
 
-  void _onControllerChanged() {
-    final playing = _controller.value.isPlaying;
-    if (playing != _isPlaying && mounted) {
-      setState(() => _isPlaying = playing);
-    }
-  }
-
-  /// Backgrounding must not leave audio running under the app-lock screen —
-  /// video_player does not pause itself when the activity loses focus.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      if (_initialized && _controller.value.isPlaying) {
-        _controller.pause();
-      }
-    }
+  void _onTick() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _controller.removeListener(_onControllerChanged);
+    _controller.removeListener(_onTick);
     _controller.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
-    // The controller listener rebuilds on the play-state transition; no
-    // explicit setState needed here.
-    _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
   }
 
   @override
@@ -109,7 +82,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer>
       );
     }
 
-    final isPlaying = _isPlaying;
+    final isPlaying = _controller.value.isPlaying;
     return GestureDetector(
       onTap: _togglePlay,
       child: Stack(
@@ -156,47 +129,15 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer>
   }
 }
 
-/// Bottom scrubber: a seek bar plus elapsed / total time. Owns its own
-/// controller listener so only this small row rebuilds on position ticks —
-/// the player above stays untouched during playback.
-class _Scrubber extends StatefulWidget {
+/// Bottom scrubber: a seek bar plus elapsed / total time.
+class _Scrubber extends StatelessWidget {
   const _Scrubber({required this.controller});
 
   final VideoPlayerController controller;
 
   @override
-  State<_Scrubber> createState() => _ScrubberState();
-}
-
-class _ScrubberState extends State<_Scrubber> {
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_onTick);
-  }
-
-  @override
-  void didUpdateWidget(covariant _Scrubber oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onTick);
-      widget.controller.addListener(_onTick);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onTick);
-    super.dispose();
-  }
-
-  void _onTick() {
-    if (mounted) setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final value = widget.controller.value;
+    final value = controller.value;
     return Container(
       color: Colors.black54,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -210,7 +151,7 @@ class _ScrubberState extends State<_Scrubber> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: VideoProgressIndicator(
-                widget.controller,
+                controller,
                 allowScrubbing: true,
                 colors: const VideoProgressColors(
                   playedColor: Colors.white,
@@ -229,15 +170,9 @@ class _ScrubberState extends State<_Scrubber> {
     );
   }
 
-  /// Hours-aware: a 75-minute video reads `1:15:00`, not `75:00`.
   String _format(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes % 60;
+    final minutes = d.inMinutes;
     final seconds = d.inSeconds % 60;
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:'
-          '${seconds.toString().padLeft(2, '0')}';
-    }
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }

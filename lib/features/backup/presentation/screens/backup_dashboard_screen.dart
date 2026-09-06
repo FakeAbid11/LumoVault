@@ -23,7 +23,6 @@ class BackupDashboardScreen extends ConsumerWidget {
     final engineState = ref.watch(backupEngineProvider);
     final stats = ref.watch(backupStatsProvider);
     final tasks = ref.watch(uploadQueueTasksProvider);
-    final backupSettings = ref.watch(backupSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -63,27 +62,6 @@ class BackupDashboardScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Empty backup scope = silent no-op: the engine skips
-                  // scanning entirely when no folders are selected. Surface
-                  // it instead of letting "0 pending, nothing happening"
-                  // look like a broken backup.
-                  if (backupSettings.includedFolders.isEmpty)
-                    _NoFoldersBanner(
-                      onChooseFolders: () =>
-                          context.push('/settings/backup/settings'),
-                    ),
-                  // The engine records why a start attempt was refused (a
-                  // scheduler gate or a failed Telegram connection). Without
-                  // surfacing it, a blocked run is indistinguishable from a
-                  // stuck one: the queue shows items pending forever with
-                  // nothing uploading.
-                  if (stats.blockedReason != null &&
-                      engineState != BackupEngineState.uploading)
-                    _BlockedReasonBanner(
-                      reason: stats.blockedReason!,
-                      onOpenSettings: () =>
-                          context.push('/settings/backup/settings'),
-                    ),
                   BackupProgressCard(
                     stats: stats,
                     engineState: engineState,
@@ -115,118 +93,6 @@ class BackupDashboardScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown when no backup folders are selected: the engine treats an empty
-/// scope as a no-op, so without this the dashboard reads like a stuck backup.
-class _NoFoldersBanner extends StatelessWidget {
-  const _NoFoldersBanner({required this.onChooseFolders});
-
-  final VoidCallback onChooseFolders;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: scheme.tertiaryContainer,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Symbols.folder_off, color: scheme.onTertiaryContainer),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Backup is off — no folders selected',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onTertiaryContainer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Choose which folders to back up to start protecting your '
-              'photos and videos.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onTertiaryContainer.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onChooseFolders,
-              icon: const Icon(Symbols.folder, size: 18),
-              label: const Text('Choose folders'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Explains why the engine refused its most recent start attempt, using the
-/// reason recorded in [BackupStats.blockedReason] — e.g. the Wi-Fi-only gate
-/// or a failed Telegram connection.
-class _BlockedReasonBanner extends StatelessWidget {
-  const _BlockedReasonBanner({
-    required this.reason,
-    required this.onOpenSettings,
-  });
-
-  final String reason;
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: scheme.errorContainer,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Symbols.cloud_off, color: scheme.onErrorContainer),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Backup is blocked',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onErrorContainer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              reason,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onErrorContainer.withValues(alpha: 0.85),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onOpenSettings,
-              icon: const Icon(Symbols.settings, size: 18),
-              label: const Text('Backup settings'),
             ),
           ],
         ),

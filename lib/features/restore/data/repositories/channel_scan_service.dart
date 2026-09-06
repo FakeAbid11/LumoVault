@@ -55,21 +55,11 @@ class ChannelScanService {
   /// Creates [MediaItem] objects from channel messages, downloads thumbnails,
   /// and merges them into [GalleryRepository].
   ///
-  /// When [incremental] is true, only the newest portion of the channel is
-  /// walked (see [incrementalMessageBudget]). This is for pull-to-refresh —
-  /// uploads are appended to the channel, so new content is always at the
-  /// newest end and a bounded walk finds everything recent without paging
-  /// through the whole history. Duplicate hashes are skipped exactly as in
-  /// a full scan, and the thumbnail-heal path still runs, so an incremental
-  /// pass is always safe to run; it just can't discover items older than the
-  /// budget window (that's what the full scan / restore flow is for).
-  ///
   /// Returns a [ChannelScanResult] with scan statistics.
   Future<ChannelScanResult> scanChannel({
     void Function(int current, int total, String fileName)? onProgress,
-    bool incremental = false,
   }) async {
-    if (_hasScanned && !incremental) {
+    if (_hasScanned) {
       // Replay the previous outcome. Returning a zeroed hasBackup:false
       // result here was indistinguishable from "this account has no
       // backup", so a second call could convince the UI that a backup it
@@ -124,12 +114,8 @@ class ChannelScanService {
           );
       }
 
-      // Step 2: Fetch all channel messages. Incremental scans walk a bounded
-      // newest window instead of the whole history.
-      final messages = await _fetchMessages(
-        channelId,
-        maxMessages: incremental ? incrementalMessageBudget : null,
-      );
+      // Step 2: Fetch all channel messages.
+      final messages = await _fetchMessages(channelId);
       if (messages.isEmpty) {
         return _complete(
           const ChannelScanResult(
@@ -248,25 +234,15 @@ class ChannelScanService {
         'skipped=$skippedCount failedThumbnails=$failedThumbnailCount',
       );
 
-      final result = ChannelScanResult(
-        totalItems: messages.length,
-        newItems: newItems.length,
-        skippedItems: skippedCount,
-        failedThumbnails: failedThumbnailCount,
-        hasBackup: true,
+      return _complete(
+        ChannelScanResult(
+          totalItems: messages.length,
+          newItems: newItems.length,
+          skippedItems: skippedCount,
+          failedThumbnails: failedThumbnailCount,
+          hasBackup: true,
+        ),
       );
-
-      if (incremental) {
-        // An incremental walk only saw the newest window, so its totals must
-        // NOT replace the full scan's replayed result (a later scan() would
-        // then under-report the library). Just mark scanned; only seed the
-        // replay result when no full scan has ever run this session.
-        _hasScanned = true;
-        _lastResult ??= result;
-        return result;
-      }
-
-      return _complete(result);
     } catch (e) {
       debugPrint('[ChannelScanService] Scan failed: $e');
       // Deliberately NOT setting _hasScanned: a scan that blew up hasn't
@@ -288,34 +264,13 @@ class ChannelScanService {
   /// A request ceiling, NOT an end-of-history signal — see [_fetchMessages].
   static const int _pageLimit = 100;
 
-  /// How many newest messages an incremental (pull-to-refresh) scan walks.
-  ///
-  /// Uploads append to the channel, so anything new since the last scan sits
-  /// within the newest few pages. 250 ≈ 3 pages of TDLib round trips instead
-  /// of the full channel walk — the difference between a refresh that takes
-  /// a second and one that visibly blocks on a multi-thousand-item library.
-  /// Visible to tests via import.
-  static const int incrementalMessageBudget = 250;
-
   /// Fetch all file messages from the storage channel.
-  ///
-  /// When [maxMessages] is set, stops once that many messages have been
-  /// collected (bounded walk — used by incremental refresh); null walks the
-  /// entire history.
-  Future<List<ChannelMessage>> _fetchMessages(
-    int channelId, {
-    int? maxMessages,
-  }) async {
+  Future<List<ChannelMessage>> _fetchMessages(int channelId) async {
     final messages = <ChannelMessage>[];
     int? fromMessageId;
     int? previousFromMessageId;
 
     while (true) {
-      // Bounded walk: we already have everything the budget allows. Checked
-      // BEFORE fetching the next page so the cap means at most
-      // ceil(maxMessages / _pageLimit) round trips.
-      if (maxMessages != null && messages.length >= maxMessages) break;
-
       // Only the four parameters getChatHistory actually accepts. The previous
       // version also sent sender_server_date_min/max, offset_date,
       // offset_chat_id and only_local — those belong to searchChatMessages /

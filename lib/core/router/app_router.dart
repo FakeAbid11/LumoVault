@@ -72,47 +72,6 @@ CustomTransitionPage<void> _slideFromRight(Widget child, GoRouterState state) {
   );
 }
 
-/// Fade + slight scale transition for the media viewers.
-///
-/// The viewers are full-bleed black surfaces; a horizontal slide makes them
-/// read as "another page" instead of "this photo got bigger". A soft fade
-/// with a touch of scale gives the Photos-style sense of the photo opening
-/// up, without reintroducing per-tile Hero flights (removed because
-/// duplicate tags under the IndexedStack shell corrupt flights in release
-/// builds — see media_viewer_screen.dart).
-CustomTransitionPage<void> _zoomInFromCenter(
-  Widget child,
-  GoRouterState state,
-) {
-  if (!AppMotion.enabled) {
-    return CustomTransitionPage<void>(
-      key: state.pageKey,
-      child: child,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-          child,
-    );
-  }
-  return CustomTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: const Duration(milliseconds: 250),
-    reverseTransitionDuration: const Duration(milliseconds: 200),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-      );
-      final scale = Tween<double>(begin: 1.08, end: 1.0).animate(curved);
-      return FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(scale: scale, child: child),
-      );
-    },
-  );
-}
-
 final routerProvider = Provider<GoRouter>((ref) {
   final onboardingCompleted = ValueNotifier<bool>(
     ref.read(onboardingCompletedProvider),
@@ -131,15 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnboardingRoute = state.matchedLocation.startsWith('/onboarding');
       if (!onboardingCompleted.value) {
         return isOnboardingRoute ? null : '/onboarding/welcome';
-      }
-      // Onboarding is complete, but a user who skipped Telegram login can
-      // return to it deliberately (Timeline's sign-in prompt pushes this
-      // route with the reentry marker).
-      final isLoginReentry =
-          state.matchedLocation == '/onboarding/telegram' &&
-          state.uri.queryParameters['reentry'] == 'true';
-      if (isLoginReentry) {
-        return null;
       }
       return isOnboardingRoute ? '/local' : null;
     },
@@ -241,17 +191,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-        ],
-      ),
 
-      // Settings — opened from the top-right gear on every tab's app bar
-      // (Google Photos style): a regular route instead of a shell branch,
-      // so the bottom bar only holds content tabs and Settings slides in
-      // full-screen with a back arrow.
-      GoRoute(
-        path: '/settings',
-        pageBuilder: (context, state) =>
-            _slideFromRight(const SettingsScreen(), state),
+          // Tab 5: Settings
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                pageBuilder: (context, state) => CustomTransitionPage<void>(
+                  key: state.pageKey,
+                  child: const SettingsScreen(),
+                  transitionDuration: Duration.zero,
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) => child,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
 
       // Restore flow
@@ -282,7 +238,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 int initialIndex,
                 bool allowDeviceDelete,
               })) {
-            return _zoomInFromCenter(
+            return _slideFromRight(
               MediaViewerScreen(
                 assets: extra.assets,
                 initialIndex: extra.initialIndex,
@@ -292,7 +248,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           }
           if (extra is ({List<AssetEntity> assets, int initialIndex})) {
-            return _zoomInFromCenter(
+            return _slideFromRight(
               MediaViewerScreen(
                 assets: extra.assets,
                 initialIndex: extra.initialIndex,
@@ -308,7 +264,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final extra = state.extra;
           if (extra is ({List<MediaItem> items, int initialIndex})) {
-            return _zoomInFromCenter(
+            return _slideFromRight(
               TelegramMediaViewerScreen(
                 items: extra.items,
                 initialIndex: extra.initialIndex,

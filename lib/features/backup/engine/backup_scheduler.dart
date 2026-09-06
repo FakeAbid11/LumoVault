@@ -140,38 +140,19 @@ class BackupScheduler {
       );
     }
 
-    // The folder gate matches against every folder key an item carries. The
-    // key used to be the album's display name; it is now the OS album id
-    // (bucket id), so an item scanned by current code carries an id key
-    // while folder selections saved by older builds may still be names —
-    // matching any of the item's keys keeps both worlds working.
-    final folderKeys = <String>{
-      if (item.deviceFolder != null) item.deviceFolder!,
-      if (item.albumName != null) item.albumName!,
-    };
-
-    // Exclusion wins over inclusion: a folder on the excluded list is
-    // excluded no matter which key matched.
-    String? excludedKey;
-    for (final key in folderKeys) {
-      if (settings.isFolderExcluded(key)) {
-        excludedKey = key;
-        break;
-      }
-    }
-    if (excludedKey != null) {
+    if (item.deviceFolder != null &&
+        settings.isFolderExcluded(item.deviceFolder!)) {
       return IncludeResult(
         included: false,
-        reason: 'Folder "$excludedKey" is excluded.',
+        reason: 'Folder "${item.deviceFolder}" is excluded.',
       );
     }
 
-    if (folderKeys.isNotEmpty && !folderKeys.any(settings.isFolderIncluded)) {
+    if (item.deviceFolder != null &&
+        !settings.isFolderIncluded(item.deviceFolder!)) {
       return IncludeResult(
         included: false,
-        reason:
-            'Folder "${item.deviceFolder ?? item.albumName}" is not in your '
-            'backup folders. Enable it under Backup settings > Folders.',
+        reason: 'Folder "${item.deviceFolder}" is not in included list.',
       );
     }
 

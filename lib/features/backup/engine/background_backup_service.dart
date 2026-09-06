@@ -15,7 +15,6 @@ import '../../../core/storage/thumbnail_cache.dart';
 import '../../metadata/data/repositories/metadata_validator.dart';
 import '../../metadata/presentation/providers/metadata_providers.dart';
 import '../../people/data/repositories/face_repository.dart';
-import '../../people/data/repositories/face_scan_lock.dart';
 import '../../people/presentation/providers/people_providers.dart';
 import '../../settings/presentation/providers/settings_providers.dart';
 import '../data/models/backup_settings.dart';
@@ -59,16 +58,6 @@ final Map<String, dynamic> _foregroundInputData = {
   kFgChannelIdKey: kBackupProgressChannelId,
   kFgNotificationIdKey: NotificationService.backupProgressNotificationId,
   kFgTitleKey: 'Backing up',
-  kFgTextKey: 'Preparing…',
-};
-
-/// Same promotion for the face-scan task, with its own notification identity
-/// so a running backup and a running face scan never replace each other.
-final Map<String, dynamic> _faceScanForegroundInputData = {
-  kFgFlagKey: true,
-  kFgChannelIdKey: 'face_scan',
-  kFgNotificationIdKey: NotificationService.faceScanNotificationId,
-  kFgTitleKey: 'Scanning faces',
   kFgTextKey: 'Preparing…',
 };
 
@@ -266,40 +255,16 @@ class BackgroundBackupService implements BackupTaskScheduler {
   ///
   /// Runs every 30 minutes. Only scans photos not yet processed —
   /// already-scanned photos are skipped via the face_scans table.
-  /// Promoted to a dataSync foreground service so MIUI/HyperOS cannot freeze
-  /// or kill a scan that takes longer than the background execution window.
   Future<void> registerFaceScan() async {
     await _workmanager.registerPeriodicTask(
       kFaceScanTask,
       kFaceScanTask,
       frequency: const Duration(minutes: 30),
-      inputData: _faceScanForegroundInputData,
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       backoffPolicy: BackoffPolicy.exponential,
       initialDelay: const Duration(minutes: 5),
     );
     debugPrint('[BackgroundBackupService] Registered face scan');
-  }
-
-  /// Register a one-off face scan.
-  ///
-  /// Used to hand a running in-app scan off to the background when the user
-  /// leaves the app (see [FaceScanBackgroundHandoff]): Android freezes the UI
-  /// isolate within seconds of backgrounding, so the remaining unscanned
-  /// photos must be picked up by a WorkManager run instead. A distinct
-  /// unique name from the periodic task so the two can coexist pending —
-  /// the face-scan lock makes a double run harmless.
-  Future<void> registerFaceScanOneOff() async {
-    if (!_initialized) await initialize();
-    await _workmanager.registerOneOffTask(
-      '$kFaceScanTask.once',
-      kFaceScanTask,
-      inputData: _faceScanForegroundInputData,
-      existingWorkPolicy: ExistingWorkPolicy.keep,
-      backoffPolicy: BackoffPolicy.exponential,
-      initialDelay: const Duration(seconds: 10),
-    );
-    debugPrint('[BackgroundBackupService] Registered one-off face scan');
   }
 
   /// Cancel all registered background tasks.
@@ -349,18 +314,6 @@ class BackgroundTaskRunner {
 
   final ProviderContainer Function() _containerFactory;
   final IsolateRunLock _runLock;
-
-  /// Overrides the face-scan lock for tests. Lazily created in production so
-  /// the lock file is only touched when a face task actually runs.
-  IsolateRunLock? _faceScanLockOverride;
-
-  /// Test-only seam: force the face-scan lock used by [run].
-  // ignore: avoid_setters_without_getters
-  set faceScanLockForTesting(IsolateRunLock lock) =>
-      _faceScanLockOverride = lock;
-
-  IsolateRunLock get _faceScanLock =>
-      _faceScanLockOverride ?? IsolateRunLock(name: kFaceScanLockName);
 
   /// Dispatch [task]. Returns false to tell WorkManager to retry per the
   /// task's backoff policy.
@@ -458,26 +411,11 @@ class BackgroundTaskRunner {
   /// Scan new device photos for faces and cluster them into people.
   ///
   /// Only processes photos not yet in the face_scans table — the incremental
-  /// scan naturally skips already-scanned ones.
-  ///
-  /// Runs under the face-scan foreground service (native promotion via
-  /// [_faceScanForegroundInputData]): on MIUI/HyperOS an unpromoted background
-  /// task is frozen or killed within seconds, which is exactly the
-  /// "people grouping never runs in the background" report. Progress goes to
-  /// the face_scan notification, clustering refreshes per batch, and the
-  /// cross-isolate [kFaceScanLockName] lock keeps this from racing the
-  /// in-app scan. A failure returns false so WorkManager retries on its
-  /// backoff policy instead of silently dropping the backlog.
+  /// scan naturally skips already-scanned ones. Runs silently in the
+  /// background; no notifications or foreground service needed.
   Future<bool> _handleFaceScan() async {
-    final faceLock = _faceScanLock;
-    if (!await faceLock.tryAcquire()) {
-      debugPrint(
-        '[BackgroundBackup] Face scan skipped: another isolate is scanning',
-      );
-      return true;
-    }
-    try {
-      return await _withContainer((container) async {
+    return _withContainer((container) async {
+      try {
         final faceDao = container.read(appDatabaseProvider).faceDao;
         final faceDetectionService = container.read(
           faceDetectionServiceProvider,
@@ -505,71 +443,17 @@ class BackgroundTaskRunner {
           return true;
         }
 
-        final notifications = container.read(notificationServiceProvider);
-        await notifications.initialize();
-
         debugPrint('[BackgroundBackup] Face scan: ${toScan.length} new photos');
-        await ForegroundServiceManager.startService(
-          notifications: notifications,
-          title: 'Scanning faces',
-          body: 'Preparing…',
-          notificationId: NotificationService.faceScanNotificationId,
-        );
-
-        var facesFound = 0;
-        try {
-          final perPhoto = await repository.scanMediaItems(
-            toScan,
-            onProgress: (current, total) {
-              if (current % 10 != 0 && current != total) return;
-              unawaited(
-                ForegroundServiceManager.updateNotification(
-                  notifications: notifications,
-                  title: 'Scanning faces',
-                  body: '$current of $total photos',
-                  progress: current,
-                  maxProgress: total,
-                  notificationId: NotificationService.faceScanNotificationId,
-                ),
-              );
-              unawaited(faceLock.heartbeat());
-            },
-            // Runs every FaceRepository.scanBatchSize (50) photos: cluster
-            // what has been found so far so people appear progressively.
-            onBatchComplete: () => repository.clusterFaces(),
-          );
-          for (final count in perPhoto.values) {
-            facesFound += count;
-          }
-          await repository.clusterFaces();
-        } finally {
-          await ForegroundServiceManager.stopService(
-            notificationId: NotificationService.faceScanNotificationId,
-          );
-        }
-
-        debugPrint(
-          '[BackgroundBackup] Face scan complete: $facesFound face(s)',
-        );
-        // Not a task failure — the scan itself succeeded; per-photo errors are
-        // already recorded so they are not retried forever.
-        if (facesFound > 0) {
-          await notifications.showFaceScanCompleted(
-            photosScanned: toScan.length,
-            facesFound: facesFound,
-          );
-        }
+        await repository.scanMediaItems(toScan);
+        await repository.clusterFaces();
+        debugPrint('[BackgroundBackup] Face scan complete');
         return true;
-      });
-    } catch (e, stackTrace) {
-      debugPrint('[BackgroundBackup] Face scan failed: $e');
-      debugPrint('$stackTrace');
-      // Retryable: an init/OOM/transient failure should not silently drop the
-      // remaining backlog — WorkManager reruns the task on its backoff.
-      return false;
-    } finally {
-      await faceLock.release();
-    }
+      } catch (e, stackTrace) {
+        debugPrint('[BackgroundBackup] Face scan failed: $e');
+        debugPrint('$stackTrace');
+        return true; // Don't retry — face scan is best-effort.
+      }
+    });
   }
 
   /// Drive the engine, reporting progress and the outcome via notifications.
@@ -590,25 +474,8 @@ class BackgroundTaskRunner {
 
     StreamSubscription<BackupStats>? progress;
     try {
-      // Hydrate before ANY run, not only scanning ones. The upload-worker
-      // path (scan: false) uploads from the persisted queue, and without
-      // hydration `markUploaded` silently no-ops against this isolate's
-      // empty in-memory model: the drift row stays `pending`, the metadata
-      // layer never learns of the upload, and the next scan re-enqueues and
-      // re-uploads the same file into the channel.
-      await container.read(galleryRepositoryProvider).hydrate();
-
-      // WorkManager already enforced the network/battery constraints before
-      // this task was allowed to run, but this isolate's fresh environment
-      // still holds the `isWifiConnected: false` default until its
-      // fire-and-forget connectivity seed resolves — startBackup() would
-      // then refuse a perfectly valid run ("Waiting for Wi-Fi connection.").
-      // Seed synchronously so the scheduler re-check sees reality.
-      await container
-          .read(backupEnvironmentProvider.notifier)
-          .seedFromPlatform();
-
       if (scan) {
+        await container.read(galleryRepositoryProvider).hydrate();
         await engine.scanAndEnqueue();
       }
 
@@ -759,13 +626,12 @@ class BackgroundTaskRunner {
 /// still proceeds under the standard background limits and this notification
 /// still shows progress.
 class ForegroundServiceManager {
-  static final Set<int> _runningIds = {};
+  static bool _running = false;
 
-  static final Map<int, NotificationService> _notificationsById = {};
+  /// Whether the foreground service is currently running.
+  static bool get isRunning => _running;
 
-  /// Whether a foreground-service notification for [notificationId] is up.
-  static bool isRunningFor(int notificationId) =>
-      _runningIds.contains(notificationId);
+  static NotificationService? _notifications;
 
   /// Start the foreground service with a progress notification.
   static Future<void> startService({
@@ -774,23 +640,21 @@ class ForegroundServiceManager {
     required String body,
     int? progress,
     int? maxProgress,
-    int notificationId = NotificationService.backupProgressNotificationId,
   }) async {
-    _notificationsById[notificationId] = notifications;
+    _notifications = notifications;
 
-    if (isRunningFor(notificationId)) {
+    if (_running) {
       await updateNotification(
         notifications: notifications,
         title: title,
         body: body,
         progress: progress,
         maxProgress: maxProgress,
-        notificationId: notificationId,
       );
       return;
     }
 
-    _runningIds.add(notificationId);
+    _running = true;
     debugPrint('[ForegroundService] Started: $title - $body');
     await updateNotification(
       notifications: notifications,
@@ -798,7 +662,6 @@ class ForegroundServiceManager {
       body: body,
       progress: progress,
       maxProgress: maxProgress,
-      notificationId: notificationId,
     );
   }
 
@@ -809,24 +672,23 @@ class ForegroundServiceManager {
     required String body,
     int? progress,
     int? maxProgress,
-    int notificationId = NotificationService.backupProgressNotificationId,
   }) async {
-    if (!isRunningFor(notificationId)) return;
-    await notifications.showProgressNotification(
-      notificationId: notificationId,
-      title: title,
-      body: body,
+    if (!_running) return;
+    await notifications.showBackupProgress(
       current: progress ?? 0,
       total: maxProgress ?? 0,
+      fileName: body,
     );
   }
 
   /// Stop the foreground service and clear its notification.
-  static Future<void> stopService({
-    int notificationId = NotificationService.backupProgressNotificationId,
-  }) async {
-    if (!_runningIds.remove(notificationId)) return;
-    await _notificationsById.remove(notificationId)?.cancel(notificationId);
+  static Future<void> stopService() async {
+    if (!_running) return;
+    _running = false;
+    await _notifications?.cancel(
+      NotificationService.backupProgressNotificationId,
+    );
+    _notifications = null;
     debugPrint('[ForegroundService] Stopped');
   }
 }

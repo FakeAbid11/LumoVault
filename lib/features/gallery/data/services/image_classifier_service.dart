@@ -60,6 +60,8 @@ class ImageClassifierService {
   Future<List<String>> classify(AssetEntity asset) async {
     if (!_initialized) return const [];
 
+    OrtValue? ortValue;
+    OrtValue? output;
     try {
       // Load thumbnail bytes (224×224 is small enough for platform decode).
       final thumbBytes = await asset.thumbnailDataWithSize(
@@ -82,7 +84,7 @@ class ImageClassifierService {
       // EfficientNet-Lite0 expects pixels normalized to [0, 1].
       final inputTensor = _preprocess(resized);
 
-      final ortValue = await OrtValue.fromList(inputTensor, [
+      ortValue = await OrtValue.fromList(inputTensor, [
         1,
         3,
         _inputSize,
@@ -94,23 +96,19 @@ class ImageClassifierService {
 
       // Read output logits (shape [1, 1000]).
       final outputName = _session.outputNames.first;
-      final output = outputs[outputName];
-      if (output == null) {
-        await ortValue.dispose();
-        return const [];
-      }
+      output = outputs[outputName];
+      if (output == null) return const [];
 
       final logitsFlat = await output.asFlattenedList();
       final floats = logitsFlat.map((e) => (e as num).toDouble()).toList();
 
-      await ortValue.dispose();
-      await output.dispose();
-
-      // Softmax + top-N.
       return _decodeTopLabels(floats);
     } catch (e) {
       debugPrint('[ImageClassifier] classify failed: $e');
       return const [];
+    } finally {
+      await ortValue?.dispose();
+      await output?.dispose();
     }
   }
 

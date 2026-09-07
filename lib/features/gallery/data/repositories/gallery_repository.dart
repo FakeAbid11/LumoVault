@@ -695,13 +695,52 @@ class GalleryRepository {
       return;
     }
 
-    // Item not in the in-memory gallery — upsert a minimal record so labels
-    // are persisted.  The full scan will carry forward the labels later.
+    // Item not in the in-memory gallery — try the database first.
     try {
       final existing = await _mediaDao?.byLocalId(localId);
       if (existing != null) {
         final updated = existing.toDomain().copyWith(aiLabels: labels);
         await _persistItem(updated);
+        _mediaItems.add(updated);
+        _indexByLocalId[updated.localId] = _mediaItems.length - 1;
+        _notifyMetadataChange(
+          localId: localId,
+          operation: 'ai_label',
+          item: updated,
+        );
+        return;
+      }
+
+      // No DB row yet — insert a minimal record so labels are persisted and
+      // searchable immediately.  The full scan will carry forward the labels
+      // and fill in the real metadata later.
+      final now = DateTime.now();
+      final minimal = MediaItem(
+        localId: localId,
+        fileHash: '',
+        filePath: '',
+        fileName: 'unknown',
+        mimeType: 'image/jpeg',
+        fileSize: 0,
+        width: 0,
+        height: 0,
+        createdAt: now,
+        modifiedAt: now,
+        scannedAt: now,
+        aiLabels: labels,
+      );
+      await _persistItem(minimal);
+      // Reload from DB to get the generated id.
+      final persisted = await _mediaDao?.byLocalId(localId);
+      if (persisted != null) {
+        final domain = persisted.toDomain();
+        _mediaItems.add(domain);
+        _indexByLocalId[domain.localId] = _mediaItems.length - 1;
+        _notifyMetadataChange(
+          localId: localId,
+          operation: 'ai_label',
+          item: domain,
+        );
       }
     } catch (e) {
       debugPrint(

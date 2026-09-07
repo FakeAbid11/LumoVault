@@ -656,28 +656,19 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
               ),
             ),
 
-            // Back + Skip buttons
+            // Back button
             if (_authState != AuthState.authenticated)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 56),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          ref.read(onboardingProvider.notifier).previousStep();
-                          context.pop();
-                        },
-                        child: const Text('Back'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _skipForNow,
-                      child: const Text('Skip for now'),
-                    ),
-                  ],
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      ref.read(onboardingProvider.notifier).previousStep();
+                      context.pop();
+                    },
+                    child: const Text('Back'),
+                  ),
                 ),
               ),
           ],

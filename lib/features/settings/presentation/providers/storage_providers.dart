@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/constants/database_constants.dart';
-import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/storage/thumbnail_cache.dart';
 
@@ -54,14 +53,14 @@ class StorageUsage {
 /// channel missing in a test environment) degrades that component to 0 rather
 /// than failing the whole screen.
 final storageUsageProvider = FutureProvider.autoDispose<StorageUsage>((ref) {
-  final stats = ref.watch(backupStatsProvider);
   final gallery = ref.watch(galleryRepositoryProvider);
+  final uploaded = gallery.uploadedStats;
 
   return _collect(
     deviceMediaBytes: gallery.totalSize,
     deviceMediaCount: gallery.totalCount,
-    telegramBytes: stats.backedUpBytes,
-    telegramItemCount: stats.backedUpCount,
+    telegramBytes: uploaded.bytes,
+    telegramItemCount: uploaded.count,
   );
 });
 

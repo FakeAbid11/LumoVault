@@ -958,6 +958,21 @@ class GalleryRepository {
 
   int get totalSize => _mediaItems.fold(0, (sum, item) => sum + item.fileSize);
 
+  /// Backed-up stats derived from the persisted gallery, not the ephemeral
+  /// upload queue.  Survives restarts because [markUploaded] writes
+  /// [MediaStatus.uploaded] to the database.
+  ({int count, int bytes}) get uploadedStats {
+    var count = 0;
+    var bytes = 0;
+    for (final item in _mediaItems) {
+      if (item.status == MediaStatus.uploaded) {
+        count++;
+        bytes += item.fileSize;
+      }
+    }
+    return (count: count, bytes: bytes);
+  }
+
   /// Apply metadata reconciled from a remote device (the pull side of two-way
   /// sync) to the in-memory read model and database, WITHOUT echoing the
   /// change back through [setMetadataChangeCallback].

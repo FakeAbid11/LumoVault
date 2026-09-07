@@ -979,16 +979,17 @@ class BackupEngine {
   }
 
   void _applyStats() {
+    final uploaded = galleryRepository.uploadedStats;
     _stats = BackupStats(
       totalMediaItems: galleryRepository.totalCount,
-      backedUpCount: _queue.completedCount,
+      backedUpCount: uploaded.count,
       pendingCount: _queue.pendingCount,
       failedCount: _queue.failedCount,
       uploadingCount: _queue.uploadingCount,
       progress: _queue.overallProgress,
       lastBackupAt: settings.lastBackupAt,
       totalBytes: _queue.totalBytes,
-      backedUpBytes: _queue.backedUpBytes,
+      backedUpBytes: uploaded.bytes,
     );
     _statsController.add(_stats);
   }

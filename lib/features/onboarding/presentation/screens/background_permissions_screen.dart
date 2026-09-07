@@ -300,7 +300,28 @@ class _InstructionCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     if (onOpenSettings != null) {
-                      await onOpenSettings!(packageName);
+                      try {
+                        final opened = await onOpenSettings!(packageName);
+                        if (!opened && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not open settings. Please navigate manually.',
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not open settings. Please navigate manually.',
+                              ),
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
                   icon: const Icon(Symbols.open_in_new, size: 18),

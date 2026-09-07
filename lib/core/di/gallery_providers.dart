@@ -116,9 +116,7 @@ final timelineProvider = FutureProvider.autoDispose<List<MediaItem>>((
 /// Items the user has hidden or trashed are suppressed from source 2: those
 /// flags only live on scanned items (which getTimelineItems has filtered out),
 /// so without this guard a raw device read would resurrect them onto the map.
-final mapPhotosProvider = StreamProvider.autoDispose<List<MediaItem>>((
-  ref,
-) async* {
+final mapPhotosProvider = StreamProvider<List<MediaItem>>((ref) async* {
   final repository = ref.watch(galleryRepositoryProvider);
 
   final located = <String, MediaItem>{

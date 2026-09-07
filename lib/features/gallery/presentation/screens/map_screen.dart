@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
-import '../../../../shared/widgets/empty_state.dart';
 import '../../data/models/media_item.dart';
 import '../../data/repositories/geocoding_service.dart';
 import '../widgets/media_tile.dart';
@@ -79,7 +78,62 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildBody(BuildContext context, List<MediaItem> photos) {
-    if (photos.isEmpty) return _buildEmptyState(context);
+    if (photos.isEmpty) {
+      return Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: const MapOptions(
+              initialCenter: LatLng(0, 0),
+              initialZoom: 2,
+            ),
+            children: [
+              const OsmTileLayer(),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: () => launchUrl(
+                      Uri.parse('https://openstreetmap.org/copyright'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            top: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Loading photos…',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
@@ -386,17 +440,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return const EmptyState(
-      icon: Symbols.location_off,
-      title: 'No photos with location yet',
-      message:
-          'Photos with GPS location data appear here. On Android, make '
-          'sure location access is granted for your photos so their '
-          'coordinates can be read.',
     );
   }
 

@@ -75,6 +75,9 @@ class AppSettings {
     this.storageWarningNotification = true,
     // Developer
     this.debugMode = false,
+    // Auto-scan
+    this.aiScanEnabled = false,
+    this.faceScanEnabled = false,
   });
 
   /// Default settings instance.
@@ -130,6 +133,8 @@ class AppSettings {
         storageWarningNotification:
             map['storageWarningNotification'] as bool? ?? true,
         debugMode: map['debugMode'] as bool? ?? false,
+        aiScanEnabled: map['aiScanEnabled'] as bool? ?? false,
+        faceScanEnabled: map['faceScanEnabled'] as bool? ?? false,
       );
     } catch (e) {
       return const AppSettings();
@@ -202,6 +207,10 @@ class AppSettings {
   // -- Developer --
   final bool debugMode;
 
+  // -- Auto-scan --
+  final bool aiScanEnabled;
+  final bool faceScanEnabled;
+
   AppSettings copyWith({
     String? languageCode,
     bool? onboardingCompleted,
@@ -239,6 +248,8 @@ class AppSettings {
     bool? restoreCompletedNotification,
     bool? storageWarningNotification,
     bool? debugMode,
+    bool? aiScanEnabled,
+    bool? faceScanEnabled,
   }) {
     return AppSettings(
       languageCode: languageCode ?? this.languageCode,
@@ -282,6 +293,8 @@ class AppSettings {
       storageWarningNotification:
           storageWarningNotification ?? this.storageWarningNotification,
       debugMode: debugMode ?? this.debugMode,
+      aiScanEnabled: aiScanEnabled ?? this.aiScanEnabled,
+      faceScanEnabled: faceScanEnabled ?? this.faceScanEnabled,
     );
   }
 
@@ -324,6 +337,8 @@ class AppSettings {
     'restoreCompletedNotification': restoreCompletedNotification,
     'storageWarningNotification': storageWarningNotification,
     'debugMode': debugMode,
+    'aiScanEnabled': aiScanEnabled,
+    'faceScanEnabled': faceScanEnabled,
   };
 
   @override

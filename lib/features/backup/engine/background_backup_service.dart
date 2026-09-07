@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../../../core/di/backup_providers.dart';
@@ -12,6 +13,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/notifications/notification_service.dart';
 import '../../../core/storage/isolate_run_lock.dart';
 import '../../../core/storage/thumbnail_cache.dart';
+import '../../gallery/data/services/image_classifier_service.dart';
 import '../../metadata/data/repositories/metadata_validator.dart';
 import '../../metadata/presentation/providers/metadata_providers.dart';
 import '../../people/data/repositories/face_repository.dart';
@@ -27,6 +29,7 @@ const String kBackupSchedulerTask = 'com.lumovault.backup_scheduler';
 const String kMetadataRepairTask = 'com.lumovault.metadata_repair';
 const String kThumbnailRebuildTask = 'com.lumovault.thumbnail_rebuild';
 const String kFaceScanTask = 'com.lumovault.face_scanner';
+const String kAiScanTask = 'com.lumovault.ai_scanner';
 
 /// Name of the cross-isolate lock guarding the backup path.
 const String kBackupRunLockName = 'backup_run';
@@ -267,6 +270,35 @@ class BackgroundBackupService implements BackupTaskScheduler {
     debugPrint('[BackgroundBackupService] Registered face scan');
   }
 
+  /// Register periodic AI image classification for new photos.
+  ///
+  /// Runs every 60 minutes. Only scans photos not yet labeled —
+  /// already-labeled photos are skipped via aiLabels in the gallery.
+  Future<void> registerAiScan() async {
+    await _workmanager.registerPeriodicTask(
+      kAiScanTask,
+      kAiScanTask,
+      frequency: const Duration(minutes: 60),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      backoffPolicy: BackoffPolicy.exponential,
+      initialDelay: const Duration(minutes: 10),
+    );
+    debugPrint('[BackgroundBackupService] Registered AI scan');
+  }
+
+  /// Schedule a one-off background face scan.
+  ///
+  /// Called by [FaceScanBackgroundHandoff] when the app is paused mid-scan.
+  Future<void> registerFaceScanOneOff() async {
+    await _workmanager.registerOneOffTask(
+      '${kFaceScanTask}_handoff',
+      kFaceScanTask,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+      backoffPolicy: BackoffPolicy.exponential,
+    );
+    debugPrint('[BackgroundBackupService] Scheduled one-off face scan');
+  }
+
   /// Cancel all registered background tasks.
   @override
   Future<void> cancelAll() async {
@@ -331,6 +363,8 @@ class BackgroundTaskRunner {
         return _guard(task, _handleThumbnailRebuild);
       case kFaceScanTask:
         return _guard(task, _handleFaceScan);
+      case kAiScanTask:
+        return _guard(task, _handleAiScan);
       default:
         debugPrint('[BackgroundBackup] Unknown task: $task');
         // An unknown name is a code bug, not a transient failure — retrying
@@ -452,6 +486,60 @@ class BackgroundTaskRunner {
         debugPrint('[BackgroundBackup] Face scan failed: $e');
         debugPrint('$stackTrace');
         return true; // Don't retry — face scan is best-effort.
+      }
+    });
+  }
+
+  /// Classify new device photos with AI labels in the background.
+  ///
+  /// Only processes photos not yet labeled — already-labeled photos are
+  /// skipped via the aiLabels field. Runs silently in the background;
+  /// no notifications or foreground service needed.
+  Future<bool> _handleAiScan() async {
+    return _withContainer((container) async {
+      try {
+        final classifier = ImageClassifierService.instance;
+        await classifier.init();
+        if (!classifier.isReady) {
+          debugPrint('[BackgroundBackup] AI scan: classifier not ready');
+          return true;
+        }
+
+        final scannerService = container.read(mediaScannerServiceProvider);
+        final assets = await scannerService.listAllAssets();
+        final images = assets.where((a) => a.type == AssetType.image).toList();
+        if (images.isEmpty) return true;
+
+        final gallery = container.read(galleryRepositoryProvider);
+        await gallery.hydrate();
+        final labeledIds = gallery.labeledLocalIds;
+        final unlabeled = images
+            .where((a) => !labeledIds.contains(a.id))
+            .toList();
+        if (unlabeled.isEmpty) {
+          debugPrint('[BackgroundBackup] AI scan: nothing new to label');
+          return true;
+        }
+
+        debugPrint(
+          '[BackgroundBackup] AI scan: ${unlabeled.length} new photos',
+        );
+        for (final asset in unlabeled) {
+          try {
+            final labels = await classifier.classify(asset);
+            if (labels.isNotEmpty) {
+              await gallery.labelAnyMediaItem(asset.id, labels);
+            }
+          } catch (e) {
+            debugPrint('[BackgroundBackup] AI classify failed: $e');
+          }
+        }
+        debugPrint('[BackgroundBackup] AI scan complete');
+        return true;
+      } catch (e, stackTrace) {
+        debugPrint('[BackgroundBackup] AI scan failed: $e');
+        debugPrint('$stackTrace');
+        return true; // Don't retry — AI scan is best-effort.
       }
     });
   }

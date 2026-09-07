@@ -13,8 +13,10 @@ import 'core/error_handling/global_error_handler.dart';
 import 'core/error_handling/crash_reporter.dart';
 import 'core/logging/app_logger.dart';
 import 'core/storage/thumbnail_cache.dart';
+import 'features/backup/engine/background_backup_service.dart';
 import 'features/metadata/presentation/providers/metadata_providers.dart';
 import 'features/onboarding/presentation/providers/onboarding_provider.dart';
+import 'features/people/data/repositories/face_scan_lock.dart';
 import 'features/settings/presentation/providers/settings_providers.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -149,6 +151,15 @@ Future<ProviderContainer> _bootstrap() async {
   // Schedules the WorkManager tasks that drive periodic backup. Providers are
   // lazy, so this read is what makes background backup exist at all.
   container.read(backgroundBackupSyncProvider);
+
+  // Wire the face-scan handoff hook so FaceScanBackgroundHandoff can schedule
+  // a one-off WorkManager task when the app is paused mid-scan.
+  scheduleOneOffFaceScan =
+      BackgroundBackupService.instance.registerFaceScanOneOff;
+
+  // Activate auto-scan monitoring — registers/cancels AI scan and face scan
+  // WorkManager tasks based on whether the user has done a first manual scan.
+  container.read(autoScanSyncProvider);
 
   return container;
 }

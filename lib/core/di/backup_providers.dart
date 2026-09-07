@@ -673,3 +673,29 @@ class BackgroundBackupSync {
         a.chargingOnly == b.chargingOnly;
   }
 }
+
+/// Keeps AI scan and face scan WorkManager registrations in step with the
+/// user's settings.
+///
+/// Read once during bootstrap; after that the listener re-registers
+/// whenever `aiScanEnabled` or `faceScanEnabled` changes. These flags are
+/// set to `true` after the user's first manual scan, enabling automatic
+/// background scanning of new photos.
+final autoScanSyncProvider = Provider<void>((ref) {
+  final service = BackgroundBackupService.instance;
+  final settings = ref.watch(appSettingsProvider);
+
+  // Register or cancel AI scan task.
+  if (settings.aiScanEnabled) {
+    service.registerAiScan();
+  } else {
+    service.cancelTask(kAiScanTask);
+  }
+
+  // Register or cancel face scan task.
+  if (settings.faceScanEnabled) {
+    service.registerFaceScan();
+  } else {
+    service.cancelTask(kFaceScanTask);
+  }
+});

@@ -322,6 +322,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         .toList();
     if (unlabeled.isEmpty) return;
 
+    // Enable auto-scan for future photos.
+    ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(aiScanEnabled: true));
+
     setState(() {
       _scanning = true;
       _scanProgress = 0;

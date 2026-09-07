@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/database_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/database/daos/face_dao.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../data/models/person.dart';
 import '../../data/repositories/face_repository.dart';
 import '../../data/services/face_detection_service.dart';
@@ -121,6 +122,11 @@ class FaceScanController {
 
     final assets = await _ref.read(deviceAssetsProvider.future);
     if (assets.isEmpty) return;
+
+    // Enable auto-scan for future photos.
+    _ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(faceScanEnabled: true));
 
     _isScanning = true;
     _setProgress(

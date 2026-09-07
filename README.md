@@ -30,7 +30,7 @@
   <img src="https://github.com/FakeAbid11/LumoVault/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/Flutter-3.44.6-02569B?logo=flutter&logoColor=white" alt="Flutter">
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Tests-953%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-983%20passing-brightgreen" alt="Tests">
 </p>
 
 ---
@@ -50,6 +50,9 @@
 | 🗑️ **Trash with auto-purge** | Deleted items rest for 30 days before permanent removal. |
 | 🙈 **Hidden album &amp; Archive** | Keep sensitive or old items out of the main views. |
 | 👤 **People (Faces)** | ONNX-powered face detection, clustering, and person grouping. |
+| 🔍 **Search** | Live search with AI-powered image labels (EfficientNet on-device). |
+| 🗺️ **Map** | Interactive photo map with clustered markers and reverse geocoding. |
+| 👯 **Duplicates** | Detect and manage duplicate photos. |
 | 🔒 **App lock** | PIN plus optional biometric unlock. |
 | 🩺 **Crash reporting** | Sentry in release builds (opt-in via `SENTRY_DSN`). |
 
@@ -158,7 +161,7 @@ flutter run --dart-define-from-file=.env.json
 | 🎨 Language / framework | **Flutter 3.44.6** (stable), Dart ^3.12.2 |
 | 🧠 State management | Riverpod 2.6.1 |
 | 🧭 Navigation | go_router 14.8.1 |
-| 🗄️ Database | drift 2.20 (SQLite, codegen) |
+| 🗄️ Database | drift 2.31 (SQLite, codegen) |
 | 🖼️ Media scanning | photo_manager |
 | 📨 Telegram client | TDLib (`tdlib` package) |
 | ⏰ Background work | workmanager (+ vendored patched `workmanager_android`) |
@@ -198,6 +201,7 @@ lib/
 │   ├── archive/     # Archived items
 │   ├── people/      # Face detection, clustering, person grouping
 │   ├── trash/       # Trash with 30-day retention
+│   ├── duplicates/  # Duplicate photo detection
 │   └── settings/    # Storage, privacy, notifications, appearance, …
 ├── shared/          # Lumo design-system widgets, shared providers
 └── main.dart
@@ -210,7 +214,7 @@ test/                          # Unit + widget tests (mirrors lib/)
 ### Testing & quality
 
 ```sh
-flutter test          # 953 tests (unit + widget)
+flutter test          # 983 tests (unit + widget)
 dart format --output=none --set-exit-if-changed .
 dart analyze
 ```
@@ -245,8 +249,12 @@ device can rebuild the same catalog after scanning it.
 
 ## 📍 Status
 
-Early stage (v1.0.0). Current focus areas:
+**v1.0.0 stable** — all planned features are implemented and shipped:
 
-- 🔧 Reliability hardening of the backup/scan pipeline and background sync
-- 🖼️ Thumbnail handling in the timeline and gallery views
-- 🔄 Cross-device metadata restore
+- Full backup/restore pipeline with background sync
+- Face detection, clustering, and people grouping
+- Two-way metadata sync across devices
+- Interactive photo map with clustering
+- AI-powered search and image classification
+- App lock with PIN and biometric auth
+- 983 passing tests across unit and widget suites

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
@@ -23,8 +22,8 @@ import 'package:material_symbols_icons/symbols.dart';
 /// the gallery (see `mapPhotosProvider`), so a photo appears here as soon as
 /// it's on the device.
 ///
-/// Tapping a pin opens it in the media viewer; floating buttons recenter on
-/// the device's current location or fit all photos within view.
+/// Tapping a pin opens it in the media viewer.  The camera auto-fits all
+/// markers on first render.
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -34,7 +33,6 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   final MapController _mapController = MapController();
-  bool _locating = false;
 
   @override
   Widget build(BuildContext context) {
@@ -137,80 +135,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final points = [for (final p in photos) LatLng(p.latitude!, p.longitude!)];
 
-    return Stack(
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: points.first,
+        initialZoom: 4,
+        initialCameraFit: points.length > 1
+            ? CameraFit.bounds(
+                bounds: LatLngBounds.fromPoints(points),
+                padding: const EdgeInsets.all(48),
+              )
+            : null,
+      ),
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: points.first,
-            initialZoom: 4,
-            initialCameraFit: points.length > 1
-                ? CameraFit.bounds(
-                    bounds: LatLngBounds.fromPoints(points),
-                    padding: const EdgeInsets.all(48),
-                  )
-                : null,
-          ),
-          children: [
-            const OsmTileLayer(),
-            _buildClusterLayer(context, photos),
-            RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution(
-                  'OpenStreetMap contributors',
-                  onTap: () => launchUrl(
-                    Uri.parse('https://openstreetmap.org/copyright'),
-                  ),
-                ),
-              ],
+        const OsmTileLayer(),
+        _buildClusterLayer(context, photos),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(
+              'OpenStreetMap contributors',
+              onTap: () =>
+                  launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
             ),
           ],
         ),
-        // Floating map controls: Fit All Photos & My Location
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'fit_bounds_fab',
-                onPressed: () => _fitAllPoints(points),
-                tooltip: 'Fit all photos in view',
-                child: const Icon(Symbols.zoom_out_map),
-              ),
-              const SizedBox(height: 12),
-              FloatingActionButton(
-                heroTag: 'my_location_fab',
-                onPressed: _locating ? null : _goToMyLocation,
-                tooltip: 'My location',
-                child: _locating
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Symbols.my_location),
-              ),
-            ],
-          ),
-        ),
       ],
     );
-  }
-
-  void _fitAllPoints(List<LatLng> points) {
-    HapticFeedback.lightImpact();
-    if (points.length == 1) {
-      _mapController.move(points.first, 14);
-    } else if (points.length > 1) {
-      _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(points),
-          padding: const EdgeInsets.all(48),
-        ),
-      );
-    }
   }
 
   Widget _buildClusterLayer(BuildContext context, List<MediaItem> photos) {
@@ -482,38 +432,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
       );
     }
-  }
-
-  Future<void> _goToMyLocation() async {
-    setState(() => _locating = true);
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        _showSnack('Turn on location services to center the map on you.');
-        return;
-      }
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showSnack('Location permission is needed to center on your position.');
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition();
-      _mapController.move(LatLng(position.latitude, position.longitude), 14);
-    } catch (_) {
-      _showSnack('Could not determine your location.');
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
-  void _showSnack(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

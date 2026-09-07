@@ -81,6 +81,13 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/storage-insights'),
               ),
+              ListTile(
+                leading: const Icon(Symbols.restore),
+                title: const Text('Restore from Cloud'),
+                subtitle: const Text('Download backed up photos from Telegram'),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push('/restore'),
+              ),
             ],
           ),
 

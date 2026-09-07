@@ -174,34 +174,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     onPressed: () => context.push('/gallery/search'),
                     tooltip: 'Search',
                   ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Symbols.more_vert),
-                    tooltip: 'More options',
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'restore':
-                          context.push('/restore');
-                        case 'refresh':
-                          ref.invalidate(deviceAssetsProvider);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'restore',
-                        child: ListTile(
-                          leading: Icon(Symbols.restore),
-                          title: Text('Restore'),
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'refresh',
-                        child: ListTile(
-                          leading: Icon(Symbols.refresh),
-                          title: Text('Refresh'),
-                        ),
-                      ),
-                    ],
-                  ),
                   const SettingsGearButton(),
                 ],
               ),

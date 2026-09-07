@@ -230,14 +230,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   Widget _buildNotConnectedState(BuildContext context) {
     return EmptyState(
-      icon: Symbols.telegram,
+      icon: Icons.telegram,
       title: 'Not connected to Telegram',
       message:
           'Sign in to back up your photos\n'
           'to the cloud.',
       action: FilledButton.icon(
         onPressed: () => context.push('/connect-telegram'),
-        icon: const Icon(Symbols.telegram),
+        icon: const Icon(Icons.telegram),
         label: const Text('Sign in to Telegram'),
       ),
     );

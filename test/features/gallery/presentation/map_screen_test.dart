@@ -16,13 +16,14 @@ void main() {
     );
   }
 
-  testWidgets('shows map with loading indicator when no photo carries a location', (
-    tester,
-  ) async {
-    await tester.pumpWidget(wrap(const []));
-    await tester.pump();
+  testWidgets(
+    'shows map with loading indicator when no photo carries a location',
+    (tester) async {
+      await tester.pumpWidget(wrap(const []));
+      await tester.pump();
 
-    expect(find.text('Loading photos…'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-  });
+      expect(find.text('Loading photos…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    },
+  );
 }

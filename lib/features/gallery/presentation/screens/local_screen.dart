@@ -177,13 +177,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                   const SettingsGearButton(),
                 ],
               ),
-        floatingActionButton: _isMultiSelectMode
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: () => context.push('/settings/backup'),
-                icon: const Icon(Symbols.cloud_upload),
-                label: const Text('Backup'),
-              ),
         body: permissionStatus.when(
           data: (status) {
             if (status == PermissionStatus.denied ||

@@ -188,9 +188,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                   }
                   return _buildGalleryContent(deviceAssets);
                 },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => _buildErrorState(error.toString()),
               ),
             ),

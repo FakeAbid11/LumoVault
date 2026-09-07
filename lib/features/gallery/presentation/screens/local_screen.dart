@@ -177,24 +177,32 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                   const SettingsGearButton(),
                 ],
               ),
-        body: permissionStatus.when(
-          data: (status) {
-            if (status == PermissionStatus.denied ||
-                status == PermissionStatus.permanentlyDenied) {
-              return _buildPermissionDeniedState(status);
-            }
-            return _buildGalleryContent(deviceAssets);
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => _buildErrorState(error.toString()),
-        ),
-        bottomNavigationBar: _isMultiSelectMode
-            ? _SelectionBar(
+        body: Column(
+          children: [
+            Expanded(
+              child: permissionStatus.when(
+                data: (status) {
+                  if (status == PermissionStatus.denied ||
+                      status == PermissionStatus.permanentlyDenied) {
+                    return _buildPermissionDeniedState(status);
+                  }
+                  return _buildGalleryContent(deviceAssets);
+                },
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (error, stack) => _buildErrorState(error.toString()),
+              ),
+            ),
+            if (_isMultiSelectMode)
+              _SelectionBar(
                 selectedCount: _multiSelected.length,
                 onBackup: () => _selectForBackup(deviceAssets),
                 onTrash: () => _trashSelected(deviceAssets),
-              )
-            : null,
+              ),
+          ],
+        ),
+        bottomNavigationBar: null,
       ),
     );
   }

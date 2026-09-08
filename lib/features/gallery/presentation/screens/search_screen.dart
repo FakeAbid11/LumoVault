@@ -111,7 +111,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
     return deviceAssets.when(
-      data: (assets) => _buildGrid(results, assets),
+      data: (assets) {
+        // Also search device assets by title for photos not in the repository
+        // (e.g. photos from folders excluded from backup).
+        final repository = ref.read(galleryRepositoryProvider);
+        final repoIds = {
+          for (final item in repository.mediaItems) item.localId,
+        };
+        final queryLower = _query.toLowerCase();
+        final extra = <AssetEntity>[
+          for (final a in assets)
+            if (!repoIds.contains(a.id) &&
+                (a.title?.toLowerCase().contains(queryLower) ?? false))
+              a,
+        ];
+        return _buildGrid(results, assets, extraAssets: extra);
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => _buildGrid(results, const []),
     );
@@ -158,8 +173,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildGrid(List<MediaItem> items, List<AssetEntity> allAssets) {
-    if (items.isEmpty) {
+  Widget _buildGrid(
+    List<MediaItem> items,
+    List<AssetEntity> allAssets, {
+    List<AssetEntity> extraAssets = const [],
+  }) {
+    if (items.isEmpty && extraAssets.isEmpty) {
       return _buildHint();
     }
 
@@ -171,6 +190,32 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (asset == null) continue;
       resolved.add(item);
       assets.add(asset);
+    }
+
+    // Append device-only assets not already in repository results.
+    final existingIds = {for (final a in assets) a.id};
+    for (final a in extraAssets) {
+      if (!existingIds.contains(a.id)) {
+        existingIds.add(a.id);
+        assets.add(a);
+        resolved.add(
+          MediaItem(
+            localId: a.id,
+            fileHash: '',
+            filePath: '',
+            fileName: a.title ?? a.id,
+            mimeType: a.type == AssetType.image ? 'image/jpeg' : 'video/mp4',
+            fileSize: 0,
+            width: a.width,
+            height: a.height,
+            durationMs: a.type == AssetType.video ? a.duration * 1000 : null,
+            createdAt: a.createDateTime,
+            modifiedAt: a.modifiedDateTime,
+            scannedAt: DateTime.now(),
+            status: MediaStatus.pending,
+          ),
+        );
+      }
     }
 
     if (resolved.isEmpty) {

@@ -37,6 +37,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(mapPhotosProvider);
+
+    // Fit camera when photo data arrives or changes.
+    ref.listen(mapPhotosProvider, (previous, next) {
+      next.whenData((photos) {
+        if (photos.isEmpty) return;
+        final points = [
+          for (final p in photos)
+            if (p.latitude != null && p.longitude != null)
+              LatLng(p.latitude!, p.longitude!),
+        ];
+        if (points.isEmpty) return;
+        if (points.length == 1) {
+          _mapController.move(points.first, 12);
+        } else {
+          _mapController.fitCamera(
+            CameraFit.bounds(
+              bounds: LatLngBounds.fromPoints(points),
+              padding: const EdgeInsets.all(48),
+            ),
+          );
+        }
+      });
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Map'),
@@ -139,13 +163,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       mapController: _mapController,
       options: MapOptions(
         initialCenter: points.first,
-        initialZoom: 4,
-        initialCameraFit: points.length > 1
-            ? CameraFit.bounds(
-                bounds: LatLngBounds.fromPoints(points),
-                padding: const EdgeInsets.all(48),
-              )
-            : null,
+        initialZoom: points.length > 1 ? 4 : 12,
       ),
       children: [
         const OsmTileLayer(),

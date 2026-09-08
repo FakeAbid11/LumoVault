@@ -118,90 +118,84 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     final permissionStatus = ref.watch(mediaPermissionStatusProvider);
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
-    return PopScope(
-      canPop: !_isMultiSelectMode,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(_multiSelected.clear);
-      },
-      child: Scaffold(
-        appBar: _isMultiSelectMode
-            ? AppBar(
-                leading: IconButton(
-                  icon: const Icon(Symbols.close),
-                  onPressed: () => setState(_multiSelected.clear),
-                  tooltip: 'Cancel selection',
+    return Scaffold(
+      appBar: _isMultiSelectMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Symbols.close),
+                onPressed: () => setState(_multiSelected.clear),
+                tooltip: 'Cancel selection',
+              ),
+              title: Text('${_multiSelected.length} selected'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    final assets = deviceAssets.valueOrNull;
+                    if (assets == null) return;
+                    final repository = ref.read(galleryRepositoryProvider);
+                    final visibleCount = assets.where((asset) {
+                      final item = repository.getItemById(asset.id);
+                      return !(item?.isHidden ?? false) &&
+                          !(item?.isTrashed ?? false);
+                    }).length;
+                    setState(() {
+                      if (_multiSelected.length == visibleCount) {
+                        _multiSelected.clear();
+                      } else {
+                        final allIds = assets
+                            .where((asset) {
+                              final item = repository.getItemById(asset.id);
+                              return !(item?.isHidden ?? false) &&
+                                  !(item?.isTrashed ?? false);
+                            })
+                            .map((a) => a.id);
+                        _multiSelected.addAll(allIds);
+                      }
+                    });
+                  },
+                  child: Text(
+                    _areAllVisibleSelected(deviceAssets)
+                        ? 'Deselect all'
+                        : 'Select all',
+                  ),
                 ),
-                title: Text('${_multiSelected.length} selected'),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      final assets = deviceAssets.valueOrNull;
-                      if (assets == null) return;
-                      final repository = ref.read(galleryRepositoryProvider);
-                      final visibleCount = assets.where((asset) {
-                        final item = repository.getItemById(asset.id);
-                        return !(item?.isHidden ?? false) &&
-                            !(item?.isTrashed ?? false);
-                      }).length;
-                      setState(() {
-                        if (_multiSelected.length == visibleCount) {
-                          _multiSelected.clear();
-                        } else {
-                          final allIds = assets
-                              .where((asset) {
-                                final item = repository.getItemById(asset.id);
-                                return !(item?.isHidden ?? false) &&
-                                    !(item?.isTrashed ?? false);
-                              })
-                              .map((a) => a.id);
-                          _multiSelected.addAll(allIds);
-                        }
-                      });
-                    },
-                    child: Text(
-                      _areAllVisibleSelected(deviceAssets)
-                          ? 'Deselect all'
-                          : 'Select all',
-                    ),
-                  ),
-                ],
-              )
-            : AppBar(
-                title: const Text('LumoVault'),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Symbols.search),
-                    onPressed: () => context.push('/gallery/search'),
-                    tooltip: 'Search',
-                  ),
-                  const SettingsGearButton(),
-                ],
-              ),
-        body: Column(
-          children: [
-            Expanded(
-              child: permissionStatus.when(
-                data: (status) {
-                  if (status == PermissionStatus.denied ||
-                      status == PermissionStatus.permanentlyDenied) {
-                    return _buildPermissionDeniedState(status);
-                  }
-                  return _buildGalleryContent(deviceAssets);
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => _buildErrorState(error.toString()),
-              ),
+              ],
+            )
+          : AppBar(
+              title: const Text('LumoVault'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Symbols.search),
+                  onPressed: () => context.push('/gallery/search'),
+                  tooltip: 'Search',
+                ),
+                const SettingsGearButton(),
+              ],
             ),
-            if (_isMultiSelectMode)
-              _SelectionBar(
-                selectedCount: _multiSelected.length,
-                onBackup: () => _selectForBackup(deviceAssets),
-                onTrash: () => _trashSelected(deviceAssets),
-              ),
-          ],
-        ),
-        bottomNavigationBar: null,
+      body: Column(
+        children: [
+          Expanded(
+            child: permissionStatus.when(
+              data: (status) {
+                if (status == PermissionStatus.denied ||
+                    status == PermissionStatus.permanentlyDenied) {
+                  return _buildPermissionDeniedState(status);
+                }
+                return _buildGalleryContent(deviceAssets);
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => _buildErrorState(error.toString()),
+            ),
+          ),
+          if (_isMultiSelectMode)
+            _SelectionBar(
+              selectedCount: _multiSelected.length,
+              onBackup: () => _selectForBackup(deviceAssets),
+              onTrash: () => _trashSelected(deviceAssets),
+            ),
+        ],
       ),
+      bottomNavigationBar: null,
     );
   }
 

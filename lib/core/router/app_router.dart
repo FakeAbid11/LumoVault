@@ -318,6 +318,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      // Device folder sub-screen (must be before /albums/:id)
+      GoRoute(
+        path: '/albums/folder/:name',
+        pageBuilder: (context, state) {
+          final name = state.pathParameters['name']!;
+          return _slideFromRight(AlbumDetailScreen(albumName: name), state);
+        },
+      ),
+
       // Album sub-screen
       GoRoute(
         path: '/albums/:id',

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/album_dao.dart';
 import '../../core/di/database_providers.dart';
 import '../../features/albums/data/models/album.dart';
 import '../../features/gallery/data/models/media_item.dart';
@@ -83,6 +84,60 @@ final mediaAlbumsProvider = FutureProvider.autoDispose
     .family<List<int>, String>((ref, mediaId) async {
       final db = ref.watch(appDatabaseProvider);
       return db.albumDao.albumsForMedia(mediaId);
+    });
+
+/// Device folders detected from phone gallery (Camera, Screenshots, etc.).
+final deviceFolderAlbumsProvider =
+    FutureProvider.autoDispose<List<DeviceFolderAlbum>>((ref) async {
+      final db = ref.watch(appDatabaseProvider);
+      return db.albumDao.deviceFolderAlbums();
+    });
+
+/// Items inside a specific device folder (by albumName).
+final deviceFolderItemsProvider = FutureProvider.autoDispose
+    .family<List<MediaItem>, String>((ref, albumName) async {
+      final db = ref.watch(appDatabaseProvider);
+      final rows = await db.albumDao.itemsForDeviceFolder(albumName);
+      return rows
+          .map(
+            (r) => MediaItem(
+              id: r.id,
+              localId: r.localId,
+              fileHash: r.fileHash,
+              telegramMessageId: r.telegramMessageId,
+              telegramFileId: r.telegramFileId,
+              filePath: r.filePath,
+              fileName: r.fileName,
+              mimeType: r.mimeType,
+              fileSize: r.fileSize,
+              width: r.width,
+              height: r.height,
+              durationMs: r.durationMs,
+              createdAt: r.createdAt,
+              modifiedAt: r.modifiedAt,
+              scannedAt: r.scannedAt,
+              uploadedAt: r.uploadedAt,
+              backedUpAt: r.backedUpAt,
+              status: MediaStatus.values[r.status],
+              errorMessage: r.errorMessage,
+              isFavorite: r.isFavorite,
+              isHidden: r.isHidden,
+              isArchived: r.isArchived,
+              isTrashed: r.isTrashed,
+              trashedAt: r.trashedAt,
+              isExcluded: r.isExcluded,
+              albumName: r.albumName,
+              deviceFolder: r.deviceFolder,
+              description: r.description,
+              tags: r.tags,
+              aiLabels: r.aiLabels,
+              thumbnailPath: r.thumbnailPath,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              isLocationUserSet: r.isLocationUserSet,
+            ),
+          )
+          .toList();
     });
 
 class AlbumActions {

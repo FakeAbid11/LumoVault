@@ -12,12 +12,50 @@ import '../../../../shared/widgets/empty_state.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class AlbumDetailScreen extends ConsumerWidget {
-  const AlbumDetailScreen({required this.albumId, super.key});
+  const AlbumDetailScreen({this.albumId, this.albumName, super.key});
 
-  final int albumId;
+  final int? albumId;
+  final String? albumName;
+
+  bool get isDeviceFolder => albumName != null;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final deviceAssets = ref.watch(deviceAssetsProvider);
+
+    if (isDeviceFolder) {
+      return _buildDeviceFolder(context, ref, deviceAssets);
+    }
+    return _buildCustomAlbum(context, ref, deviceAssets);
+  }
+
+  Widget _buildDeviceFolder(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<AssetEntity>> deviceAssets,
+  ) {
+    final itemsAsync = ref.watch(deviceFolderItemsProvider(albumName!));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(albumName!)),
+      body: itemsAsync.when(
+        data: (items) => deviceAssets.when(
+          data: (assets) =>
+              _buildBody(context, ref, items, assets, allowRemove: false),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => _buildBody(context, ref, items, const []),
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('$e')),
+      ),
+    );
+  }
+
+  Widget _buildCustomAlbum(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<AssetEntity>> deviceAssets,
+  ) {
     final albumAsync = ref.watch(
       albumsListProvider.select(
         (async) => async.whenData(
@@ -25,8 +63,7 @@ class AlbumDetailScreen extends ConsumerWidget {
         ),
       ),
     );
-    final itemsAsync = ref.watch(albumItemsProvider(albumId));
-    final deviceAssets = ref.watch(deviceAssetsProvider);
+    final itemsAsync = ref.watch(albumItemsProvider(albumId!));
 
     return Scaffold(
       appBar: AppBar(
@@ -35,18 +72,11 @@ class AlbumDetailScreen extends ConsumerWidget {
           loading: () => const Text('Album'),
           error: (_, __) => const Text('Album'),
         ),
-        actions: [
-          if (itemsAsync.hasValue && itemsAsync.value!.isNotEmpty)
-            IconButton(
-              icon: const Icon(Symbols.select_all),
-              tooltip: 'Select all',
-              onPressed: () {},
-            ),
-        ],
       ),
       body: itemsAsync.when(
         data: (items) => deviceAssets.when(
-          data: (assets) => _buildBody(context, ref, items, assets),
+          data: (assets) =>
+              _buildBody(context, ref, items, assets, allowRemove: true),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, __) => _buildBody(context, ref, items, const []),
         ),
@@ -60,8 +90,9 @@ class AlbumDetailScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     List<dynamic> items,
-    List<AssetEntity> allAssets,
-  ) {
+    List<AssetEntity> allAssets, {
+    bool allowRemove = true,
+  }) {
     if (items.isEmpty) return _buildEmptyState();
 
     final byId = {for (final a in allAssets) a.id: a};
@@ -95,13 +126,22 @@ class AlbumDetailScreen extends ConsumerWidget {
             '/gallery/media/${asset.id}',
             extra: (assets: assets, initialIndex: index),
           ),
-          onLongPress: () => _removeFromAlbum(context, ref, asset.id),
+          onLongPress: allowRemove
+              ? () => _removeFromAlbum(context, ref, asset.id)
+              : null,
         );
       },
     );
   }
 
   Widget _buildEmptyState() {
+    if (isDeviceFolder) {
+      return const EmptyState(
+        icon: Symbols.folder,
+        title: 'Folder is empty',
+        message: 'No photos or videos found\nin this device folder.',
+      );
+    }
     return const EmptyState(
       icon: Symbols.photo_library,
       title: 'Album is empty',
@@ -133,7 +173,7 @@ class AlbumDetailScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      await ref.read(albumActionsProvider).removeFromAlbum(albumId, mediaId);
+      await ref.read(albumActionsProvider).removeFromAlbum(albumId!, mediaId);
     }
   }
 }

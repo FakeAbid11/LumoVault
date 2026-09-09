@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/database/daos/album_dao.dart';
 import '../../../../core/di/album_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../features/albums/data/models/album.dart';
@@ -23,18 +24,31 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
   Widget build(BuildContext context) {
     final albumsAsync = ref.watch(albumsListProvider);
     final countsAsync = ref.watch(albumCountsProvider);
+    final deviceFoldersAsync = ref.watch(deviceFolderAlbumsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Albums')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateDialog(context),
-        child: const Icon(Symbols.add),
+      appBar: AppBar(
+        title: const Text('Albums'),
+        actions: [
+          IconButton(
+            icon: const Icon(Symbols.add),
+            tooltip: 'Create album',
+            onPressed: () => _showCreateDialog(context),
+          ),
+        ],
       ),
-      body: albumsAsync.when(
-        data: (albums) => countsAsync.when(
-          data: (counts) => _buildBody(context, albums, counts),
-          loading: () => _buildBody(context, albums, const {}),
-          error: (_, __) => _buildBody(context, albums, const {}),
+      body: deviceFoldersAsync.when(
+        data: (deviceFolders) => albumsAsync.when(
+          data: (albums) => countsAsync.when(
+            data: (counts) =>
+                _buildBody(context, deviceFolders, albums, counts),
+            loading: () => _buildBody(context, deviceFolders, albums, const {}),
+            error: (_, __) =>
+                _buildBody(context, deviceFolders, albums, const {}),
+          ),
+          loading: () => _buildBody(context, deviceFolders, const [], const {}),
+          error: (_, __) =>
+              _buildBody(context, deviceFolders, const [], const {}),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text('$e')),
@@ -44,10 +58,12 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
 
   Widget _buildBody(
     BuildContext context,
+    List<DeviceFolderAlbum> deviceFolders,
     List<Album> albums,
     Map<int, int> counts,
   ) {
-    if (albums.isEmpty) return _buildEmptyState(context);
+    if (deviceFolders.isEmpty && albums.isEmpty)
+      return _buildEmptyState(context);
 
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -57,13 +73,28 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
         mainAxisSpacing: 12,
         childAspectRatio: 0.85,
       ),
-      itemCount: albums.length,
+      itemCount: deviceFolders.length + albums.length,
       itemBuilder: (context, index) {
-        final album = albums[index];
+        if (index < deviceFolders.length) {
+          final folder = deviceFolders[index];
+          return _AlbumCard(
+            name: folder.name,
+            itemCount: folder.count,
+            coverId: folder.coverId,
+            isDeviceFolder: true,
+            onTap: () => context.push(
+              '/albums/folder/${Uri.encodeComponent(folder.name)}',
+            ),
+            onLongPress: null,
+          );
+        }
+        final album = albums[index - deviceFolders.length];
         final count = counts[album.id] ?? 0;
         return _AlbumCard(
-          album: album,
+          name: album.name,
           itemCount: count,
+          coverId: album.coverId,
+          isDeviceFolder: false,
           onTap: () => context.push('/albums/${album.id}'),
           onLongPress: () => _showAlbumMenu(context, album),
         );
@@ -218,16 +249,20 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
 
 class _AlbumCard extends StatelessWidget {
   const _AlbumCard({
-    required this.album,
+    required this.name,
     required this.itemCount,
+    this.coverId,
+    required this.isDeviceFolder,
     required this.onTap,
-    required this.onLongPress,
+    this.onLongPress,
   });
 
-  final Album album;
+  final String name;
   final int itemCount;
+  final String? coverId;
+  final bool isDeviceFolder;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -248,22 +283,45 @@ class _AlbumCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               clipBehavior: Clip.antiAlias,
-              child: album.coverId != null
-                  ? _CoverThumbnail(localId: album.coverId!)
-                  : Center(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (coverId != null)
+                    _CoverThumbnail(localId: coverId!)
+                  else
+                    Center(
                       child: Icon(
-                        Symbols.photo_library,
+                        isDeviceFolder ? Symbols.folder : Symbols.photo_library,
                         size: 48,
                         color: colorScheme.onSurfaceVariant.withValues(
                           alpha: 0.5,
                         ),
                       ),
                     ),
+                  if (isDeviceFolder)
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Symbols.folder,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            album.name,
+            name,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),

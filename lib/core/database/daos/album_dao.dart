@@ -4,6 +4,20 @@ import '../app_database.dart';
 
 part 'album_dao.g.dart';
 
+class DeviceFolderAlbum {
+  const DeviceFolderAlbum({
+    required this.name,
+    this.folder,
+    required this.count,
+    this.coverId,
+  });
+
+  final String name;
+  final String? folder;
+  final int count;
+  final String? coverId;
+}
+
 @DriftAccessor(tables: [Albums, AlbumItems, MediaItems])
 class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
   AlbumDao(super.db);
@@ -135,6 +149,45 @@ class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
       albumItems,
     )..where((t) => t.mediaId.equals(mediaId))).get();
     return rows.map((r) => r.albumId).toList();
+  }
+
+  Future<List<DeviceFolderAlbum>> deviceFolderAlbums() async {
+    final query = selectOnly(mediaItems)
+      ..addColumns([
+        mediaItems.albumName,
+        mediaItems.deviceFolder,
+        mediaItems.localId.count(),
+        mediaItems.localId.min(),
+      ])
+      ..where(
+        mediaItems.albumName.isNotNull() &
+            mediaItems.isTrashed.equals(false) &
+            mediaItems.isHidden.equals(false),
+      )
+      ..groupBy([mediaItems.albumName])
+      ..orderBy([OrderingTerm.desc(mediaItems.localId.count())]);
+
+    final rows = await query.get();
+    return rows.map((row) {
+      return DeviceFolderAlbum(
+        name: row.read(mediaItems.albumName)!,
+        folder: row.read(mediaItems.deviceFolder),
+        count: row.read(mediaItems.localId.count())!,
+        coverId: row.read(mediaItems.localId.min()),
+      );
+    }).toList();
+  }
+
+  Future<List<MediaItemRow>> itemsForDeviceFolder(String albumName) async {
+    return (select(mediaItems)
+          ..where(
+            (t) =>
+                t.albumName.equals(albumName) &
+                t.isTrashed.equals(false) &
+                t.isHidden.equals(false),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
   }
 
   Future<void> updateAutoCover(int albumId) async {

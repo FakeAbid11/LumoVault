@@ -21,6 +21,7 @@ class CaptionMetadata {
     this.deviceFolder,
     this.description,
     this.tags = const [],
+    this.isDateUserSet = false,
     this.customFields,
   });
 
@@ -51,6 +52,7 @@ class CaptionMetadata {
         deviceFolder: map['fol'] as String?,
         description: map['desc'] as String?,
         tags: (map['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+        isDateUserSet: map['dus'] as bool? ?? false,
         customFields: map['x'] as Map<String, dynamic>?,
       );
     } catch (e) {
@@ -82,6 +84,7 @@ class CaptionMetadata {
   final String? deviceFolder;
   final String? description;
   final List<String> tags;
+  final bool isDateUserSet;
   final Map<String, dynamic>? customFields;
 
   /// Serialize to JSON for Telegram message caption.
@@ -108,6 +111,7 @@ class CaptionMetadata {
     if (deviceFolder != null) map['fol'] = deviceFolder;
     if (description != null) map['desc'] = description;
     if (tags.isNotEmpty) map['tags'] = tags;
+    if (isDateUserSet) map['dus'] = true;
     if (customFields != null && customFields!.isNotEmpty) {
       map['x'] = customFields;
     }

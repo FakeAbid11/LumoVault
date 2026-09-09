@@ -38,6 +38,7 @@ class MediaItem {
     this.latitude,
     this.longitude,
     this.isLocationUserSet = false,
+    this.isDateUserSet = false,
   });
   final int? id;
   final String localId;
@@ -78,6 +79,10 @@ class MediaItem {
   /// Whether the coordinates were set manually by the user (vs. read from
   /// EXIF). When true, a rescan will not overwrite these coordinates.
   final bool isLocationUserSet;
+
+  /// Whether the capture date was set manually by the user. When true,
+  /// a rescan will not overwrite the date from device metadata.
+  final bool isDateUserSet;
 
   MediaType get mediaType {
     if (mimeType.startsWith('image/')) return MediaType.image;
@@ -130,6 +135,7 @@ class MediaItem {
     double? latitude,
     double? longitude,
     bool? isLocationUserSet,
+    bool? isDateUserSet,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -166,6 +172,7 @@ class MediaItem {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
+      isDateUserSet: isDateUserSet ?? this.isDateUserSet,
     );
   }
 

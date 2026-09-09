@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:exif/exif.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +38,13 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
   String? _filePath;
   double? _assetLat;
   double? _assetLng;
+  String? _cameraMake;
+  String? _cameraModel;
+  String? _lensModel;
+  String? _aperture;
+  String? _shutterSpeed;
+  String? _iso;
+  String? _focalLength;
 
   @override
   void initState() {
@@ -53,6 +61,8 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
           _fileSize = length;
           _filePath = file.path;
         });
+        // Load EXIF data for camera details
+        await _loadExifData(file);
       }
       if (widget.item?.latitude == null) {
         final latlng = await widget.asset!.latlngAsync();
@@ -73,6 +83,60 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         _filePath = widget.item!.filePath;
       });
     }
+  }
+
+  Future<void> _loadExifData(File file) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final exifData = await readExifFromBytes(bytes);
+      if (exifData.isEmpty || !mounted) return;
+
+      setState(() {
+        _cameraMake = _exifTagToString(exifData['Make']);
+        _cameraModel = _exifTagToString(exifData['Model']);
+        _lensModel = _exifTagToString(exifData['LensModel']);
+        _aperture = _formatAperture(exifData['FNumber']);
+        _shutterSpeed = _formatShutterSpeed(exifData['ExposureTime']);
+        _iso = _exifTagToString(exifData['ISOSpeedRatings']);
+        _focalLength = _exifTagToString(exifData['FocalLength']);
+      });
+    } catch (_) {
+      // EXIF parsing failed — silently ignore, camera details won't show
+    }
+  }
+
+  String? _exifTagToString(IfdTag? tag) {
+    if (tag == null) return null;
+    final value = tag.toString().trim();
+    return value.isEmpty ? null : value;
+  }
+
+  String? _formatAperture(IfdTag? tag) {
+    if (tag == null) return null;
+    try {
+      final value = tag.values.toList().first;
+      if (value is Ratio) {
+        final fNumber = value.numerator / value.denominator;
+        return 'f/${fNumber.toStringAsFixed(1)}';
+      }
+    } catch (_) {}
+    return tag.toString().trim();
+  }
+
+  String? _formatShutterSpeed(IfdTag? tag) {
+    if (tag == null) return null;
+    try {
+      final value = tag.values.toList().first;
+      if (value is Ratio) {
+        final seconds = value.numerator / value.denominator;
+        if (seconds >= 1) {
+          return '${seconds.toStringAsFixed(1)}s';
+        }
+        final denominator = (1 / seconds).round();
+        return '1/${denominator}s';
+      }
+    } catch (_) {}
+    return tag.toString().trim();
   }
 
   @override
@@ -126,17 +190,34 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
               const SizedBox(height: 8),
 
               // Date & Time
-              Text(
-                _formatFullDate(date),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                _formatTime(date),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _formatFullDate(date),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          _formatTime(date),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _editDate(context, date),
+                    icon: const Icon(Symbols.edit_calendar, size: 16),
+                    label: const Text('Edit'),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -199,6 +280,12 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
               ),
               const SizedBox(height: 16),
 
+              // Camera Details Card (if EXIF data available)
+              if (_cameraMake != null || _cameraModel != null)
+                _buildCameraCard(context),
+              if (_cameraMake != null || _cameraModel != null)
+                const SizedBox(height: 16),
+
               // Cloud / Backup Status Card
               _buildBackupCard(context),
               const SizedBox(height: 16),
@@ -212,6 +299,86 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCameraCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final cameraName = [
+      _cameraMake,
+      _cameraModel,
+    ].where((s) => s != null && s.isNotEmpty).join(' ');
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Symbols.camera_alt, size: 24, color: colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    cameraName.isNotEmpty ? cameraName : 'Camera',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_lensModel != null && _lensModel!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildExifRow(context, 'Lens', _lensModel!),
+            ],
+            if (_aperture != null) ...[
+              const SizedBox(height: 4),
+              _buildExifRow(context, 'Aperture', _aperture!),
+            ],
+            if (_shutterSpeed != null) ...[
+              const SizedBox(height: 4),
+              _buildExifRow(context, 'Shutter Speed', _shutterSpeed!),
+            ],
+            if (_iso != null) ...[
+              const SizedBox(height: 4),
+              _buildExifRow(context, 'ISO', _iso!),
+            ],
+            if (_focalLength != null) ...[
+              const SizedBox(height: 4),
+              _buildExifRow(context, 'Focal Length', _focalLength!),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExifRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -486,6 +653,41 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
     if (mounted) {
       setState(() {});
       widget.onLocationChanged?.call();
+    }
+  }
+
+  Future<void> _editDate(BuildContext context, DateTime currentDate) async {
+    final assetId = widget.asset?.id ?? widget.item?.localId;
+    if (assetId == null) return;
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: currentDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (pickedDate == null || !mounted) return;
+
+    if (!mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(currentDate),
+    );
+    if (!mounted) return;
+
+    final newDate = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime?.hour ?? currentDate.hour,
+      pickedTime?.minute ?? currentDate.minute,
+    );
+
+    final repository = ref.read(galleryRepositoryProvider);
+    await repository.setCreatedAt(assetId, newDate);
+
+    if (mounted) {
+      setState(() {});
     }
   }
 

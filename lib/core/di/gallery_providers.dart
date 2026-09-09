@@ -7,6 +7,8 @@ import '../../features/gallery/data/repositories/gallery_repository.dart';
 import '../../features/gallery/data/repositories/incremental_scanner.dart';
 import '../../features/gallery/data/repositories/media_scanner_service.dart';
 import '../../features/gallery/data/services/image_classifier_service.dart';
+import '../../features/settings/data/models/app_settings.dart';
+import '../../features/settings/presentation/providers/settings_providers.dart';
 import '../storage/storage_channel_service.dart';
 import 'database_providers.dart';
 import 'tdlib_providers.dart';
@@ -248,6 +250,61 @@ final deviceAssetsProvider = FutureProvider<List<AssetEntity>>((ref) async {
   return assets;
 });
 
+/// Filtered and sorted device assets based on user gallery preferences.
+/// Also excludes hidden and trashed items.
+final filteredSortedAssetsProvider = Provider<List<AssetEntity>>((ref) {
+  final assetsAsync = ref.watch(deviceAssetsProvider);
+  final sortOrder = ref.watch(settingsGallerySortProvider);
+  final filterType = ref.watch(settingsGalleryFilterProvider);
+  final selectedTag = ref.watch(selectedTagFilterProvider);
+  final repository = ref.watch(galleryRepositoryProvider);
+
+  return assetsAsync.when(
+    data: (assets) {
+      final result = assets.where((asset) {
+        final item = repository.getItemById(asset.id);
+        // Exclude hidden and trashed items
+        if (item?.isHidden == true || item?.isTrashed == true) return false;
+
+        // Tag filter
+        if (selectedTag != null) {
+          if (!item!.tags.contains(selectedTag)) return false;
+        }
+
+        switch (filterType) {
+          case GalleryFilterType.all:
+            return true;
+          case GalleryFilterType.photosOnly:
+            return asset.type == AssetType.image;
+          case GalleryFilterType.videosOnly:
+            return asset.type == AssetType.video;
+          case GalleryFilterType.favoritesOnly:
+            return item?.isFavorite ?? false;
+        }
+      }).toList();
+
+      result.sort((a, b) {
+        switch (sortOrder) {
+          case GallerySortOrder.newestFirst:
+            return b.createDateTime.compareTo(a.createDateTime);
+          case GallerySortOrder.oldestFirst:
+            return a.createDateTime.compareTo(b.createDateTime);
+          case GallerySortOrder.nameAsc:
+            return (a.title ?? '').compareTo(b.title ?? '');
+          case GallerySortOrder.sizeDesc:
+            final aSize = repository.getItemById(a.id)?.fileSize ?? 0;
+            final bSize = repository.getItemById(b.id)?.fileSize ?? 0;
+            return bSize.compareTo(aSize);
+        }
+      });
+
+      return result;
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
+});
+
 final timelineByDateProvider = Provider<Map<String, List<MediaItem>>>((ref) {
   final repository = ref.watch(galleryRepositoryProvider);
   return repository.getTimelineByDate();
@@ -334,3 +391,12 @@ final labeledCountProvider = Provider<int>((ref) {
       )
       .length;
 });
+
+/// All distinct user tags across the library, for autocomplete and tag browser.
+final allTagsProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+  final db = ref.watch(appDatabaseProvider);
+  return db.mediaDao.allDistinctTags();
+});
+
+/// Currently selected tag filter — null means no tag filter active.
+final selectedTagFilterProvider = StateProvider<String?>((ref) => null);

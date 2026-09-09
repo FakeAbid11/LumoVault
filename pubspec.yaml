@@ -76,6 +76,9 @@ dependencies:
   # Image processing (face crops)
   image: ^4.3.0
 
+  # EXIF parsing for camera details
+  exif: ^3.3.0
+
   # Material Symbols (Google Fonts icons)
   material_symbols_icons: ^4.2960.0
 

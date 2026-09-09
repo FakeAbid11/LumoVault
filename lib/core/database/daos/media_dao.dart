@@ -155,6 +155,24 @@ class MediaDao extends DatabaseAccessor<AppDatabase> with _$MediaDaoMixin {
         .toList();
   }
 
+  /// All distinct user tags across the library, sorted alphabetically.
+  ///
+  /// Tags are stored as a JSON array per row, so we load all non-trashed
+  /// items and collect unique tags in memory. Fine for typical tag counts.
+  Future<List<String>> allDistinctTags() async {
+    final rows =
+        await (select(mediaItems)..where(
+              (t) => t.isTrashed.equals(false) & t.isHidden.equals(false),
+            ))
+            .get();
+    final tags = <String>{};
+    for (final row in rows) {
+      tags.addAll(row.tags);
+    }
+    final sorted = tags.toList()..sort();
+    return sorted;
+  }
+
   /// All rows, newest first. Used to hydrate the in-memory read model on
   /// startup.
   Future<List<MediaItemRow>> all() {

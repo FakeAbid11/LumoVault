@@ -23,6 +23,7 @@ class AssetTile extends StatefulWidget {
     required this.asset,
     this.status,
     this.isSelectedForBackup = false,
+    this.isFavorite = false,
     this.onTap,
     this.onLongPress,
     this.isSelected = false,
@@ -41,6 +42,7 @@ class AssetTile extends StatefulWidget {
   /// that are — showing the old "about to upload" icon on every single
   /// photo by default would say the opposite of what's actually true.
   final bool isSelectedForBackup;
+  final bool isFavorite;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -102,6 +104,7 @@ class _AssetTileState extends State<AssetTile>
               if (widget.asset.type == AssetType.video)
                 _buildVideoIndicator(context),
               if (widget.isSelectedForBackup) _buildStatusIndicator(context)!,
+              if (widget.isFavorite) _buildFavoriteIndicator(context),
               if (widget.isSelected) ...[
                 _buildDimOverlay(context),
                 _buildSelectionOverlay(context),
@@ -213,6 +216,14 @@ class _AssetTileState extends State<AssetTile>
         ),
         child: Icon(icon, color: color, size: 14),
       ),
+    );
+  }
+
+  Widget _buildFavoriteIndicator(BuildContext context) {
+    return const Positioned(
+      top: 4,
+      right: 4,
+      child: Icon(Symbols.favorite, color: Colors.white, size: 16),
     );
   }
 

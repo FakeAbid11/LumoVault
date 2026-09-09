@@ -17,7 +17,9 @@ import '../../data/models/media_item.dart';
 import '../../data/models/upload_task.dart';
 import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
+import '../widgets/tag_editor_sheet.dart';
 import 'location_picker_screen.dart';
+import '../../../albums/presentation/widgets/add_to_album_sheet.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-screen photo/video viewer.
@@ -81,6 +83,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     final asset = _currentAsset;
     final currentItem = repository.getItemById(asset.id);
     final isBackedUp = currentItem?.status == MediaStatus.uploaded;
+    final isFavorite = currentItem?.isFavorite ?? false;
     // Live queue task for this asset, so the button reflects a backup already
     // running for it (started here, from a tile, or by a full backup run).
     final task = ref.watch(uploadTaskForItemProvider(asset.id));
@@ -221,9 +224,35 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                           ),
                           Expanded(
                             child: _BottomAction(
+                              icon: isFavorite
+                                  ? Symbols.favorite
+                                  : Symbols.favorite_border,
+                              label: 'Favorite',
+                              color: isFavorite
+                                  ? Theme.of(context).colorScheme.error
+                                  : Theme.of(context).colorScheme.onSurface,
+                              onPressed: () => _toggleFavorite(),
+                            ),
+                          ),
+                          Expanded(
+                            child: _BottomAction(
                               icon: Symbols.share,
                               label: 'Share',
                               onPressed: () => _shareCurrentAsset(),
+                            ),
+                          ),
+                          Expanded(
+                            child: _BottomAction(
+                              icon: Symbols.photo_library,
+                              label: 'Album',
+                              onPressed: () => _addToAlbum(),
+                            ),
+                          ),
+                          Expanded(
+                            child: _BottomAction(
+                              icon: Symbols.label,
+                              label: 'Tags',
+                              onPressed: () => _openTagEditor(),
                             ),
                           ),
                           if (widget.allowDeviceDelete)
@@ -261,6 +290,34 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       return;
     }
     await Share.shareXFiles([XFile(file.path)]);
+  }
+
+  void _addToAlbum() {
+    final asset = _currentAsset;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddToAlbumSheet(mediaId: asset.id),
+    );
+  }
+
+  void _openTagEditor() {
+    final asset = _currentAsset;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TagEditorSheet(mediaId: asset.id),
+    );
+  }
+
+  Future<void> _toggleFavorite() async {
+    final asset = _currentAsset;
+    final repository = ref.read(galleryRepositoryProvider);
+    await repository.toggleFavorite(asset.id);
+    if (!mounted) return;
+    ref.invalidate(mediaItemProvider(asset.id));
   }
 
   /// Move the on-screen asset to the phone's trash — Local tab only.

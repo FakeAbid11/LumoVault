@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../features/albums/presentation/screens/albums_screen.dart';
+import '../../features/albums/presentation/screens/album_detail_screen.dart';
 import '../../features/archive/presentation/screens/archive_screen.dart';
 import '../../features/backup/presentation/screens/backup_dashboard_screen.dart';
 import '../../features/backup/presentation/screens/storage_stats_screen.dart';
@@ -39,6 +41,7 @@ import '../../features/settings/presentation/screens/notification_settings_scree
 import '../../features/settings/presentation/screens/developer_settings_screen.dart';
 import '../../features/trash/presentation/screens/trash_screen.dart';
 import '../../features/duplicates/presentation/screens/duplicates_screen.dart';
+import '../../features/gallery/presentation/screens/favorites_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../theme/app_motion.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -191,6 +194,22 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
+          // Tab 5: Albums
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/albums',
+                pageBuilder: (context, state) => CustomTransitionPage<void>(
+                  key: state.pageKey,
+                  child: const AlbumsScreen(),
+                  transitionDuration: Duration.zero,
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) => child,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
 
@@ -299,6 +318,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
+      // Album sub-screen
+      GoRoute(
+        path: '/albums/:id',
+        pageBuilder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return _slideFromRight(AlbumDetailScreen(albumId: id), state);
+        },
+      ),
+
       // Settings sub-screens
       GoRoute(
         path: '/settings/account',
@@ -324,6 +352,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/hidden',
         pageBuilder: (context, state) =>
             _slideFromRight(const HiddenAlbumScreen(), state),
+      ),
+      GoRoute(
+        path: '/settings/favorites',
+        pageBuilder: (context, state) =>
+            _slideFromRight(const FavoritesScreen(), state),
       ),
       GoRoute(
         path: '/settings/archive',

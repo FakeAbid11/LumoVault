@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/providers.dart';
-import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 
 import '../../../../core/permissions/permission_service.dart';
@@ -42,21 +40,7 @@ class LocalScreen extends ConsumerStatefulWidget {
 }
 
 class _LocalScreenState extends ConsumerState<LocalScreen> {
-  final Set<String> _multiSelected = {};
-  bool get _isMultiSelectMode => _multiSelected.isNotEmpty;
   final ScrollController _scrollController = ScrollController();
-
-  bool _areAllVisibleSelected(AsyncValue<List<AssetEntity>> deviceAssets) {
-    final assets = deviceAssets.valueOrNull;
-    if (assets == null || assets.isEmpty) return false;
-    final repository = ref.read(galleryRepositoryProvider);
-    for (final asset in assets) {
-      final item = repository.getItemById(asset.id);
-      if (item?.isHidden == true || item?.isTrashed == true) continue;
-      if (!_multiSelected.contains(asset.id)) return false;
-    }
-    return true;
-  }
 
   @override
   void initState() {
@@ -119,61 +103,20 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
     return Scaffold(
-      appBar: _isMultiSelectMode
-          ? AppBar(
-              leading: IconButton(
-                icon: const Icon(Symbols.close),
-                onPressed: () => setState(_multiSelected.clear),
-                tooltip: 'Cancel selection',
-              ),
-              title: Text('${_multiSelected.length} selected'),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    final assets = deviceAssets.valueOrNull;
-                    if (assets == null) return;
-                    final repository = ref.read(galleryRepositoryProvider);
-                    final visibleCount = assets.where((asset) {
-                      final item = repository.getItemById(asset.id);
-                      return !(item?.isHidden ?? false) &&
-                          !(item?.isTrashed ?? false);
-                    }).length;
-                    setState(() {
-                      if (_multiSelected.length == visibleCount) {
-                        _multiSelected.clear();
-                      } else {
-                        final allIds = assets
-                            .where((asset) {
-                              final item = repository.getItemById(asset.id);
-                              return !(item?.isHidden ?? false) &&
-                                  !(item?.isTrashed ?? false);
-                            })
-                            .map((a) => a.id);
-                        _multiSelected.addAll(allIds);
-                      }
-                    });
-                  },
-                  child: Text(
-                    _areAllVisibleSelected(deviceAssets)
-                        ? 'Deselect all'
-                        : 'Select all',
-                  ),
-                ),
-              ],
-            )
-          : AppBar(
-              title: const Text('LumoVault'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Symbols.search),
-                  onPressed: () => context.push('/gallery/search'),
-                  tooltip: 'Search',
-                ),
-                const SettingsGearButton(),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text('LumoVault'),
+        actions: [
+          IconButton(
+            icon: const Icon(Symbols.search),
+            onPressed: () => context.push('/gallery/search'),
+            tooltip: 'Search',
+          ),
+          const SettingsGearButton(),
+        ],
+      ),
       body: Column(
         children: [
+          _buildFilterBar(),
           Expanded(
             child: permissionStatus.when(
               data: (status) {
@@ -187,16 +130,204 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
               error: (error, stack) => _buildErrorState(error.toString()),
             ),
           ),
-          if (_isMultiSelectMode)
-            _SelectionBar(
-              selectedCount: _multiSelected.length,
-              onBackup: () => _selectForBackup(deviceAssets),
-              onTrash: () => _trashSelected(deviceAssets),
-            ),
         ],
       ),
-      bottomNavigationBar: null,
     );
+  }
+
+  Widget _buildFilterBar() {
+    final currentSort = ref.watch(settingsGallerySortProvider);
+    final currentFilter = ref.watch(settingsGalleryFilterProvider);
+    final selectedTag = ref.watch(selectedTagFilterProvider);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          // Sort button
+          ActionChip(
+            avatar: const Icon(Symbols.sort, size: 18),
+            label: Text(_sortLabel(currentSort)),
+            onPressed: () => _showSortPicker(currentSort),
+          ),
+          const SizedBox(width: 8),
+          // Filter chips
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    label: 'All',
+                    selected:
+                        currentFilter == GalleryFilterType.all &&
+                        selectedTag == null,
+                    onSelected: () {
+                      _setFilter(GalleryFilterType.all);
+                      ref.read(selectedTagFilterProvider.notifier).state = null;
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  _buildFilterChip(
+                    label: 'Photos',
+                    icon: Symbols.image,
+                    selected: currentFilter == GalleryFilterType.photosOnly,
+                    onSelected: () => _setFilter(GalleryFilterType.photosOnly),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildFilterChip(
+                    label: 'Videos',
+                    icon: Symbols.videocam,
+                    selected: currentFilter == GalleryFilterType.videosOnly,
+                    onSelected: () => _setFilter(GalleryFilterType.videosOnly),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildFilterChip(
+                    label: 'Favorites',
+                    icon: Symbols.favorite,
+                    selected: currentFilter == GalleryFilterType.favoritesOnly,
+                    onSelected: () =>
+                        _setFilter(GalleryFilterType.favoritesOnly),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildTagFilterChip(selectedTag),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagFilterChip(String? selectedTag) {
+    return ActionChip(
+      avatar: Icon(
+        Symbols.label,
+        size: 16,
+        color: selectedTag != null
+            ? Theme.of(context).colorScheme.primary
+            : null,
+      ),
+      label: Text(selectedTag ?? 'Tags'),
+      onPressed: () => _showTagPicker(selectedTag),
+    );
+  }
+
+  void _showTagPicker(String? currentTag) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Symbols.label_off),
+              title: const Text('No tag filter'),
+              selected: currentTag == null,
+              onTap: () {
+                Navigator.pop(context);
+                ref.read(selectedTagFilterProvider.notifier).state = null;
+              },
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: FutureBuilder<List<String>>(
+                future: ref.read(allTagsProvider.future),
+                builder: (context, snapshot) {
+                  final tags = snapshot.data ?? [];
+                  if (tags.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('No tags yet. Add tags from the viewer.'),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: tags.length,
+                    itemBuilder: (context, index) {
+                      final tag = tags[index];
+                      return ListTile(
+                        leading: const Icon(Symbols.label, size: 20),
+                        title: Text(tag),
+                        trailing: tag == currentTag
+                            ? const Icon(Symbols.check)
+                            : null,
+                        onTap: () {
+                          Navigator.pop(context);
+                          ref.read(selectedTagFilterProvider.notifier).state =
+                              tag;
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    IconData? icon,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      avatar: icon != null ? Icon(icon, size: 16) : null,
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+      checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+    );
+  }
+
+  String _sortLabel(GallerySortOrder order) {
+    return switch (order) {
+      GallerySortOrder.newestFirst => 'Newest',
+      GallerySortOrder.oldestFirst => 'Oldest',
+      GallerySortOrder.nameAsc => 'Name',
+      GallerySortOrder.sizeDesc => 'Size',
+    };
+  }
+
+  void _showSortPicker(GallerySortOrder current) {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Sort by'),
+        children: GallerySortOrder.values.map((order) {
+          return SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .updateField((s) => s.copyWith(gallerySortOrder: order));
+            },
+            child: Row(
+              children: [
+                if (order == current)
+                  const Icon(Symbols.check, size: 20)
+                else
+                  const SizedBox(width: 20),
+                const SizedBox(width: 12),
+                Text(_sortLabel(order)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _setFilter(GalleryFilterType filter) {
+    ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(galleryFilterType: filter));
   }
 
   Widget _buildPermissionDeniedState(PermissionStatus status) {
@@ -258,13 +389,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
   Widget _buildGalleryContent(AsyncValue<List<AssetEntity>> deviceAssets) {
     return deviceAssets.when(
       data: (assets) {
-        // Hidden/trashed items only surface in their own screens — keep them
-        // out of the backup selection grid entirely.
         final repository = ref.read(galleryRepositoryProvider);
-        final visible = assets.where((asset) {
-          final item = repository.getItemById(asset.id);
-          return !(item?.isHidden ?? false) && !(item?.isTrashed ?? false);
-        }).toList();
+        // Use filtered/sorted assets from the provider
+        final visible = ref.watch(filteredSortedAssetsProvider);
         if (visible.isEmpty) return _buildEmptyState();
         return RefreshIndicator(
           onRefresh: () => ref.refresh(deviceAssetsProvider.future),
@@ -343,17 +470,8 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     asset: asset,
                     status: item?.status,
                     isSelectedForBackup: isSelectedForBackup,
-                    isSelected: _multiSelected.contains(asset.id),
+                    isFavorite: item?.isFavorite ?? false,
                     onTap: () {
-                      if (_isMultiSelectMode) {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          if (!_multiSelected.remove(asset.id)) {
-                            _multiSelected.add(asset.id);
-                          }
-                        });
-                        return;
-                      }
                       final globalIndex = allAssets.indexOf(asset);
                       context.push(
                         '/gallery/media/${asset.id}',
@@ -363,10 +481,6 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                           allowDeviceDelete: true,
                         ),
                       );
-                    },
-                    onLongPress: () {
-                      HapticFeedback.mediumImpact();
-                      setState(() => _multiSelected.add(asset.id));
                     },
                   );
                 }, childCount: groupedAssets[dateKeys[i]]?.length ?? 0),
@@ -378,206 +492,10 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     );
   }
 
-  Future<void> _selectForBackup(
-    AsyncValue<List<AssetEntity>> deviceAssetsValue,
-  ) async {
-    final assets = deviceAssetsValue.valueOrNull;
-    if (assets == null) return;
-
-    final repository = ref.read(galleryRepositoryProvider);
-    final byId = {for (final asset in assets) asset.id: asset};
-
-    final ids = List<String>.from(_multiSelected);
-    setState(_multiSelected.clear);
-
-    final backupNotifier = ref.read(backupEngineProvider.notifier);
-    for (final id in ids) {
-      final asset = byId[id];
-      if (asset == null) continue;
-      await repository.setBackupExcluded(
-        localId: id,
-        excluded: false,
-        asset: asset,
-      );
-      // Enqueue right away so these show up on the backup dashboard
-      // immediately, not just after the next full "Start Backup" scan.
-      final item = repository.getItemById(id);
-      if (item != null) backupNotifier.enqueueSelectedItem(item);
-    }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${ids.length} selected for backup')),
-    );
-    setState(() {});
-  }
-
-  /// Move the selected assets to the phone's trash.
-  ///
-  /// The Local-tab counterpart to the media viewer's single-item Trash action.
-  /// Uses Android's MediaStore trash (`createTrashRequest`, Android 11+/API 30),
-  /// which shows one system confirmation for the whole batch, then moves the
-  /// files to the phone's trash for permanent deletion after 30 days —
-  /// recoverable from the phone's Trash until then. Only on-device copies are
-  /// removed; Telegram backups are left untouched.
-  Future<void> _trashSelected(
-    AsyncValue<List<AssetEntity>> deviceAssetsValue,
-  ) async {
-    final assets = deviceAssetsValue.valueOrNull;
-    if (assets == null) return;
-
-    final byId = {for (final asset in assets) asset.id: asset};
-    final selected = <AssetEntity>[
-      for (final id in _multiSelected)
-        if (byId[id] != null) byId[id]!,
-    ];
-    if (selected.isEmpty) return;
-
-    final repository = ref.read(galleryRepositoryProvider);
-
-    try {
-      // One system dialog covers the whole batch; the returned ids are the
-      // ones actually trashed (empty if the user cancels there).
-      final trashed = await PhotoManager.editor.android.moveToTrash(selected);
-      if (!mounted) return;
-      if (trashed.isEmpty) return;
-
-      // Mark each trashed item in the app database so the Trash screen
-      // shows them. PhotoManager.moveToTrash handles the OS-level trash.
-      for (final id in trashed) {
-        await repository.moveToTrash(id);
-      }
-
-      ref.invalidate(deviceAssetsProvider);
-      ref.invalidate(mapPhotosProvider);
-      ref.invalidate(trashedItemsProvider);
-      setState(_multiSelected.clear);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${trashed.length} moved to trash · deletes in 30 days',
-          ),
-        ),
-      );
-    } on PlatformException {
-      // moveToTrash is Android 11+ (API 30) only — older versions have no
-      // MediaStore trash, so there's no 30-day-recovery delete to offer.
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Moving to trash needs Android 11 or newer'),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t move these to trash')),
-      );
-    }
-  }
-
   Widget _buildErrorState(String error) {
     return ErrorState(
       error: error,
       onRetry: () => ref.invalidate(deviceAssetsProvider),
-    );
-  }
-}
-
-class _SelectionBar extends StatelessWidget {
-  const _SelectionBar({
-    required this.selectedCount,
-    required this.onBackup,
-    required this.onTrash,
-  });
-
-  final int selectedCount;
-  final VoidCallback onBackup;
-  final VoidCallback onTrash;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: _SelectionActionButton(
-                  icon: Symbols.cloud_upload,
-                  label: 'Backup',
-                  onTap: onBackup,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SelectionActionButton(
-                  icon: Symbols.delete,
-                  label: 'Trash',
-                  color: Theme.of(context).colorScheme.error,
-                  onTap: onTrash,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectionActionButton extends StatelessWidget {
-  const _SelectionActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: effectiveColor, size: 24),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: effectiveColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

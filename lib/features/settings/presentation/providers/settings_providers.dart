@@ -109,6 +109,16 @@ final settingsAnimationsProvider = Provider<bool>((ref) {
   return ref.watch(appSettingsProvider).animationsEnabled;
 });
 
+/// Current gallery sort order.
+final settingsGallerySortProvider = Provider<GallerySortOrder>((ref) {
+  return ref.watch(appSettingsProvider).gallerySortOrder;
+});
+
+/// Current gallery filter type.
+final settingsGalleryFilterProvider = Provider<GalleryFilterType>((ref) {
+  return ref.watch(appSettingsProvider).galleryFilterType;
+});
+
 /// Whether privacy lock is enabled (biometric or PIN).
 final settingsPrivacyLockProvider = Provider<bool>((ref) {
   final s = ref.watch(appSettingsProvider);

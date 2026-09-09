@@ -12,6 +12,12 @@ enum GridSize {
   final int columns;
 }
 
+/// Sort order for gallery items.
+enum GallerySortOrder { newestFirst, oldestFirst, nameAsc, sizeDesc }
+
+/// Filter type for gallery items.
+enum GalleryFilterType { all, photosOnly, videosOnly, favoritesOnly }
+
 /// Column count for the gallery photo grids, derived from the chosen
 /// [GridSize] and whether Compact Mode is on.
 ///
@@ -62,6 +68,9 @@ class AppSettings {
     this.gridSize = GridSize.medium,
     this.compactMode = false,
     this.animationsEnabled = true,
+    // Gallery
+    this.gallerySortOrder = GallerySortOrder.newestFirst,
+    this.galleryFilterType = GalleryFilterType.all,
     // Privacy
     this.biometricLockEnabled = false,
     this.pinLockEnabled = false,
@@ -118,6 +127,10 @@ class AppSettings {
         gridSize: GridSize.values[map['gridSize'] as int? ?? 1],
         compactMode: map['compactMode'] as bool? ?? false,
         animationsEnabled: map['animationsEnabled'] as bool? ?? true,
+        gallerySortOrder:
+            GallerySortOrder.values[map['gallerySortOrder'] as int? ?? 0],
+        galleryFilterType:
+            GalleryFilterType.values[map['galleryFilterType'] as int? ?? 0],
         biometricLockEnabled: map['biometricLockEnabled'] as bool? ?? false,
         pinLockEnabled: map['pinLockEnabled'] as bool? ?? false,
         pinHash: map['pinHash'] as String?,
@@ -191,6 +204,10 @@ class AppSettings {
   final bool compactMode;
   final bool animationsEnabled;
 
+  // -- Gallery --
+  final GallerySortOrder gallerySortOrder;
+  final GalleryFilterType galleryFilterType;
+
   // -- Privacy --
   final bool biometricLockEnabled;
   final bool pinLockEnabled;
@@ -237,6 +254,8 @@ class AppSettings {
     GridSize? gridSize,
     bool? compactMode,
     bool? animationsEnabled,
+    GallerySortOrder? gallerySortOrder,
+    GalleryFilterType? galleryFilterType,
     bool? biometricLockEnabled,
     bool? pinLockEnabled,
     String? pinHash,
@@ -278,6 +297,8 @@ class AppSettings {
       gridSize: gridSize ?? this.gridSize,
       compactMode: compactMode ?? this.compactMode,
       animationsEnabled: animationsEnabled ?? this.animationsEnabled,
+      gallerySortOrder: gallerySortOrder ?? this.gallerySortOrder,
+      galleryFilterType: galleryFilterType ?? this.galleryFilterType,
       biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
       pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
       pinHash: clearPinHash == true ? null : (pinHash ?? this.pinHash),
@@ -327,6 +348,8 @@ class AppSettings {
     'gridSize': gridSize.index,
     'compactMode': compactMode,
     'animationsEnabled': animationsEnabled,
+    'gallerySortOrder': gallerySortOrder.index,
+    'galleryFilterType': galleryFilterType.index,
     'biometricLockEnabled': biometricLockEnabled,
     'pinLockEnabled': pinLockEnabled,
     'pinHash': pinHash,

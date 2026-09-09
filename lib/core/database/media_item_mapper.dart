@@ -47,6 +47,7 @@ extension MediaItemRowMapper on MediaItemRow {
     latitude: latitude,
     longitude: longitude,
     isLocationUserSet: isLocationUserSet,
+    isDateUserSet: isDateUserSet,
   );
 }
 
@@ -90,5 +91,6 @@ extension MediaItemToCompanion on MediaItem {
     latitude: Value(latitude),
     longitude: Value(longitude),
     isLocationUserSet: Value(isLocationUserSet),
+    isDateUserSet: Value(isDateUserSet),
   );
 }

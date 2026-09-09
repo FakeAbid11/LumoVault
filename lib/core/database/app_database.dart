@@ -12,6 +12,7 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import '../constants/database_constants.dart';
 import 'daos/media_dao.dart';
 import 'daos/face_dao.dart';
+import 'daos/album_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -121,6 +122,8 @@ class MediaItems extends Table {
   RealColumn get longitude => real().nullable()();
   BoolColumn get isLocationUserSet =>
       boolean().withDefault(const Constant(false))();
+  BoolColumn get isDateUserSet =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   List<Set<Column>> get uniqueKeys => [
@@ -190,9 +193,39 @@ class FaceScans extends Table {
   Set<Column> get primaryKey => {mediaItemId};
 }
 
+@DataClassName('AlbumRow')
+class Albums extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get coverId => text().nullable()();
+  IntColumn get position => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+}
+
+@DataClassName('AlbumItemRow')
+class AlbumItems extends Table {
+  IntColumn get albumId => integer().references(Albums, #id)();
+  TextColumn get mediaId => text().references(MediaItems, #localId)();
+  DateTimeColumn get addedAt => dateTime()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {albumId, mediaId},
+  ];
+}
+
 @DriftDatabase(
-  tables: [MediaItems, Faces, People, FacePersons, FaceScans],
-  daos: [MediaDao, FaceDao],
+  tables: [
+    MediaItems,
+    Faces,
+    People,
+    FacePersons,
+    FaceScans,
+    Albums,
+    AlbumItems,
+  ],
+  daos: [MediaDao, FaceDao, AlbumDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -292,6 +325,15 @@ class AppDatabase extends _$AppDatabase {
       if (from < 13) {
         await m.database.customStatement(
           "ALTER TABLE media_items ADD COLUMN ai_labels TEXT NOT NULL DEFAULT '[]'",
+        );
+      }
+      if (from < 14) {
+        await m.createTable(albums);
+        await m.createTable(albumItems);
+      }
+      if (from < 15) {
+        await m.database.customStatement(
+          'ALTER TABLE media_items ADD COLUMN is_date_user_set BOOLEAN NOT NULL DEFAULT 0',
         );
       }
     },

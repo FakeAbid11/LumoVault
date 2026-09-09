@@ -403,6 +403,21 @@ class $MediaItemsTable extends MediaItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isDateUserSetMeta = const VerificationMeta(
+    'isDateUserSet',
+  );
+  @override
+  late final GeneratedColumn<bool> isDateUserSet = GeneratedColumn<bool>(
+    'is_date_user_set',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_date_user_set" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -439,6 +454,7 @@ class $MediaItemsTable extends MediaItems
     latitude,
     longitude,
     isLocationUserSet,
+    isDateUserSet,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -687,6 +703,15 @@ class $MediaItemsTable extends MediaItems
         ),
       );
     }
+    if (data.containsKey('is_date_user_set')) {
+      context.handle(
+        _isDateUserSetMeta,
+        isDateUserSet.isAcceptableOrUnknown(
+          data['is_date_user_set']!,
+          _isDateUserSetMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -840,6 +865,10 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_location_user_set'],
       )!,
+      isDateUserSet: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_date_user_set'],
+      )!,
     );
   }
 
@@ -889,6 +918,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
   final double? latitude;
   final double? longitude;
   final bool isLocationUserSet;
+  final bool isDateUserSet;
   const MediaItemRow({
     required this.id,
     required this.localId,
@@ -924,6 +954,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     this.latitude,
     this.longitude,
     required this.isLocationUserSet,
+    required this.isDateUserSet,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -996,6 +1027,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       map['longitude'] = Variable<double>(longitude);
     }
     map['is_location_user_set'] = Variable<bool>(isLocationUserSet);
+    map['is_date_user_set'] = Variable<bool>(isDateUserSet);
     return map;
   }
 
@@ -1061,6 +1093,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ? const Value.absent()
           : Value(longitude),
       isLocationUserSet: Value(isLocationUserSet),
+      isDateUserSet: Value(isDateUserSet),
     );
   }
 
@@ -1106,6 +1139,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       latitude: serializer.fromJson<double?>(json['latitude']),
       longitude: serializer.fromJson<double?>(json['longitude']),
       isLocationUserSet: serializer.fromJson<bool>(json['isLocationUserSet']),
+      isDateUserSet: serializer.fromJson<bool>(json['isDateUserSet']),
     );
   }
   @override
@@ -1146,6 +1180,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       'latitude': serializer.toJson<double?>(latitude),
       'longitude': serializer.toJson<double?>(longitude),
       'isLocationUserSet': serializer.toJson<bool>(isLocationUserSet),
+      'isDateUserSet': serializer.toJson<bool>(isDateUserSet),
     };
   }
 
@@ -1184,6 +1219,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     Value<double?> latitude = const Value.absent(),
     Value<double?> longitude = const Value.absent(),
     bool? isLocationUserSet,
+    bool? isDateUserSet,
   }) => MediaItemRow(
     id: id ?? this.id,
     localId: localId ?? this.localId,
@@ -1225,6 +1261,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     latitude: latitude.present ? latitude.value : this.latitude,
     longitude: longitude.present ? longitude.value : this.longitude,
     isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
+    isDateUserSet: isDateUserSet ?? this.isDateUserSet,
   );
   MediaItemRow copyWithCompanion(MediaItemsCompanion data) {
     return MediaItemRow(
@@ -1290,6 +1327,9 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       isLocationUserSet: data.isLocationUserSet.present
           ? data.isLocationUserSet.value
           : this.isLocationUserSet,
+      isDateUserSet: data.isDateUserSet.present
+          ? data.isDateUserSet.value
+          : this.isDateUserSet,
     );
   }
 
@@ -1329,7 +1369,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
-          ..write('isLocationUserSet: $isLocationUserSet')
+          ..write('isLocationUserSet: $isLocationUserSet, ')
+          ..write('isDateUserSet: $isDateUserSet')
           ..write(')'))
         .toString();
   }
@@ -1370,6 +1411,7 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     latitude,
     longitude,
     isLocationUserSet,
+    isDateUserSet,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1408,7 +1450,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           other.thumbnailPath == this.thumbnailPath &&
           other.latitude == this.latitude &&
           other.longitude == this.longitude &&
-          other.isLocationUserSet == this.isLocationUserSet);
+          other.isLocationUserSet == this.isLocationUserSet &&
+          other.isDateUserSet == this.isDateUserSet);
 }
 
 class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
@@ -1446,6 +1489,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
   final Value<double?> latitude;
   final Value<double?> longitude;
   final Value<bool> isLocationUserSet;
+  final Value<bool> isDateUserSet;
   const MediaItemsCompanion({
     this.id = const Value.absent(),
     this.localId = const Value.absent(),
@@ -1481,6 +1525,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.latitude = const Value.absent(),
     this.longitude = const Value.absent(),
     this.isLocationUserSet = const Value.absent(),
+    this.isDateUserSet = const Value.absent(),
   });
   MediaItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -1517,6 +1562,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.latitude = const Value.absent(),
     this.longitude = const Value.absent(),
     this.isLocationUserSet = const Value.absent(),
+    this.isDateUserSet = const Value.absent(),
   }) : localId = Value(localId),
        fileHash = Value(fileHash),
        filePath = Value(filePath),
@@ -1563,6 +1609,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Expression<double>? latitude,
     Expression<double>? longitude,
     Expression<bool>? isLocationUserSet,
+    Expression<bool>? isDateUserSet,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1599,6 +1646,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
       if (isLocationUserSet != null) 'is_location_user_set': isLocationUserSet,
+      if (isDateUserSet != null) 'is_date_user_set': isDateUserSet,
     });
   }
 
@@ -1637,6 +1685,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Value<double?>? latitude,
     Value<double?>? longitude,
     Value<bool>? isLocationUserSet,
+    Value<bool>? isDateUserSet,
   }) {
     return MediaItemsCompanion(
       id: id ?? this.id,
@@ -1673,6 +1722,7 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
+      isDateUserSet: isDateUserSet ?? this.isDateUserSet,
     );
   }
 
@@ -1785,6 +1835,9 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     if (isLocationUserSet.present) {
       map['is_location_user_set'] = Variable<bool>(isLocationUserSet.value);
     }
+    if (isDateUserSet.present) {
+      map['is_date_user_set'] = Variable<bool>(isDateUserSet.value);
+    }
     return map;
   }
 
@@ -1824,7 +1877,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
           ..write('thumbnailPath: $thumbnailPath, ')
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
-          ..write('isLocationUserSet: $isLocationUserSet')
+          ..write('isLocationUserSet: $isLocationUserSet, ')
+          ..write('isDateUserSet: $isDateUserSet')
           ..write(')'))
         .toString();
   }
@@ -3560,6 +3614,672 @@ class FaceScansCompanion extends UpdateCompanion<FaceScanRow> {
   }
 }
 
+class $AlbumsTable extends Albums with TableInfo<$AlbumsTable, AlbumRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AlbumsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _coverIdMeta = const VerificationMeta(
+    'coverId',
+  );
+  @override
+  late final GeneratedColumn<String> coverId = GeneratedColumn<String>(
+    'cover_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    coverId,
+    position,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'albums';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AlbumRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('cover_id')) {
+      context.handle(
+        _coverIdMeta,
+        coverId.isAcceptableOrUnknown(data['cover_id']!, _coverIdMeta),
+      );
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AlbumRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AlbumRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      coverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_id'],
+      ),
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AlbumsTable createAlias(String alias) {
+    return $AlbumsTable(attachedDatabase, alias);
+  }
+}
+
+class AlbumRow extends DataClass implements Insertable<AlbumRow> {
+  final int id;
+  final String name;
+  final String? coverId;
+  final int position;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const AlbumRow({
+    required this.id,
+    required this.name,
+    this.coverId,
+    required this.position,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || coverId != null) {
+      map['cover_id'] = Variable<String>(coverId);
+    }
+    map['position'] = Variable<int>(position);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AlbumsCompanion toCompanion(bool nullToAbsent) {
+    return AlbumsCompanion(
+      id: Value(id),
+      name: Value(name),
+      coverId: coverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverId),
+      position: Value(position),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AlbumRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AlbumRow(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      coverId: serializer.fromJson<String?>(json['coverId']),
+      position: serializer.fromJson<int>(json['position']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'coverId': serializer.toJson<String?>(coverId),
+      'position': serializer.toJson<int>(position),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AlbumRow copyWith({
+    int? id,
+    String? name,
+    Value<String?> coverId = const Value.absent(),
+    int? position,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => AlbumRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    coverId: coverId.present ? coverId.value : this.coverId,
+    position: position ?? this.position,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AlbumRow copyWithCompanion(AlbumsCompanion data) {
+    return AlbumRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      coverId: data.coverId.present ? data.coverId.value : this.coverId,
+      position: data.position.present ? data.position.value : this.position,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AlbumRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('coverId: $coverId, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, coverId, position, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AlbumRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.coverId == this.coverId &&
+          other.position == this.position &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AlbumsCompanion extends UpdateCompanion<AlbumRow> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String?> coverId;
+  final Value<int> position;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const AlbumsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.coverId = const Value.absent(),
+    this.position = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  AlbumsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.coverId = const Value.absent(),
+    this.position = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) : name = Value(name),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<AlbumRow> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? coverId,
+    Expression<int>? position,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (coverId != null) 'cover_id': coverId,
+      if (position != null) 'position': position,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  AlbumsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String?>? coverId,
+    Value<int>? position,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return AlbumsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      coverId: coverId ?? this.coverId,
+      position: position ?? this.position,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (coverId.present) {
+      map['cover_id'] = Variable<String>(coverId.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AlbumsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('coverId: $coverId, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AlbumItemsTable extends AlbumItems
+    with TableInfo<$AlbumItemsTable, AlbumItemRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AlbumItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _albumIdMeta = const VerificationMeta(
+    'albumId',
+  );
+  @override
+  late final GeneratedColumn<int> albumId = GeneratedColumn<int>(
+    'album_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mediaIdMeta = const VerificationMeta(
+    'mediaId',
+  );
+  @override
+  late final GeneratedColumn<String> mediaId = GeneratedColumn<String>(
+    'media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [albumId, mediaId, addedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'album_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AlbumItemRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('album_id')) {
+      context.handle(
+        _albumIdMeta,
+        albumId.isAcceptableOrUnknown(data['album_id']!, _albumIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_albumIdMeta);
+    }
+    if (data.containsKey('media_id')) {
+      context.handle(
+        _mediaIdMeta,
+        mediaId.isAcceptableOrUnknown(data['media_id']!, _mediaIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaIdMeta);
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => const {};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {albumId, mediaId},
+  ];
+  @override
+  AlbumItemRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AlbumItemRow(
+      albumId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}album_id'],
+      )!,
+      mediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_id'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AlbumItemsTable createAlias(String alias) {
+    return $AlbumItemsTable(attachedDatabase, alias);
+  }
+}
+
+class AlbumItemRow extends DataClass implements Insertable<AlbumItemRow> {
+  final int albumId;
+  final String mediaId;
+  final DateTime addedAt;
+  const AlbumItemRow({
+    required this.albumId,
+    required this.mediaId,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['album_id'] = Variable<int>(albumId);
+    map['media_id'] = Variable<String>(mediaId);
+    map['added_at'] = Variable<DateTime>(addedAt);
+    return map;
+  }
+
+  AlbumItemsCompanion toCompanion(bool nullToAbsent) {
+    return AlbumItemsCompanion(
+      albumId: Value(albumId),
+      mediaId: Value(mediaId),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory AlbumItemRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AlbumItemRow(
+      albumId: serializer.fromJson<int>(json['albumId']),
+      mediaId: serializer.fromJson<String>(json['mediaId']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'albumId': serializer.toJson<int>(albumId),
+      'mediaId': serializer.toJson<String>(mediaId),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+    };
+  }
+
+  AlbumItemRow copyWith({int? albumId, String? mediaId, DateTime? addedAt}) =>
+      AlbumItemRow(
+        albumId: albumId ?? this.albumId,
+        mediaId: mediaId ?? this.mediaId,
+        addedAt: addedAt ?? this.addedAt,
+      );
+  AlbumItemRow copyWithCompanion(AlbumItemsCompanion data) {
+    return AlbumItemRow(
+      albumId: data.albumId.present ? data.albumId.value : this.albumId,
+      mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AlbumItemRow(')
+          ..write('albumId: $albumId, ')
+          ..write('mediaId: $mediaId, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(albumId, mediaId, addedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AlbumItemRow &&
+          other.albumId == this.albumId &&
+          other.mediaId == this.mediaId &&
+          other.addedAt == this.addedAt);
+}
+
+class AlbumItemsCompanion extends UpdateCompanion<AlbumItemRow> {
+  final Value<int> albumId;
+  final Value<String> mediaId;
+  final Value<DateTime> addedAt;
+  final Value<int> rowid;
+  const AlbumItemsCompanion({
+    this.albumId = const Value.absent(),
+    this.mediaId = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AlbumItemsCompanion.insert({
+    required int albumId,
+    required String mediaId,
+    required DateTime addedAt,
+    this.rowid = const Value.absent(),
+  }) : albumId = Value(albumId),
+       mediaId = Value(mediaId),
+       addedAt = Value(addedAt);
+  static Insertable<AlbumItemRow> custom({
+    Expression<int>? albumId,
+    Expression<String>? mediaId,
+    Expression<DateTime>? addedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (albumId != null) 'album_id': albumId,
+      if (mediaId != null) 'media_id': mediaId,
+      if (addedAt != null) 'added_at': addedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AlbumItemsCompanion copyWith({
+    Value<int>? albumId,
+    Value<String>? mediaId,
+    Value<DateTime>? addedAt,
+    Value<int>? rowid,
+  }) {
+    return AlbumItemsCompanion(
+      albumId: albumId ?? this.albumId,
+      mediaId: mediaId ?? this.mediaId,
+      addedAt: addedAt ?? this.addedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (albumId.present) {
+      map['album_id'] = Variable<int>(albumId.value);
+    }
+    if (mediaId.present) {
+      map['media_id'] = Variable<String>(mediaId.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AlbumItemsCompanion(')
+          ..write('albumId: $albumId, ')
+          ..write('mediaId: $mediaId, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3568,6 +4288,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PeopleTable people = $PeopleTable(this);
   late final $FacePersonsTable facePersons = $FacePersonsTable(this);
   late final $FaceScansTable faceScans = $FaceScansTable(this);
+  late final $AlbumsTable albums = $AlbumsTable(this);
+  late final $AlbumItemsTable albumItems = $AlbumItemsTable(this);
   late final Index idxMediaItemsFileHash = Index(
     'idx_media_items_file_hash',
     'CREATE INDEX idx_media_items_file_hash ON media_items (file_hash)',
@@ -3602,6 +4324,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final MediaDao mediaDao = MediaDao(this as AppDatabase);
   late final FaceDao faceDao = FaceDao(this as AppDatabase);
+  late final AlbumDao albumDao = AlbumDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3612,6 +4335,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     people,
     facePersons,
     faceScans,
+    albums,
+    albumItems,
     idxMediaItemsFileHash,
     idxMediaItemsStatus,
     idxMediaItemsAlbumName,
@@ -3659,6 +4384,7 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<double?> latitude,
       Value<double?> longitude,
       Value<bool> isLocationUserSet,
+      Value<bool> isDateUserSet,
     });
 typedef $$MediaItemsTableUpdateCompanionBuilder =
     MediaItemsCompanion Function({
@@ -3696,6 +4422,7 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<double?> latitude,
       Value<double?> longitude,
       Value<bool> isLocationUserSet,
+      Value<bool> isDateUserSet,
     });
 
 class $$MediaItemsTableFilterComposer
@@ -3878,6 +4605,11 @@ class $$MediaItemsTableFilterComposer
     column: $table.isLocationUserSet,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get isDateUserSet => $composableBuilder(
+    column: $table.isDateUserSet,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$MediaItemsTableOrderingComposer
@@ -4058,6 +4790,11 @@ class $$MediaItemsTableOrderingComposer
     column: $table.isLocationUserSet,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isDateUserSet => $composableBuilder(
+    column: $table.isDateUserSet,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MediaItemsTableAnnotationComposer
@@ -4198,6 +4935,11 @@ class $$MediaItemsTableAnnotationComposer
     column: $table.isLocationUserSet,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isDateUserSet => $composableBuilder(
+    column: $table.isDateUserSet,
+    builder: (column) => column,
+  );
 }
 
 class $$MediaItemsTableTableManager
@@ -4265,6 +5007,7 @@ class $$MediaItemsTableTableManager
                 Value<double?> latitude = const Value.absent(),
                 Value<double?> longitude = const Value.absent(),
                 Value<bool> isLocationUserSet = const Value.absent(),
+                Value<bool> isDateUserSet = const Value.absent(),
               }) => MediaItemsCompanion(
                 id: id,
                 localId: localId,
@@ -4300,6 +5043,7 @@ class $$MediaItemsTableTableManager
                 latitude: latitude,
                 longitude: longitude,
                 isLocationUserSet: isLocationUserSet,
+                isDateUserSet: isDateUserSet,
               ),
           createCompanionCallback:
               ({
@@ -4337,6 +5081,7 @@ class $$MediaItemsTableTableManager
                 Value<double?> latitude = const Value.absent(),
                 Value<double?> longitude = const Value.absent(),
                 Value<bool> isLocationUserSet = const Value.absent(),
+                Value<bool> isDateUserSet = const Value.absent(),
               }) => MediaItemsCompanion.insert(
                 id: id,
                 localId: localId,
@@ -4372,6 +5117,7 @@ class $$MediaItemsTableTableManager
                 latitude: latitude,
                 longitude: longitude,
                 isLocationUserSet: isLocationUserSet,
+                isDateUserSet: isDateUserSet,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -5295,6 +6041,375 @@ typedef $$FaceScansTableProcessedTableManager =
       FaceScanRow,
       PrefetchHooks Function()
     >;
+typedef $$AlbumsTableCreateCompanionBuilder =
+    AlbumsCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<String?> coverId,
+      Value<int> position,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+    });
+typedef $$AlbumsTableUpdateCompanionBuilder =
+    AlbumsCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String?> coverId,
+      Value<int> position,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+
+class $$AlbumsTableFilterComposer
+    extends Composer<_$AppDatabase, $AlbumsTable> {
+  $$AlbumsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverId => $composableBuilder(
+    column: $table.coverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AlbumsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AlbumsTable> {
+  $$AlbumsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverId => $composableBuilder(
+    column: $table.coverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AlbumsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AlbumsTable> {
+  $$AlbumsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get coverId =>
+      $composableBuilder(column: $table.coverId, builder: (column) => column);
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AlbumsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AlbumsTable,
+          AlbumRow,
+          $$AlbumsTableFilterComposer,
+          $$AlbumsTableOrderingComposer,
+          $$AlbumsTableAnnotationComposer,
+          $$AlbumsTableCreateCompanionBuilder,
+          $$AlbumsTableUpdateCompanionBuilder,
+          (AlbumRow, BaseReferences<_$AppDatabase, $AlbumsTable, AlbumRow>),
+          AlbumRow,
+          PrefetchHooks Function()
+        > {
+  $$AlbumsTableTableManager(_$AppDatabase db, $AlbumsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AlbumsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AlbumsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AlbumsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> coverId = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => AlbumsCompanion(
+                id: id,
+                name: name,
+                coverId: coverId,
+                position: position,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<String?> coverId = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+              }) => AlbumsCompanion.insert(
+                id: id,
+                name: name,
+                coverId: coverId,
+                position: position,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AlbumsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AlbumsTable,
+      AlbumRow,
+      $$AlbumsTableFilterComposer,
+      $$AlbumsTableOrderingComposer,
+      $$AlbumsTableAnnotationComposer,
+      $$AlbumsTableCreateCompanionBuilder,
+      $$AlbumsTableUpdateCompanionBuilder,
+      (AlbumRow, BaseReferences<_$AppDatabase, $AlbumsTable, AlbumRow>),
+      AlbumRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AlbumItemsTableCreateCompanionBuilder =
+    AlbumItemsCompanion Function({
+      required int albumId,
+      required String mediaId,
+      required DateTime addedAt,
+      Value<int> rowid,
+    });
+typedef $$AlbumItemsTableUpdateCompanionBuilder =
+    AlbumItemsCompanion Function({
+      Value<int> albumId,
+      Value<String> mediaId,
+      Value<DateTime> addedAt,
+      Value<int> rowid,
+    });
+
+class $$AlbumItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $AlbumItemsTable> {
+  $$AlbumItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get albumId => $composableBuilder(
+    column: $table.albumId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AlbumItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AlbumItemsTable> {
+  $$AlbumItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get albumId => $composableBuilder(
+    column: $table.albumId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AlbumItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AlbumItemsTable> {
+  $$AlbumItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get albumId =>
+      $composableBuilder(column: $table.albumId, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaId =>
+      $composableBuilder(column: $table.mediaId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+}
+
+class $$AlbumItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AlbumItemsTable,
+          AlbumItemRow,
+          $$AlbumItemsTableFilterComposer,
+          $$AlbumItemsTableOrderingComposer,
+          $$AlbumItemsTableAnnotationComposer,
+          $$AlbumItemsTableCreateCompanionBuilder,
+          $$AlbumItemsTableUpdateCompanionBuilder,
+          (
+            AlbumItemRow,
+            BaseReferences<_$AppDatabase, $AlbumItemsTable, AlbumItemRow>,
+          ),
+          AlbumItemRow,
+          PrefetchHooks Function()
+        > {
+  $$AlbumItemsTableTableManager(_$AppDatabase db, $AlbumItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AlbumItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AlbumItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AlbumItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> albumId = const Value.absent(),
+                Value<String> mediaId = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AlbumItemsCompanion(
+                albumId: albumId,
+                mediaId: mediaId,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int albumId,
+                required String mediaId,
+                required DateTime addedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AlbumItemsCompanion.insert(
+                albumId: albumId,
+                mediaId: mediaId,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AlbumItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AlbumItemsTable,
+      AlbumItemRow,
+      $$AlbumItemsTableFilterComposer,
+      $$AlbumItemsTableOrderingComposer,
+      $$AlbumItemsTableAnnotationComposer,
+      $$AlbumItemsTableCreateCompanionBuilder,
+      $$AlbumItemsTableUpdateCompanionBuilder,
+      (
+        AlbumItemRow,
+        BaseReferences<_$AppDatabase, $AlbumItemsTable, AlbumItemRow>,
+      ),
+      AlbumItemRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5309,4 +6424,8 @@ class $AppDatabaseManager {
       $$FacePersonsTableTableManager(_db, _db.facePersons);
   $$FaceScansTableTableManager get faceScans =>
       $$FaceScansTableTableManager(_db, _db.faceScans);
+  $$AlbumsTableTableManager get albums =>
+      $$AlbumsTableTableManager(_db, _db.albums);
+  $$AlbumItemsTableTableManager get albumItems =>
+      $$AlbumItemsTableTableManager(_db, _db.albumItems);
 }

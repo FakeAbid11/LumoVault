@@ -370,6 +370,9 @@ class GalleryRepository {
           ? existing.longitude
           : fresh.longitude,
       isLocationUserSet: existing.isLocationUserSet,
+      // Preserve user-set dates through rescans.
+      createdAt: existing.isDateUserSet ? existing.createdAt : fresh.createdAt,
+      isDateUserSet: existing.isDateUserSet,
     );
   }
 
@@ -653,6 +656,55 @@ class GalleryRepository {
       _notifyMetadataChange(
         localId: localId,
         operation: 'location_set',
+        item: updated,
+      );
+    }
+  }
+
+  /// Sets the capture date for a media item.
+  ///
+  /// When [isDateUserSet] is true the date survives future rescans (similar
+  /// to [setLocation]'s guard). The item may need to move between metadata
+  /// partitions when its date changes — the metadata layer handles this
+  /// through the normal change-notification path.
+  Future<void> setCreatedAt(
+    String localId,
+    DateTime newDate, {
+    bool isDateUserSet = true,
+  }) async {
+    final index = _indexOfLocalId(localId);
+    if (index != -1) {
+      final updated = _mediaItems[index].copyWith(
+        createdAt: newDate,
+        isDateUserSet: isDateUserSet,
+      );
+      _mediaItems[index] = updated;
+      // Re-sort the in-memory list by date (newest first).
+      _mediaItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      _rebuildIndex();
+      await _persistItem(updated);
+      _notifyMetadataChange(
+        localId: localId,
+        operation: 'date_set',
+        item: updated,
+      );
+    }
+  }
+
+  /// Persists user tags for a media item.
+  ///
+  /// Tags are freeform strings (e.g. "vacation", "beach", "family").
+  /// Replaces the entire tag list — callers should read the current tags,
+  /// modify, then pass the full list back.
+  Future<void> setTags(String localId, List<String> tags) async {
+    final index = _indexOfLocalId(localId);
+    if (index != -1) {
+      final updated = _mediaItems[index].copyWith(tags: tags);
+      _mediaItems[index] = updated;
+      await _persistItem(updated);
+      _notifyMetadataChange(
+        localId: localId,
+        operation: 'tags_update',
         item: updated,
       );
     }

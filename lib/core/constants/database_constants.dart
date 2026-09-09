@@ -21,7 +21,9 @@ abstract final class DatabaseConstants {
   ///      unaligned crops are not comparable to new ones and would cluster
   ///      against them badly.
   /// v13: added ai_labels column for AI-powered image classification.
-  static const int schemaVersion = 13;
+  /// v14: added Albums and AlbumItems tables for custom user-created albums.
+  /// v15: added is_date_user_set flag to preserve user-edited capture dates.
+  static const int schemaVersion = 15;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

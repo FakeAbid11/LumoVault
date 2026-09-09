@@ -116,10 +116,23 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => context.push('/settings/hidden'),
               ),
               ListTile(
+                leading: const Icon(Symbols.favorite),
+                title: const Text('Favorites'),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push('/settings/favorites'),
+              ),
+              ListTile(
                 leading: const Icon(Symbols.archive),
                 title: const Text('Archive'),
                 trailing: const Icon(Symbols.chevron_right),
                 onTap: () => context.push('/settings/archive'),
+              ),
+              ListTile(
+                leading: const Icon(Symbols.photo_library),
+                title: const Text('Albums'),
+                subtitle: const Text('Custom photo albums'),
+                trailing: const Icon(Symbols.chevron_right),
+                onTap: () => context.push('/albums'),
               ),
               ListTile(
                 leading: const Icon(Symbols.delete),

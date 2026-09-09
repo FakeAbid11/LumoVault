@@ -41,6 +41,7 @@ class PartitionItem {
     this.deviceFolder,
     this.description,
     this.tags = const [],
+    this.isDateUserSet = false,
     this.status = MediaStatus.pending,
     this.fileName,
     this.supersededMessageIds = const [],
@@ -70,6 +71,7 @@ class PartitionItem {
       deviceFolder: item.deviceFolder,
       description: item.description,
       tags: item.tags,
+      isDateUserSet: item.isDateUserSet,
       status: item.status,
       fileName: item.fileName,
     );
@@ -105,6 +107,7 @@ class PartitionItem {
       deviceFolder: json['fol'] as String?,
       description: json['desc'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      isDateUserSet: json['dus'] as bool? ?? false,
       supersededMessageIds:
           (json['smids'] as List<dynamic>?)?.cast<String>() ?? const [],
       // Clamp instead of letting an out-of-range value throw RangeError:
@@ -148,6 +151,7 @@ class PartitionItem {
   final String? deviceFolder;
   final String? description;
   final List<String> tags;
+  final bool isDateUserSet;
   final MediaStatus status;
   final String? fileName;
 
@@ -186,6 +190,7 @@ class PartitionItem {
     String? deviceFolder,
     String? description,
     List<String>? tags,
+    bool? isDateUserSet,
     MediaStatus? status,
     String? fileName,
     List<String>? supersededMessageIds,
@@ -214,6 +219,7 @@ class PartitionItem {
       deviceFolder: deviceFolder ?? this.deviceFolder,
       description: description ?? this.description,
       tags: tags ?? this.tags,
+      isDateUserSet: isDateUserSet ?? this.isDateUserSet,
       status: status ?? this.status,
       fileName: fileName ?? this.fileName,
       supersededMessageIds: supersededMessageIds ?? this.supersededMessageIds,
@@ -248,6 +254,7 @@ class PartitionItem {
     if (deviceFolder != null) map['fol'] = deviceFolder;
     if (description != null) map['desc'] = description;
     if (tags.isNotEmpty) map['tags'] = tags;
+    if (isDateUserSet) map['dus'] = true;
     if (supersededMessageIds.isNotEmpty) map['smids'] = supersededMessageIds;
     map['st'] = status.index;
     return map;
@@ -333,6 +340,7 @@ class MetadataPartition {
             .map(
               (item) => [
                 item.fileHash,
+                item.createdAt.toUtc().toIso8601String(),
                 item.modifiedAt.toUtc().toIso8601String(),
                 item.isFavorite ? '1' : '0',
                 item.isHidden ? '1' : '0',

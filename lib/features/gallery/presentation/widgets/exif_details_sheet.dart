@@ -666,13 +666,15 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
-    if (pickedDate == null || !mounted) return;
+    if (!mounted || pickedDate == null) return;
 
-    if (!mounted) return;
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(currentDate),
-    );
+    TimeOfDay? pickedTime;
+    if (mounted) {
+      pickedTime = await showTimePicker(
+        context: this.context,
+        initialTime: TimeOfDay.fromDateTime(currentDate),
+      );
+    }
     if (!mounted) return;
 
     final newDate = DateTime(

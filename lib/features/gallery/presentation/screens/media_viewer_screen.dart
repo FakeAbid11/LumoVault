@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
-import '../../../../core/di/geocoding_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../backup/engine/backup_engine.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
@@ -18,7 +17,6 @@ import '../../data/models/upload_task.dart';
 import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
 import '../widgets/tag_editor_sheet.dart';
-import 'location_picker_screen.dart';
 import '../../../albums/presentation/widgets/add_to_album_sheet.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -90,21 +88,6 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     final isUploading =
         _inFlight.contains(asset.id) || task?.status == UploadStatus.uploading;
     final isQueued = task?.status == UploadStatus.queued;
-    final hasLocation = currentItem?.hasLocation ?? false;
-
-    final geoLabel = hasLocation
-        ? ref.watch(
-            reverseGeocodeProvider((
-              currentItem!.latitude!,
-              currentItem.longitude!,
-            )),
-          )
-        : null;
-    final locationLabel = geoLabel?.valueOrNull?.displayName;
-    final displayLocationLabel =
-        (locationLabel != null && locationLabel.isNotEmpty)
-        ? locationLabel
-        : (hasLocation ? 'Location' : 'Add Location');
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -212,16 +195,6 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                                     : () => _backUpCurrentAsset(),
                               ),
                             ),
-                          Expanded(
-                            child: _BottomAction(
-                              icon: Symbols.location_on,
-                              label: displayLocationLabel,
-                              color: hasLocation
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.onSurface,
-                              onPressed: () => _openLocationPicker(),
-                            ),
-                          ),
                           Expanded(
                             child: _BottomAction(
                               icon: isFavorite
@@ -364,49 +337,8 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       _notify(context, 'Deleting to trash needs Android 11 or newer');
     } catch (_) {
       if (!mounted) return;
-      _notify(context, 'Couldn’t delete this $noun');
+      _notify(context, "Couldn't delete this $noun");
     }
-  }
-
-  /// Open the map picker to set or edit this photo's GPS location.
-  Future<void> _openLocationPicker() async {
-    final asset = _currentAsset;
-    final repository = ref.read(galleryRepositoryProvider);
-    final currentItem = repository.getItemById(asset.id);
-
-    final result = await context.push<LocationPickerResult>(
-      '/gallery/pick-location',
-      extra: {
-        'latitude': currentItem?.latitude,
-        'longitude': currentItem?.longitude,
-      },
-    );
-
-    if (!mounted || result == null) return;
-
-    if (result.isRemove) {
-      await repository.setLocation(asset.id);
-    } else if (result.isConfirm) {
-      await repository.setLocation(
-        asset.id,
-        latitude: result.latitude,
-        longitude: result.longitude,
-      );
-    } else {
-      return; // Back button — no change
-    }
-
-    if (!mounted) return;
-    ref.invalidate(mapPhotosProvider);
-    ref.invalidate(mediaItemProvider(asset.id));
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.isRemove ? 'Location removed' : 'Location saved'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   /// Back up the photo on screen, here and now.
@@ -477,14 +409,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ExifDetailsSheet(
-        asset: asset,
-        item: item,
-        onLocationChanged: () {
-          ref.invalidate(mapPhotosProvider);
-          ref.invalidate(mediaItemProvider(asset.id));
-        },
-      ),
+      builder: (context) => ExifDetailsSheet(asset: asset, item: item),
     );
   }
 

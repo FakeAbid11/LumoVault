@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/channel_scan_providers.dart';
-import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/gallery_save_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../../core/storage/storage_channel_service.dart';
@@ -203,13 +202,7 @@ class _TelegramMediaViewerScreenState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ExifDetailsSheet(
-        item: item,
-        onLocationChanged: () {
-          ref.invalidate(mapPhotosProvider);
-          ref.invalidate(mediaItemProvider(item.localId));
-        },
-      ),
+      builder: (context) => ExifDetailsSheet(item: item),
     );
   }
 }

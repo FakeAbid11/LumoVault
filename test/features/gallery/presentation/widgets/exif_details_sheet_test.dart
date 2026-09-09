@@ -73,7 +73,7 @@ void main() {
     },
   );
 
-  testWidgets('ExifDetailsSheet renders Add location when no coordinates', (
+  testWidgets('ExifDetailsSheet hides location when no coordinates', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -84,8 +84,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Add location'), findsOneWidget);
-    expect(find.text('Pin where this photo was taken'), findsOneWidget);
+    expect(find.text('Add location'), findsNothing);
+    expect(find.text('Pin where this photo was taken'), findsNothing);
     expect(find.text('Stored on this device'), findsOneWidget);
   });
 }

@@ -4,7 +4,6 @@ import 'package:exif/exif.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 
@@ -12,22 +11,15 @@ import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/geocoding_providers.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../data/models/media_item.dart';
-import '../screens/location_picker_screen.dart';
 import 'osm_tile_layer.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Full-featured Apple Photos / Google Photos style EXIF and metadata details bottom sheet.
 class ExifDetailsSheet extends ConsumerStatefulWidget {
-  const ExifDetailsSheet({
-    super.key,
-    this.asset,
-    this.item,
-    this.onLocationChanged,
-  });
+  const ExifDetailsSheet({super.key, this.asset, this.item});
 
   final AssetEntity? asset;
   final MediaItem? item;
-  final VoidCallback? onLocationChanged;
 
   @override
   ConsumerState<ExifDetailsSheet> createState() => _ExifDetailsSheetState();
@@ -290,11 +282,8 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
               _buildBackupCard(context),
               const SizedBox(height: 16),
 
-              // Location Section
-              if (hasLocation)
-                _buildLocationSectionWithGeo(context, lat, lng)
-              else
-                _buildLocationSection(context, lat, lng, hasLocation),
+              // Location Section (read-only)
+              if (hasLocation) _buildLocationCard(context, lat, lng),
             ],
           ),
         );
@@ -429,115 +418,11 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
     );
   }
 
-  Widget _buildLocationSection(
-    BuildContext context,
-    double? lat,
-    double? lng,
-    bool hasLocation,
-  ) {
+  Widget _buildLocationCard(BuildContext context, double? lat, double? lng) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    if (lat == null || lng == null) return const SizedBox.shrink();
 
-    if (!hasLocation) {
-      return Card(
-        elevation: 0,
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ListTile(
-          leading: Icon(Symbols.add_location_alt, color: colorScheme.primary),
-          title: const Text('Add location'),
-          subtitle: const Text('Pin where this photo was taken'),
-          onTap: () => _openLocationPicker(null, null),
-        ),
-      );
-    }
-
-    final point = LatLng(lat!, lng!);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Location',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () => _openLocationPicker(lat, lng),
-              icon: const Icon(Symbols.edit_location_alt, size: 16),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Mini Map Preview
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            height: 140,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: point,
-                initialZoom: 14,
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.none,
-                ),
-              ),
-              children: [
-                const OsmTileLayer(),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: point,
-                      width: 36,
-                      height: 36,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.error,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 4),
-                          ],
-                        ),
-                        child: Icon(
-                          Symbols.location_on,
-                          color: colorScheme.onError,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _formatCoordinates(lat, lng),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLocationSectionWithGeo(
-    BuildContext context,
-    double? lat,
-    double? lng,
-  ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    if (lat == null || lng == null) {
-      return _buildLocationSection(context, lat, lng, false);
-    }
     final geoAsync = ref.watch(reverseGeocodeProvider((lat, lng)));
     final geo = geoAsync.valueOrNull;
     final point = LatLng(lat, lng);
@@ -546,18 +431,14 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Icon(Symbols.location_on, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
             Text(
               'Location',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
-            ),
-            TextButton.icon(
-              onPressed: () => _openLocationPicker(lat, lng),
-              icon: const Icon(Symbols.edit_location_alt, size: 16),
-              label: const Text('Edit'),
             ),
           ],
         ),
@@ -571,8 +452,6 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
           ),
         ],
         const SizedBox(height: 8),
-
-        // Mini Map Preview
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: SizedBox(
@@ -623,37 +502,6 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         ),
       ],
     );
-  }
-
-  Future<void> _openLocationPicker(
-    double? currentLat,
-    double? currentLng,
-  ) async {
-    final assetId = widget.asset?.id ?? widget.item?.localId;
-    if (assetId == null) return;
-
-    final result = await context.push<LocationPickerResult>(
-      '/gallery/pick-location',
-      extra: {'latitude': currentLat, 'longitude': currentLng},
-    );
-
-    if (!mounted || result == null) return;
-
-    final repository = ref.read(galleryRepositoryProvider);
-    if (result.isRemove) {
-      await repository.setLocation(assetId);
-    } else if (result.isConfirm) {
-      await repository.setLocation(
-        assetId,
-        latitude: result.latitude,
-        longitude: result.longitude,
-      );
-    }
-
-    if (mounted) {
-      setState(() {});
-      widget.onLocationChanged?.call();
-    }
   }
 
   Future<void> _editDate(BuildContext context, DateTime currentDate) async {

@@ -15,7 +15,6 @@ import '../../features/gallery/presentation/screens/timeline_screen.dart';
 import '../../features/gallery/presentation/screens/search_screen.dart';
 import '../../features/gallery/presentation/screens/media_viewer_screen.dart';
 import '../../features/gallery/presentation/screens/telegram_media_viewer_screen.dart';
-import '../../features/gallery/presentation/screens/location_picker_screen.dart';
 import '../../features/hidden/presentation/screens/hidden_album_screen.dart';
 import '../../features/onboarding/presentation/providers/onboarding_provider.dart';
 import '../../features/onboarding/presentation/screens/welcome_screen.dart';
@@ -290,22 +289,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           }
           return _slideFromRight(const _MediaViewerUnavailable(), state);
-        },
-      ),
-      GoRoute(
-        path: '/gallery/pick-location',
-        pageBuilder: (context, state) {
-          final extra = state.extra;
-          double? lat;
-          double? lng;
-          if (extra is Map<String, dynamic>) {
-            lat = extra['latitude'] as double?;
-            lng = extra['longitude'] as double?;
-          }
-          return _slideFromRight(
-            LocationPickerScreen(initialLatitude: lat, initialLongitude: lng),
-            state,
-          );
         },
       ),
 

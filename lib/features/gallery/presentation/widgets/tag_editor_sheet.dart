@@ -161,8 +161,62 @@ class _TagEditorSheetState extends ConsumerState<TagEditorSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Suggestions
-              if (filtered.isNotEmpty)
+              // Suggestions + Create option
+              if (query.isNotEmpty &&
+                  !_tags.contains(query) &&
+                  !_suggestions.contains(query))
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    children: [
+                      Text(
+                        'Create new tag',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Symbols.add,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        title: Text(
+                          query,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        onTap: () => _addTag(query),
+                      ),
+                      if (filtered.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Suggestions',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ...filtered.map((tag) {
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Symbols.label, size: 18),
+                            title: Text(tag),
+                            onTap: () => _addTag(tag),
+                          );
+                        }),
+                      ],
+                    ],
+                  ),
+                )
+              else if (filtered.isNotEmpty)
                 Expanded(
                   child: ListView(
                     controller: scrollController,

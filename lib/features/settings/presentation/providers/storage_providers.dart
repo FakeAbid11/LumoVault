@@ -143,6 +143,8 @@ Future<Directory?> _safeGetTemporaryDirectory() async {
   try {
     return await getTemporaryDirectory();
   } catch (_) {
+    // Storage unavailable (rare plugin failure) — callers render their
+    // null/empty state instead of crashing the insights screen.
     return null;
   }
 }
@@ -151,6 +153,8 @@ Future<Directory?> _safeGetDocumentsDirectory() async {
   try {
     return await getApplicationDocumentsDirectory();
   } catch (_) {
+    // Storage unavailable (rare plugin failure) — callers render their
+    // null/empty state instead of crashing the insights screen.
     return null;
   }
 }

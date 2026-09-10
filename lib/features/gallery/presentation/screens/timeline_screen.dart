@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
@@ -45,9 +44,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch backup stats only for the loading indicator — don't rebuild the
-    // entire screen on every upload progress tick.
-    ref.watch(backupStatsProvider);
+    // Metadata mutations (favorites, trash, upload completion, …) bump the
+    // version counter — that's the signal to re-filter the item list. Do NOT
+    // watch backupStatsProvider here: its ticks fire every 500 ms during an
+    // upload and would rebuild the whole screen for no visible change.
+    ref.watch(galleryDataVersionProvider);
     // Watch gallery changes (channel scan adds items here).
     final repository = ref.watch(galleryRepositoryProvider);
 

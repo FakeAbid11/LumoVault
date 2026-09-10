@@ -6,9 +6,9 @@ part 'media_dao.g.dart';
 
 /// Data-access object for the `MediaItems` table.
 ///
-/// This is the query surface the drift-backed `GalleryRepository` rewrite will
-/// consume. It is intentionally additive: nothing in the app calls it yet, so
-/// adding it does not change existing behaviour. Methods here return raw
+/// Consumed by `GalleryRepository` (every mutation is written through to the
+/// database alongside the in-memory read model) and by DB-reading providers
+/// such as the device-folder album lists. Methods here return raw
 /// [MediaItemRow]s; translation to the `MediaItem` domain model happens via the
 /// mappers in `media_item_mapper.dart`.
 @DriftAccessor(tables: [MediaItems])

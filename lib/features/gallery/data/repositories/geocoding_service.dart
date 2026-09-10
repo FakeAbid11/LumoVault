@@ -171,6 +171,8 @@ class GeocodingService {
       await _persistCache();
       return null;
     } catch (_) {
+      // Network/parse failure — report unknown WITHOUT negative-caching, so a
+      // transient outage retries on the next lookup instead of staying blank.
       return null;
     }
   }

@@ -24,6 +24,8 @@ Future<(double?, double?)> readCoordinates(AssetEntity asset) async {
     if (lat == 0 && lng == 0) return (null, null);
     return (lat, lng);
   } catch (_) {
+    // Platform lookup failed (permission revoked mid-scan, corrupt EXIF) —
+    // treat as no fix; a photo without GPS must not break a scan.
     return (null, null);
   }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tdlib/tdlib.dart';
 // ignore: implementation_imports
@@ -104,6 +105,12 @@ class TdLibClient {
   static const int maxExpiredRequestIds = 256;
 
   int _requestId = 0;
+
+  /// Cached application version reported to Telegram in setTdlibParameters.
+  ///
+  /// Read once from package_info_plus so it follows the pubspec version
+  /// instead of a hardcoded literal that drifts from it.
+  static String? _cachedAppVersion;
 
   /// Completes once `_sendTdlibParameters` finishes (success or failure).
   ///
@@ -456,6 +463,25 @@ class TdLibClient {
     _sendTdlibParameters();
   }
 
+  /// The version string TDLib should report for this app.
+  ///
+  /// Read from package_info_plus (once, then cached) so it tracks the
+  /// pubspec version. Falls back to a literal when the plugin is unavailable
+  /// (e.g. unit tests): a wrong version here is cosmetic, but a thrown one
+  /// would break TDLib bootstrap, which must not happen.
+  static Future<String> _resolveAppVersion() async {
+    final cached = _cachedAppVersion;
+    if (cached != null) return cached;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _cachedAppVersion = info.version.isEmpty ? '1.0.0' : info.version;
+    } catch (e) {
+      debugPrint('[TdLibClient] PackageInfo unavailable: $e');
+      _cachedAppVersion = '1.0.0';
+    }
+    return _cachedAppVersion!;
+  }
+
   Future<void> _sendTdlibParameters() async {
     if (!TdLibConfig.hasCredentials) {
       debugPrint(
@@ -484,7 +510,7 @@ class TdLibClient {
           'system_language_code': Platform.localeName.split('_').first,
           'device_model': 'LumoVault',
           'system_version': Platform.operatingSystemVersion,
-          'application_version': '1.0.0',
+          'application_version': await _resolveAppVersion(),
           'enable_storage_optimizer': true,
         },
       );

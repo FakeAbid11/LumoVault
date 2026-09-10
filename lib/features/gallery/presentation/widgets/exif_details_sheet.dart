@@ -111,7 +111,9 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         final fNumber = value.numerator / value.denominator;
         return 'f/${fNumber.toStringAsFixed(1)}';
       }
-    } catch (_) {}
+    } catch (_) {
+      // Empty or unreadable ratio — the raw tag string below is the fallback.
+    }
     return tag.toString().trim();
   }
 
@@ -127,7 +129,9 @@ class _ExifDetailsSheetState extends ConsumerState<ExifDetailsSheet> {
         final denominator = (1 / seconds).round();
         return '1/${denominator}s';
       }
-    } catch (_) {}
+    } catch (_) {
+      // Empty or unreadable ratio — the raw tag string below is the fallback.
+    }
     return tag.toString().trim();
   }
 

@@ -172,6 +172,9 @@ class StorageChannelService {
       );
       return chatInfo['@type'] != 'error' && chatInfo['id'] != null;
     } catch (_) {
+      // Request failed (TDLib offline, chat vanished mid-check) — treat as
+      // absent so the caller falls back to a full channel search instead of
+      // reusing a possibly-dead id.
       return false;
     }
   }

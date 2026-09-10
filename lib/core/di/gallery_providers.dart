@@ -242,6 +242,8 @@ final mapPhotosProvider = StreamProvider<List<MediaItem>>((ref) async* {
             longitude: lng,
           );
         } catch (_) {
+          // Per-asset EXIF/coordinate resolution is best-effort — a single
+          // failing asset drops its marker rather than failing the batch.
           return null;
         }
       }),
@@ -296,9 +298,11 @@ final filteredSortedAssetsProvider = Provider<List<AssetEntity>>((ref) {
           }
         }
 
-        // Tag filter
+        // Tag filter. An asset that hasn't been scanned yet has no repository
+        // row, so it has no tags either — exclude it rather than force-
+        // unwrapping a null item.
         if (selectedTag != null) {
-          if (!item!.tags.contains(selectedTag)) return false;
+          if (item == null || !item.tags.contains(selectedTag)) return false;
         }
 
         switch (filterType) {

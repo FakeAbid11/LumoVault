@@ -88,7 +88,7 @@ Make personal photo and video backup accessible, free, and beautiful — using T
 | **Framework** | Flutter 3.44+ | Single codebase, Material 3 native support |
 | **Language** | Dart 3.5+ | Null safety, sound typing, isolates |
 | **UI** | Material 3 (Material You) | Dynamic color, adaptive components |
-| **Local Database** | Isar 3.1.x | Fast NoSQL, Flutter-native, watchers, full-text search |
+| **Local Database** | drift 2.20 (SQLite) | Type-safe SQL, compile-checked queries, background-isolate execution, generated DAOs |
 | **Telegram Client** | TDLib (via `tdlib` package v1.6.0+) | Full Telegram client capabilities, 2GB file limit |
 | **Background Work** | `workmanager` + `flutter_background_service_android` | Periodic sync, foreground service for active uploads |
 | **State Management** | Riverpod 2.x | Compile-time safety, dependency injection, scalable |

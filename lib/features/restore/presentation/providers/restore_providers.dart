@@ -133,6 +133,8 @@ final shouldShowRestoreProvider = FutureProvider<bool>((ref) async {
   try {
     await authService.initialize();
   } catch (_) {
+    // TDLib never connected/authenticated (no session, network down) —
+    // restore detection can't run; false just means "no restore prompt".
     return false;
   }
 

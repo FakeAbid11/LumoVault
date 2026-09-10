@@ -124,6 +124,8 @@ class MediaItems extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get isDateUserSet =>
       boolean().withDefault(const Constant(false))();
+  TextColumn get locationName => text().nullable()();
+  BlobColumn get clipEmbedding => blob().nullable()();
 
   @override
   List<Set<Column>> get uniqueKeys => [
@@ -334,6 +336,16 @@ class AppDatabase extends _$AppDatabase {
       if (from < 15) {
         await m.database.customStatement(
           'ALTER TABLE media_items ADD COLUMN is_date_user_set BOOLEAN NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 16) {
+        await m.database.customStatement(
+          'ALTER TABLE media_items ADD COLUMN location_name TEXT',
+        );
+      }
+      if (from < 17) {
+        await m.database.customStatement(
+          'ALTER TABLE media_items ADD COLUMN clip_embedding BLOB',
         );
       }
     },

@@ -23,7 +23,9 @@ abstract final class DatabaseConstants {
   /// v13: added ai_labels column for AI-powered image classification.
   /// v14: added Albums and AlbumItems tables for custom user-created albums.
   /// v15: added is_date_user_set flag to preserve user-edited capture dates.
-  static const int schemaVersion = 15;
+  /// v16: added location_name column for reverse-geocoded place names.
+  /// v17: added clip_embedding column for semantic search vectors.
+  static const int schemaVersion = 17;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

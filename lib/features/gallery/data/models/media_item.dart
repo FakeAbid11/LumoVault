@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum MediaStatus { pending, uploading, uploaded, failed, excluded }
 
 enum MediaType { image, video, unknown }
@@ -39,6 +41,8 @@ class MediaItem {
     this.longitude,
     this.isLocationUserSet = false,
     this.isDateUserSet = false,
+    this.locationName,
+    this.clipEmbedding,
   });
   final int? id;
   final String localId;
@@ -83,6 +87,12 @@ class MediaItem {
   /// Whether the capture date was set manually by the user. When true,
   /// a rescan will not overwrite the date from device metadata.
   final bool isDateUserSet;
+
+  /// Reverse-geocoded place name (e.g. "Paris, France"), stored during scan.
+  final String? locationName;
+
+  /// 512-dim CLIP embedding for semantic search, stored as raw bytes.
+  final Uint8List? clipEmbedding;
 
   MediaType get mediaType {
     if (mimeType.startsWith('image/')) return MediaType.image;
@@ -136,6 +146,8 @@ class MediaItem {
     double? longitude,
     bool? isLocationUserSet,
     bool? isDateUserSet,
+    String? locationName,
+    Uint8List? clipEmbedding,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -173,6 +185,8 @@ class MediaItem {
       longitude: longitude ?? this.longitude,
       isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
       isDateUserSet: isDateUserSet ?? this.isDateUserSet,
+      locationName: locationName ?? this.locationName,
+      clipEmbedding: clipEmbedding ?? this.clipEmbedding,
     );
   }
 

@@ -20,6 +20,10 @@ class FaceRepository {
   final FaceDetectionService faceDetectionService;
   final FaceClusteringService faceClusteringService;
 
+  /// Optional callback invoked when face-person assignments change.
+  /// Used by the gallery layer to invalidate its person names search cache.
+  VoidCallback? onAssignmentsChanged;
+
   static const double minConfidence = 0.7;
 
   /// Minimum face size, as a fraction of each image dimension.
@@ -307,6 +311,7 @@ class FaceRepository {
     if (newPersons > 0) {
       await reclusterOrphans();
     }
+    onAssignmentsChanged?.call();
     return newPersons;
   }
 
@@ -364,6 +369,7 @@ class FaceRepository {
         await faceDao.assignFaceToPerson(orphan.id, bestId);
       }
     }
+    onAssignmentsChanged?.call();
   }
 
   /// Merges people that are duplicates of one another.
@@ -470,6 +476,7 @@ class FaceRepository {
     await faceDao.updatePersonName(personId, name);
     await recomputeCentroid(personId);
     await reclusterOrphans();
+    onAssignmentsChanged?.call();
   }
 
   Future<List<Face>> getFacesForPerson(int personId) async {
@@ -487,6 +494,7 @@ class FaceRepository {
     await faceDao.mergePersons(sourceId, targetId);
     await recomputeCentroid(targetId);
     await reclusterOrphans();
+    onAssignmentsChanged?.call();
   }
 
   /// Merge multiple people into [targetId]. All faces from the other people

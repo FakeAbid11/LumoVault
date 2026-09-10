@@ -418,6 +418,29 @@ class $MediaItemsTable extends MediaItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _locationNameMeta = const VerificationMeta(
+    'locationName',
+  );
+  @override
+  late final GeneratedColumn<String> locationName = GeneratedColumn<String>(
+    'location_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clipEmbeddingMeta = const VerificationMeta(
+    'clipEmbedding',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> clipEmbedding =
+      GeneratedColumn<Uint8List>(
+        'clip_embedding',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -455,6 +478,8 @@ class $MediaItemsTable extends MediaItems
     longitude,
     isLocationUserSet,
     isDateUserSet,
+    locationName,
+    clipEmbedding,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -712,6 +737,24 @@ class $MediaItemsTable extends MediaItems
         ),
       );
     }
+    if (data.containsKey('location_name')) {
+      context.handle(
+        _locationNameMeta,
+        locationName.isAcceptableOrUnknown(
+          data['location_name']!,
+          _locationNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('clip_embedding')) {
+      context.handle(
+        _clipEmbeddingMeta,
+        clipEmbedding.isAcceptableOrUnknown(
+          data['clip_embedding']!,
+          _clipEmbeddingMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -869,6 +912,14 @@ class $MediaItemsTable extends MediaItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_date_user_set'],
       )!,
+      locationName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_name'],
+      ),
+      clipEmbedding: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}clip_embedding'],
+      ),
     );
   }
 
@@ -919,6 +970,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
   final double? longitude;
   final bool isLocationUserSet;
   final bool isDateUserSet;
+  final String? locationName;
+  final Uint8List? clipEmbedding;
   const MediaItemRow({
     required this.id,
     required this.localId,
@@ -955,6 +1008,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     this.longitude,
     required this.isLocationUserSet,
     required this.isDateUserSet,
+    this.locationName,
+    this.clipEmbedding,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1028,6 +1083,12 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     }
     map['is_location_user_set'] = Variable<bool>(isLocationUserSet);
     map['is_date_user_set'] = Variable<bool>(isDateUserSet);
+    if (!nullToAbsent || locationName != null) {
+      map['location_name'] = Variable<String>(locationName);
+    }
+    if (!nullToAbsent || clipEmbedding != null) {
+      map['clip_embedding'] = Variable<Uint8List>(clipEmbedding);
+    }
     return map;
   }
 
@@ -1094,6 +1155,12 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           : Value(longitude),
       isLocationUserSet: Value(isLocationUserSet),
       isDateUserSet: Value(isDateUserSet),
+      locationName: locationName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationName),
+      clipEmbedding: clipEmbedding == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clipEmbedding),
     );
   }
 
@@ -1140,6 +1207,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       longitude: serializer.fromJson<double?>(json['longitude']),
       isLocationUserSet: serializer.fromJson<bool>(json['isLocationUserSet']),
       isDateUserSet: serializer.fromJson<bool>(json['isDateUserSet']),
+      locationName: serializer.fromJson<String?>(json['locationName']),
+      clipEmbedding: serializer.fromJson<Uint8List?>(json['clipEmbedding']),
     );
   }
   @override
@@ -1181,6 +1250,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       'longitude': serializer.toJson<double?>(longitude),
       'isLocationUserSet': serializer.toJson<bool>(isLocationUserSet),
       'isDateUserSet': serializer.toJson<bool>(isDateUserSet),
+      'locationName': serializer.toJson<String?>(locationName),
+      'clipEmbedding': serializer.toJson<Uint8List?>(clipEmbedding),
     };
   }
 
@@ -1220,6 +1291,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     Value<double?> longitude = const Value.absent(),
     bool? isLocationUserSet,
     bool? isDateUserSet,
+    Value<String?> locationName = const Value.absent(),
+    Value<Uint8List?> clipEmbedding = const Value.absent(),
   }) => MediaItemRow(
     id: id ?? this.id,
     localId: localId ?? this.localId,
@@ -1262,6 +1335,10 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     longitude: longitude.present ? longitude.value : this.longitude,
     isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
     isDateUserSet: isDateUserSet ?? this.isDateUserSet,
+    locationName: locationName.present ? locationName.value : this.locationName,
+    clipEmbedding: clipEmbedding.present
+        ? clipEmbedding.value
+        : this.clipEmbedding,
   );
   MediaItemRow copyWithCompanion(MediaItemsCompanion data) {
     return MediaItemRow(
@@ -1330,6 +1407,12 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
       isDateUserSet: data.isDateUserSet.present
           ? data.isDateUserSet.value
           : this.isDateUserSet,
+      locationName: data.locationName.present
+          ? data.locationName.value
+          : this.locationName,
+      clipEmbedding: data.clipEmbedding.present
+          ? data.clipEmbedding.value
+          : this.clipEmbedding,
     );
   }
 
@@ -1370,7 +1453,9 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
           ..write('isLocationUserSet: $isLocationUserSet, ')
-          ..write('isDateUserSet: $isDateUserSet')
+          ..write('isDateUserSet: $isDateUserSet, ')
+          ..write('locationName: $locationName, ')
+          ..write('clipEmbedding: $clipEmbedding')
           ..write(')'))
         .toString();
   }
@@ -1412,6 +1497,8 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
     longitude,
     isLocationUserSet,
     isDateUserSet,
+    locationName,
+    $driftBlobEquality.hash(clipEmbedding),
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1451,7 +1538,9 @@ class MediaItemRow extends DataClass implements Insertable<MediaItemRow> {
           other.latitude == this.latitude &&
           other.longitude == this.longitude &&
           other.isLocationUserSet == this.isLocationUserSet &&
-          other.isDateUserSet == this.isDateUserSet);
+          other.isDateUserSet == this.isDateUserSet &&
+          other.locationName == this.locationName &&
+          $driftBlobEquality.equals(other.clipEmbedding, this.clipEmbedding));
 }
 
 class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
@@ -1490,6 +1579,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
   final Value<double?> longitude;
   final Value<bool> isLocationUserSet;
   final Value<bool> isDateUserSet;
+  final Value<String?> locationName;
+  final Value<Uint8List?> clipEmbedding;
   const MediaItemsCompanion({
     this.id = const Value.absent(),
     this.localId = const Value.absent(),
@@ -1526,6 +1617,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.longitude = const Value.absent(),
     this.isLocationUserSet = const Value.absent(),
     this.isDateUserSet = const Value.absent(),
+    this.locationName = const Value.absent(),
+    this.clipEmbedding = const Value.absent(),
   });
   MediaItemsCompanion.insert({
     this.id = const Value.absent(),
@@ -1563,6 +1656,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     this.longitude = const Value.absent(),
     this.isLocationUserSet = const Value.absent(),
     this.isDateUserSet = const Value.absent(),
+    this.locationName = const Value.absent(),
+    this.clipEmbedding = const Value.absent(),
   }) : localId = Value(localId),
        fileHash = Value(fileHash),
        filePath = Value(filePath),
@@ -1610,6 +1705,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Expression<double>? longitude,
     Expression<bool>? isLocationUserSet,
     Expression<bool>? isDateUserSet,
+    Expression<String>? locationName,
+    Expression<Uint8List>? clipEmbedding,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1647,6 +1744,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       if (longitude != null) 'longitude': longitude,
       if (isLocationUserSet != null) 'is_location_user_set': isLocationUserSet,
       if (isDateUserSet != null) 'is_date_user_set': isDateUserSet,
+      if (locationName != null) 'location_name': locationName,
+      if (clipEmbedding != null) 'clip_embedding': clipEmbedding,
     });
   }
 
@@ -1686,6 +1785,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     Value<double?>? longitude,
     Value<bool>? isLocationUserSet,
     Value<bool>? isDateUserSet,
+    Value<String?>? locationName,
+    Value<Uint8List?>? clipEmbedding,
   }) {
     return MediaItemsCompanion(
       id: id ?? this.id,
@@ -1723,6 +1824,8 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
       longitude: longitude ?? this.longitude,
       isLocationUserSet: isLocationUserSet ?? this.isLocationUserSet,
       isDateUserSet: isDateUserSet ?? this.isDateUserSet,
+      locationName: locationName ?? this.locationName,
+      clipEmbedding: clipEmbedding ?? this.clipEmbedding,
     );
   }
 
@@ -1838,6 +1941,12 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
     if (isDateUserSet.present) {
       map['is_date_user_set'] = Variable<bool>(isDateUserSet.value);
     }
+    if (locationName.present) {
+      map['location_name'] = Variable<String>(locationName.value);
+    }
+    if (clipEmbedding.present) {
+      map['clip_embedding'] = Variable<Uint8List>(clipEmbedding.value);
+    }
     return map;
   }
 
@@ -1878,7 +1987,9 @@ class MediaItemsCompanion extends UpdateCompanion<MediaItemRow> {
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
           ..write('isLocationUserSet: $isLocationUserSet, ')
-          ..write('isDateUserSet: $isDateUserSet')
+          ..write('isDateUserSet: $isDateUserSet, ')
+          ..write('locationName: $locationName, ')
+          ..write('clipEmbedding: $clipEmbedding')
           ..write(')'))
         .toString();
   }
@@ -4385,6 +4496,8 @@ typedef $$MediaItemsTableCreateCompanionBuilder =
       Value<double?> longitude,
       Value<bool> isLocationUserSet,
       Value<bool> isDateUserSet,
+      Value<String?> locationName,
+      Value<Uint8List?> clipEmbedding,
     });
 typedef $$MediaItemsTableUpdateCompanionBuilder =
     MediaItemsCompanion Function({
@@ -4423,6 +4536,8 @@ typedef $$MediaItemsTableUpdateCompanionBuilder =
       Value<double?> longitude,
       Value<bool> isLocationUserSet,
       Value<bool> isDateUserSet,
+      Value<String?> locationName,
+      Value<Uint8List?> clipEmbedding,
     });
 
 class $$MediaItemsTableFilterComposer
@@ -4610,6 +4725,16 @@ class $$MediaItemsTableFilterComposer
     column: $table.isDateUserSet,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get locationName => $composableBuilder(
+    column: $table.locationName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get clipEmbedding => $composableBuilder(
+    column: $table.clipEmbedding,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$MediaItemsTableOrderingComposer
@@ -4795,6 +4920,16 @@ class $$MediaItemsTableOrderingComposer
     column: $table.isDateUserSet,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get locationName => $composableBuilder(
+    column: $table.locationName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get clipEmbedding => $composableBuilder(
+    column: $table.clipEmbedding,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MediaItemsTableAnnotationComposer
@@ -4940,6 +5075,16 @@ class $$MediaItemsTableAnnotationComposer
     column: $table.isDateUserSet,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get locationName => $composableBuilder(
+    column: $table.locationName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get clipEmbedding => $composableBuilder(
+    column: $table.clipEmbedding,
+    builder: (column) => column,
+  );
 }
 
 class $$MediaItemsTableTableManager
@@ -5008,6 +5153,8 @@ class $$MediaItemsTableTableManager
                 Value<double?> longitude = const Value.absent(),
                 Value<bool> isLocationUserSet = const Value.absent(),
                 Value<bool> isDateUserSet = const Value.absent(),
+                Value<String?> locationName = const Value.absent(),
+                Value<Uint8List?> clipEmbedding = const Value.absent(),
               }) => MediaItemsCompanion(
                 id: id,
                 localId: localId,
@@ -5044,6 +5191,8 @@ class $$MediaItemsTableTableManager
                 longitude: longitude,
                 isLocationUserSet: isLocationUserSet,
                 isDateUserSet: isDateUserSet,
+                locationName: locationName,
+                clipEmbedding: clipEmbedding,
               ),
           createCompanionCallback:
               ({
@@ -5082,6 +5231,8 @@ class $$MediaItemsTableTableManager
                 Value<double?> longitude = const Value.absent(),
                 Value<bool> isLocationUserSet = const Value.absent(),
                 Value<bool> isDateUserSet = const Value.absent(),
+                Value<String?> locationName = const Value.absent(),
+                Value<Uint8List?> clipEmbedding = const Value.absent(),
               }) => MediaItemsCompanion.insert(
                 id: id,
                 localId: localId,
@@ -5118,6 +5269,8 @@ class $$MediaItemsTableTableManager
                 longitude: longitude,
                 isLocationUserSet: isLocationUserSet,
                 isDateUserSet: isDateUserSet,
+                locationName: locationName,
+                clipEmbedding: clipEmbedding,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

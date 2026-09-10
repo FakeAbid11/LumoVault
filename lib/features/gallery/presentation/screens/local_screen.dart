@@ -10,6 +10,7 @@ import '../../../../core/permissions/permission_service.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/utils/date_grouping.dart';
+import '../../../../shared/widgets/date_range_picker.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../../shared/widgets/fast_scroll_scrubber.dart';
@@ -139,6 +140,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
     final currentSort = ref.watch(settingsGallerySortProvider);
     final currentFilter = ref.watch(settingsGalleryFilterProvider);
     final selectedTag = ref.watch(selectedTagFilterProvider);
+    final dateRange = ref.watch(dateRangeFilterProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -161,10 +163,12 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                     label: 'All',
                     selected:
                         currentFilter == GalleryFilterType.all &&
-                        selectedTag == null,
+                        selectedTag == null &&
+                        dateRange == null,
                     onSelected: () {
                       _setFilter(GalleryFilterType.all);
                       ref.read(selectedTagFilterProvider.notifier).state = null;
+                      ref.read(dateRangeFilterProvider.notifier).state = null;
                     },
                   ),
                   const SizedBox(width: 6),
@@ -191,6 +195,8 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
                   ),
                   const SizedBox(width: 6),
                   _buildTagFilterChip(selectedTag),
+                  const SizedBox(width: 6),
+                  _buildDateRangeChip(dateRange),
                 ],
               ),
             ),
@@ -212,6 +218,50 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
       label: Text(selectedTag ?? 'Tags'),
       onPressed: () => _showTagPicker(selectedTag),
     );
+  }
+
+  Widget _buildDateRangeChip((DateTime, DateTime)? dateRange) {
+    final isActive = dateRange != null;
+    final label = isActive
+        ? '${_shortDate(dateRange.$1)} – ${_shortDate(dateRange.$2)}'
+        : 'Dates';
+    return ActionChip(
+      avatar: Icon(
+        Symbols.calendar_today,
+        size: 16,
+        color: isActive ? Theme.of(context).colorScheme.primary : null,
+      ),
+      label: Text(label),
+      onPressed: () => _showDatePicker(dateRange),
+    );
+  }
+
+  String _shortDate(DateTime d) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
+  Future<void> _showDatePicker((DateTime, DateTime)? current) async {
+    final result = await showLumoDateRangePicker(
+      context,
+      initialStart: current?.$1,
+      initialEnd: current?.$2,
+    );
+    if (!mounted) return;
+    ref.read(dateRangeFilterProvider.notifier).state = result;
   }
 
   void _showTagPicker(String? currentTag) {

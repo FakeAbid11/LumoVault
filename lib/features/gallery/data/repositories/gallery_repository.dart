@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/database/app_database.dart' show MediaItemsCompanion;
+import '../../../../core/database/daos/face_dao.dart';
 import '../../../../core/database/daos/media_dao.dart';
 import '../../../../core/database/media_item_mapper.dart';
 import '../models/media_item.dart';
@@ -44,11 +47,13 @@ class GalleryRepository {
   GalleryRepository({
     required this._scannerService,
     this._mediaDao,
+    this._faceDao,
     IncrementalScanner? incrementalScanner,
   }) : _incrementalScanner = incrementalScanner ?? IncrementalScanner();
 
   final MediaScannerService _scannerService;
   final MediaDao? _mediaDao;
+  final FaceDao? _faceDao;
   final IncrementalScanner _incrementalScanner;
 
   final List<MediaItem> _mediaItems = [];
@@ -67,6 +72,12 @@ class GalleryRepository {
   /// within the same app session.
   final Map<String, (double, double)> _locationCache = {};
 
+  /// In-memory cache of person names per media item: localId → names.
+  /// Populated lazily on first search; used by [searchMedia] to match
+  /// against face-assigned person names.
+  Map<String, List<String>> _personNamesCache = {};
+  bool _personNamesCacheLoaded = false;
+
   /// Get the location cache for read-only access (e.g. by map providers).
   Map<String, (double, double)> get locationCache => _locationCache;
 
@@ -76,6 +87,67 @@ class GalleryRepository {
   /// Cache a resolved location for an asset.
   void cacheLocation(String assetId, double lat, double lng) {
     _locationCache[assetId] = (lat, lng);
+  }
+
+  /// Items that have GPS coordinates but no geocoded location name.
+  List<MediaItem> get itemsNeedingGeocode => _mediaItems
+      .where((item) => item.hasLocation && item.locationName == null)
+      .toList();
+
+  /// Load the person names cache from the database (lazy, once per session).
+  Future<void> _ensurePersonNamesLoaded() async {
+    if (_personNamesCacheLoaded) return;
+    final faceDao = _faceDao;
+    if (faceDao == null) {
+      _personNamesCacheLoaded = true;
+      return;
+    }
+    final allPeople = await faceDao.allPeopleRows();
+    final nameMap = <int, String>{};
+    for (final p in allPeople) {
+      if (p.name != null) nameMap[p.id] = p.name!;
+    }
+    if (nameMap.isEmpty) {
+      _personNamesCacheLoaded = true;
+      return;
+    }
+    final allFaces = await faceDao.allFaces();
+    final cache = <String, List<String>>{};
+    for (final face in allFaces) {
+      final personName = nameMap[face.personId];
+      if (personName == null) continue;
+      cache.putIfAbsent(face.mediaItemId, () => []).add(personName);
+    }
+    // Deduplicate names per item.
+    _personNamesCache = {
+      for (final entry in cache.entries)
+        entry.key: entry.value.toSet().toList(),
+    };
+    _personNamesCacheLoaded = true;
+  }
+
+  /// Invalidate the person names cache (call after face assignment changes).
+  void invalidatePersonNamesCache() {
+    _personNamesCacheLoaded = false;
+    _personNamesCache = {};
+  }
+
+  /// Get cached person names for a media item (synchronous, from cache).
+  List<String> personNamesForItem(String localId) =>
+      _personNamesCache[localId] ?? const [];
+
+  /// Update the location name for an item (after reverse geocoding).
+  Future<void> updateLocationName(String localId, String? locationName) async {
+    final idx = _indexOfLocalId(localId);
+    if (idx == -1) return;
+    _mediaItems[idx] = _mediaItems[idx].copyWith(locationName: locationName);
+    final dao = _mediaDao;
+    if (dao != null) {
+      await dao.updateByLocalId(
+        localId,
+        MediaItemsCompanion(locationName: Value(locationName)),
+      );
+    }
   }
 
   /// Get a cached location, or null if not cached.
@@ -139,6 +211,7 @@ class GalleryRepository {
     _mediaItems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     _rebuildIndex();
 
+    await _ensurePersonNamesLoaded();
     await purgeExpiredTrashedItems();
   }
 
@@ -482,13 +555,87 @@ class GalleryRepository {
         return item.fileName.toLowerCase().contains(word) ||
             (item.description?.toLowerCase().contains(word) ?? false) ||
             (item.albumName?.toLowerCase().contains(word) ?? false) ||
+            (item.locationName?.toLowerCase().contains(word) ?? false) ||
             item.tags.any((tag) => tag.toLowerCase().contains(word)) ||
-            item.aiLabels.any((label) => label.toLowerCase().contains(word));
+            item.aiLabels.any((label) => label.toLowerCase().contains(word)) ||
+            (_personNamesCache[item.localId]?.any(
+                  (name) => name.toLowerCase().contains(word),
+                ) ??
+                false);
       }
 
       // Match if ALL words find at least one match across the item's fields.
       return words.every(wordMatches);
     }).toList();
+  }
+
+  /// Items that have images but no CLIP embedding yet.
+  List<MediaItem> get itemsNeedingEmbedding => _mediaItems
+      .where(
+        (item) =>
+            item.mediaType == MediaType.image &&
+            item.clipEmbedding == null &&
+            !item.isHidden &&
+            !item.isTrashed,
+      )
+      .toList();
+
+  /// Update the CLIP embedding for an item.
+  Future<void> updateClipEmbedding(
+    String localId,
+    List<double> embedding,
+  ) async {
+    final idx = _indexOfLocalId(localId);
+    if (idx == -1) return;
+    // Pack float List<double> into Float32List bytes.
+    final float32 = Float32List.fromList(embedding);
+    final bytes = float32.buffer.asUint8List();
+    _mediaItems[idx] = _mediaItems[idx].copyWith(clipEmbedding: bytes);
+    final dao = _mediaDao;
+    if (dao != null) {
+      await dao.updateByLocalId(
+        localId,
+        MediaItemsCompanion(clipEmbedding: Value(bytes)),
+      );
+    }
+  }
+
+  /// Semantic search: returns items ranked by cosine similarity to [queryEmbedding].
+  ///
+  /// Only searches items that have a CLIP embedding. Returns up to [limit]
+  /// results sorted by descending similarity. Items below [minScore] are
+  /// excluded.
+  List<MediaItem> semanticSearch(
+    List<double> queryEmbedding, {
+    int limit = 50,
+    double minScore = 0.2,
+  }) {
+    final scored = <(MediaItem, double)>[];
+    for (final item in _mediaItems) {
+      if (item.isHidden || item.isTrashed) continue;
+      if (item.clipEmbedding == null || item.clipEmbedding!.length != 2048) {
+        continue;
+      }
+      // Unpack Float32List bytes back to List<double>.
+      final float32 = Float32List.view(item.clipEmbedding!.buffer);
+      final itemEmbedding = float32.toList();
+      final score = _cosineSimilarity(queryEmbedding, itemEmbedding);
+      if (score >= minScore) {
+        scored.add((item, score));
+      }
+    }
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return scored.take(limit).map((e) => e.$1).toList();
+  }
+
+  /// Cosine similarity between two vectors of equal length.
+  static double _cosineSimilarity(List<double> a, List<double> b) {
+    if (a.length != b.length) return 0;
+    double dot = 0;
+    for (var i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+    }
+    return dot;
   }
 
   Map<String, List<MediaItem>> getTimelineByDate() {

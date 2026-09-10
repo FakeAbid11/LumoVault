@@ -26,6 +26,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _scanning = false;
   int _scanProgress = 0;
   int _scanTotal = 0;
+  _SearchFilter _activeFilter = _SearchFilter.all;
 
   @override
   void dispose() {
@@ -35,8 +36,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Trigger background geocoding for items with GPS but no location name.
+    ref.watch(geocodeItemsProvider);
+    // Trigger background embedding generation for images without CLIP embeddings.
+    ref.watch(generateEmbeddingsProvider);
+
+    final searchMode = ref.watch(searchModeProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Search')),
+      appBar: AppBar(
+        title: const Text('Search'),
+        actions: [
+          // Semantic search toggle
+          IconButton(
+            icon: Icon(
+              searchMode == SearchMode.semantic
+                  ? Symbols.psychology
+                  : Symbols.search,
+            ),
+            tooltip: searchMode == SearchMode.semantic
+                ? 'Semantic search ON'
+                : 'Keyword search',
+            onPressed: () {
+              ref
+                  .read(searchModeProvider.notifier)
+                  .state = searchMode == SearchMode.semantic
+                  ? SearchMode.keyword
+                  : SearchMode.semantic;
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -46,7 +76,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               autofocus: true,
               onChanged: (value) => setState(() => _query = value.trim()),
               decoration: InputDecoration(
-                hintText: 'Search photos, videos, or AI labels...',
+                hintText: 'Search by name, tag, AI label, or location...',
                 prefixIcon: const Icon(Symbols.search),
                 suffixIcon: _query.isEmpty
                     ? null
@@ -62,6 +92,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 filled: true,
               ),
+            ),
+          ),
+          // Filter chips
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _buildSearchFilterChip('All', _SearchFilter.all),
+                const SizedBox(width: 6),
+                _buildSearchFilterChip('People', _SearchFilter.people),
+                const SizedBox(width: 6),
+                _buildSearchFilterChip('Locations', _SearchFilter.locations),
+                const SizedBox(width: 6),
+                _buildSearchFilterChip('Tags', _SearchFilter.tags),
+                const SizedBox(width: 6),
+                _buildSearchFilterChip('AI Labels', _SearchFilter.aiLabels),
+              ],
             ),
           ),
           if (_scanning) _buildScanProgress(),
@@ -107,8 +156,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return _buildHint();
     }
 
-    final results = ref.watch(searchProvider(_query));
+    var results = ref.watch(searchProvider(_query));
     final deviceAssets = ref.watch(deviceAssetsProvider);
+
+    // Apply active filter.
+    final repository = ref.read(galleryRepositoryProvider);
+    switch (_activeFilter) {
+      case _SearchFilter.all:
+        break;
+      case _SearchFilter.people:
+        results = results.where((item) {
+          final names = repository.personNamesForItem(item.localId);
+          return names.isNotEmpty;
+        }).toList();
+      case _SearchFilter.locations:
+        results = results.where((item) => item.locationName != null).toList();
+      case _SearchFilter.tags:
+        results = results.where((item) => item.tags.isNotEmpty).toList();
+      case _SearchFilter.aiLabels:
+        results = results.where((item) => item.aiLabels.isNotEmpty).toList();
+    }
 
     return deviceAssets.when(
       data: (assets) {
@@ -153,7 +220,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Find photos and videos by file name,\nalbum, tags, or AI labels.',
+              'Find photos and videos by file name,\nalbum, tags, AI labels, or location.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -342,6 +409,43 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                       ),
                     ),
+                  if (item.locationName != null)
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.tertiaryContainer
+                              .withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Symbols.location_on,
+                              size: 12,
+                              color: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              item.locationName!,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onTertiaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               );
             },
@@ -413,6 +517,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ref.invalidate(labeledCountProvider);
       }
     }
+  }
+
+  Widget _buildSearchFilterChip(String label, _SearchFilter filter) {
+    final isSelected = _activeFilter == filter;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => setState(() => _activeFilter = filter),
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+      checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+    );
   }
 }
 
@@ -511,3 +626,5 @@ class _AiScanCard extends ConsumerWidget {
     );
   }
 }
+
+enum _SearchFilter { all, people, locations, tags, aiLabels }

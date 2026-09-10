@@ -4,8 +4,10 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../features/gallery/data/models/device_folder.dart';
 import '../../features/gallery/data/models/media_item.dart';
 import '../../features/gallery/data/repositories/gallery_repository.dart';
+import '../../features/gallery/data/repositories/geocoding_service.dart';
 import '../../features/gallery/data/repositories/incremental_scanner.dart';
 import '../../features/gallery/data/repositories/media_scanner_service.dart';
+import '../../features/gallery/data/services/clip_embedding_service.dart';
 import '../../features/gallery/data/services/image_classifier_service.dart';
 import '../../features/settings/data/models/app_settings.dart';
 import '../../features/settings/presentation/providers/settings_providers.dart';
@@ -38,10 +40,11 @@ final deviceFoldersProvider = FutureProvider.autoDispose<List<DeviceFolder>>((
 final galleryRepositoryProvider = Provider<GalleryRepository>((ref) {
   final scannerService = ref.watch(mediaScannerServiceProvider);
   final incrementalScanner = ref.watch(incrementalScannerProvider);
-  final mediaDao = ref.watch(appDatabaseProvider).mediaDao;
+  final db = ref.watch(appDatabaseProvider);
   return GalleryRepository(
     scannerService: scannerService,
-    mediaDao: mediaDao,
+    mediaDao: db.mediaDao,
+    faceDao: db.faceDao,
     incrementalScanner: incrementalScanner,
   );
 });
@@ -257,6 +260,7 @@ final filteredSortedAssetsProvider = Provider<List<AssetEntity>>((ref) {
   final sortOrder = ref.watch(settingsGallerySortProvider);
   final filterType = ref.watch(settingsGalleryFilterProvider);
   final selectedTag = ref.watch(selectedTagFilterProvider);
+  final dateRange = ref.watch(dateRangeFilterProvider);
   final repository = ref.watch(galleryRepositoryProvider);
 
   return assetsAsync.when(
@@ -265,6 +269,14 @@ final filteredSortedAssetsProvider = Provider<List<AssetEntity>>((ref) {
         final item = repository.getItemById(asset.id);
         // Exclude hidden and trashed items
         if (item?.isHidden == true || item?.isTrashed == true) return false;
+
+        // Date range filter
+        if (dateRange != null) {
+          final created = asset.createDateTime;
+          if (created.isBefore(dateRange.$1) || created.isAfter(dateRange.$2)) {
+            return false;
+          }
+        }
 
         // Tag filter
         if (selectedTag != null) {
@@ -400,3 +412,90 @@ final allTagsProvider = FutureProvider.autoDispose<List<String>>((ref) async {
 
 /// Currently selected tag filter — null means no tag filter active.
 final selectedTagFilterProvider = StateProvider<String?>((ref) => null);
+
+/// Currently selected date range filter — null means no date filter active.
+final dateRangeFilterProvider = StateProvider<(DateTime, DateTime)?>(
+  (ref) => null,
+);
+
+/// Background geocoding: reverse-geocodes GPS coordinates for items that
+/// have latitude/longitude but no locationName yet. Runs in batches of 10
+/// with 1-second rate limiting (Nominatim policy). Safe to call repeatedly —
+/// skips items that already have a locationName.
+final geocodeItemsProvider = FutureProvider.autoDispose<void>((ref) async {
+  final repository = ref.watch(galleryRepositoryProvider);
+  final geocoding = GeocodingService.instance;
+  final items = repository.itemsNeedingGeocode;
+  if (items.isEmpty) return;
+
+  const batchSize = 10;
+  for (var i = 0; i < items.length; i += batchSize) {
+    final batch = items.sublist(i, (i + batchSize).clamp(0, items.length));
+    for (final item in batch) {
+      if (item.latitude == null || item.longitude == null) continue;
+      try {
+        final geo = await geocoding.reverseGeocode(
+          item.latitude!,
+          item.longitude!,
+        );
+        if (geo != null && geo.displayName.isNotEmpty) {
+          await repository.updateLocationName(item.localId, geo.displayName);
+        }
+      } catch (_) {
+        // Geocoding failure is non-fatal — skip and continue.
+      }
+    }
+    // Rate limit: wait 1 second between batches.
+    if (i + batchSize < items.length) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+  }
+});
+
+/// Singleton instance of the CLIP embedding service for semantic search.
+final clipEmbeddingProvider = Provider<ClipEmbeddingService>((ref) {
+  return ClipEmbeddingService.instance;
+});
+
+/// Background embedding generation: generates CLIP embeddings for images
+/// that don't have one yet. Runs in batches of 5. Safe to call repeatedly.
+final generateEmbeddingsProvider = FutureProvider.autoDispose<void>((
+  ref,
+) async {
+  final repository = ref.watch(galleryRepositoryProvider);
+  final clip = ref.watch(clipEmbeddingProvider);
+  await clip.init();
+  if (!clip.isReady) return;
+
+  final items = repository.itemsNeedingEmbedding;
+  if (items.isEmpty) return;
+
+  const batchSize = 5;
+  for (var i = 0; i < items.length; i += batchSize) {
+    final batch = items.sublist(i, (i + batchSize).clamp(0, items.length));
+    for (final item in batch) {
+      try {
+        final asset = await AssetEntity.fromId(item.localId);
+        if (asset == null) continue;
+        final thumbBytes = await asset.thumbnailDataWithSize(
+          const ThumbnailSize(336, 336),
+        );
+        if (thumbBytes == null || thumbBytes.isEmpty) continue;
+        final embedding = await clip.embedImage(thumbBytes);
+        if (embedding != null) {
+          await repository.updateClipEmbedding(item.localId, embedding);
+        }
+      } catch (_) {
+        // Embedding failure is non-fatal — skip and continue.
+      }
+    }
+  }
+});
+
+/// Currently active search mode: keyword or semantic.
+enum SearchMode { keyword, semantic }
+
+/// The active search mode for the search screen.
+final searchModeProvider = StateProvider<SearchMode>(
+  (ref) => SearchMode.keyword,
+);

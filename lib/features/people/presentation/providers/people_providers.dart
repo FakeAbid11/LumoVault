@@ -22,11 +22,17 @@ final faceRepositoryProvider = Provider<FaceRepository>((ref) {
   final faceDao = ref.watch(appDatabaseProvider).faceDao;
   final detectionService = ref.watch(faceDetectionServiceProvider);
   final clusteringService = ref.watch(faceClusteringServiceProvider);
-  return FaceRepository(
+  final repository = FaceRepository(
     faceDao: faceDao,
     faceDetectionService: detectionService,
     faceClusteringService: clusteringService,
   );
+  // Invalidate the gallery's person names search cache when face assignments
+  // change, so the next search reflects newly named people.
+  repository.onAssignmentsChanged = () {
+    ref.read(galleryRepositoryProvider).invalidatePersonNamesCache();
+  };
+  return repository;
 });
 
 class FaceScanProgress {

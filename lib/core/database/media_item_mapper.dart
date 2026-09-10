@@ -48,6 +48,8 @@ extension MediaItemRowMapper on MediaItemRow {
     longitude: longitude,
     isLocationUserSet: isLocationUserSet,
     isDateUserSet: isDateUserSet,
+    locationName: locationName,
+    clipEmbedding: clipEmbedding,
   );
 }
 
@@ -92,5 +94,7 @@ extension MediaItemToCompanion on MediaItem {
     longitude: Value(longitude),
     isLocationUserSet: Value(isLocationUserSet),
     isDateUserSet: Value(isDateUserSet),
+    locationName: Value(locationName),
+    clipEmbedding: Value(clipEmbedding),
   );
 }

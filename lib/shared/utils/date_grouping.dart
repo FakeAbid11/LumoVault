@@ -14,9 +14,24 @@ Map<String, List<T>> groupByDate<T>(
   return grouped;
 }
 
+const _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 /// Returns a human-readable date label for grouping.
 ///
-/// "Today", "Yesterday", or "M/D/YYYY".
+/// "Today", "Yesterday", or "1 May 2026".
 String dateKey(DateTime date) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -24,5 +39,5 @@ String dateKey(DateTime date) {
 
   if (itemDate == today) return 'Today';
   if (itemDate == today.subtract(const Duration(days: 1))) return 'Yesterday';
-  return '${date.month}/${date.day}/${date.year}';
+  return '${date.day} ${_monthNames[date.month - 1]} ${date.year}';
 }

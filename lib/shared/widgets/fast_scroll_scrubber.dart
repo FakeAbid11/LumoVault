@@ -129,7 +129,7 @@ class _FastScrollScrubberState extends State<FastScrollScrubber>
             // Draggable Scrubber Rail & Handle on right edge
             Positioned(
               top: 40,
-              right: 2,
+              right: 6,
               bottom: 40,
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -147,11 +147,11 @@ class _FastScrollScrubberState extends State<FastScrollScrubber>
                 onVerticalDragEnd: (_) => _handleDragEnd(),
                 onVerticalDragCancel: () => _handleDragEnd(),
                 child: SizedBox(
-                  width: 32,
+                  width: 44,
                   child: Center(
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      width: _isDragging ? 6 : 4,
+                      width: _isDragging ? 8 : 6,
                       height: 48,
                       decoration: BoxDecoration(
                         color: _isDragging
@@ -182,7 +182,7 @@ class _FastScrollScrubberState extends State<FastScrollScrubber>
             if (_currentDateLabel.isNotEmpty)
               Positioned(
                 top: (handleTop - 20).clamp(16.0, constraints.maxHeight - 64),
-                right: 42,
+                right: 56,
                 child: FadeTransition(
                   opacity: _bubbleFade,
                   child: ScaleTransition(

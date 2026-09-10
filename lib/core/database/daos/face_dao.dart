@@ -28,17 +28,15 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
 
   /// Get distinct person names for a media item (faces linked to named people).
   Future<List<String>> personNamesForMediaItem(String mediaItemId) async {
-    final query = select(faces).join([
-      innerJoin(people, people.id.equalsExp(faces.personId)),
-    ])
-      ..where(faces.mediaItemId.equals(mediaItemId))
-      ..where(people.name.isNotNull());
+    final query =
+        select(
+            faces,
+          ).join([innerJoin(people, people.id.equalsExp(faces.personId))])
+          ..where(faces.mediaItemId.equals(mediaItemId))
+          ..where(people.name.isNotNull());
 
     final results = await query.get();
-    return results
-        .map((row) => row.readTable(people).name!)
-        .toSet()
-        .toList();
+    return results.map((row) => row.readTable(people).name!).toSet().toList();
   }
 
   /// Get all faces, optionally filtered by person.

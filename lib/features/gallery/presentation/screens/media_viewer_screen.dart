@@ -57,6 +57,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   final Set<String> _inFlight = {};
 
   bool _isChromeVisible = true;
+  bool _isVideoFullscreen = false;
 
   @override
   void initState() {
@@ -67,6 +68,12 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
 
   @override
   void dispose() {
+    // Restore orientation when leaving the viewer
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _pageController.dispose();
     super.dispose();
   }
@@ -89,163 +96,173 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         _inFlight.contains(asset.id) || task?.status == UploadStatus.uploading;
     final isQueued = task?.status == UploadStatus.queued;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Tap target + image body
-          GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => setState(() => _isChromeVisible = !_isChromeVisible),
-            child: SwipeDismissWrapper(
-              enabled: !_isZoomed,
-              onSwipeUp: _showExifDetails,
-              child: PageView.builder(
-                controller: _pageController,
-                physics: _isZoomed
-                    ? const NeverScrollableScrollPhysics()
-                    : const BouncingScrollPhysics(),
-                itemCount: widget.assets.length,
-                onPageChanged: (index) {
-                  if (_currentIndex != index) {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _currentIndex = index;
-                      _isZoomed = false;
-                    });
-                  }
-                },
-                itemBuilder: (context, index) => _AssetPreview(
-                  asset: widget.assets[index],
-                  onZoomChanged: (zoomed) {
-                    if (_isZoomed != zoomed) {
-                      setState(() => _isZoomed = zoomed);
+    return PopScope(
+      canPop: !_isVideoFullscreen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isVideoFullscreen) {
+          setState(() => _isVideoFullscreen = false);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // Tap target + image body
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => setState(() => _isChromeVisible = !_isChromeVisible),
+              child: SwipeDismissWrapper(
+                enabled: !_isZoomed,
+                onSwipeUp: _showExifDetails,
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: _isZoomed
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(),
+                  itemCount: widget.assets.length,
+                  onPageChanged: (index) {
+                    if (_currentIndex != index) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _currentIndex = index;
+                        _isZoomed = false;
+                      });
                     }
                   },
-                ),
-              ),
-            ),
-          ),
-
-          // Animated AppBar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AnimatedOpacity(
-              opacity: _isChromeVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              child: AnimatedSlide(
-                offset: _isChromeVisible ? Offset.zero : const Offset(0, -0.2),
-                duration: const Duration(milliseconds: 250),
-                child: AppBar(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  title: Text(
-                    '${_currentIndex + 1} / ${widget.assets.length}',
-                    style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.7),
-                      fontSize: 14,
-                    ),
+                  itemBuilder: (context, index) => _AssetPreview(
+                    asset: widget.assets[index],
+                    onZoomChanged: (zoomed) {
+                      if (_isZoomed != zoomed) {
+                        setState(() => _isZoomed = zoomed);
+                      }
+                    },
                   ),
-                  actions: [
-                    IconButton(
-                      icon: const Icon(Symbols.info),
-                      tooltip: 'Info & EXIF',
-                      onPressed: _showExifDetails,
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
 
-          // Animated bottom bar
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: AnimatedOpacity(
-              opacity: _isChromeVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 250),
-              child: AnimatedSlide(
-                offset: _isChromeVisible ? Offset.zero : const Offset(0, 0.2),
+            // Animated AppBar
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _isChromeVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
-                child: Container(
-                  color: Colors.black,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 24,
+                child: AnimatedSlide(
+                  offset: _isChromeVisible
+                      ? Offset.zero
+                      : const Offset(0, -0.2),
+                  duration: const Duration(milliseconds: 250),
+                  child: AppBar(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    title: Text(
+                      '${_currentIndex + 1} / ${widget.assets.length}',
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.7),
+                        fontSize: 14,
                       ),
-                      child: Row(
-                        children: [
-                          if (!isBackedUp)
-                            Expanded(
-                              child: _BackupAction(
-                                isUploading: isUploading,
-                                isQueued: isQueued,
-                                progress: task?.progress ?? 0,
-                                onPressed: isUploading
-                                    ? null
-                                    : () => _backUpCurrentAsset(),
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Symbols.info),
+                        tooltip: 'Info & EXIF',
+                        onPressed: _showExifDetails,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Animated bottom bar
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                opacity: _isChromeVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 250),
+                child: AnimatedSlide(
+                  offset: _isChromeVisible ? Offset.zero : const Offset(0, 0.2),
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    color: Colors.black,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 24,
+                        ),
+                        child: Row(
+                          children: [
+                            if (!isBackedUp)
+                              Expanded(
+                                child: _BackupAction(
+                                  isUploading: isUploading,
+                                  isQueued: isQueued,
+                                  progress: task?.progress ?? 0,
+                                  onPressed: isUploading
+                                      ? null
+                                      : () => _backUpCurrentAsset(),
+                                ),
                               ),
-                            ),
-                          Expanded(
-                            child: _BottomAction(
-                              icon: isFavorite
-                                  ? Symbols.favorite
-                                  : Symbols.favorite_border,
-                              label: 'Favorite',
-                              color: isFavorite
-                                  ? Theme.of(context).colorScheme.error
-                                  : Theme.of(context).colorScheme.onSurface,
-                              onPressed: () => _toggleFavorite(),
-                            ),
-                          ),
-                          Expanded(
-                            child: _BottomAction(
-                              icon: Symbols.share,
-                              label: 'Share',
-                              onPressed: () => _shareCurrentAsset(),
-                            ),
-                          ),
-                          Expanded(
-                            child: _BottomAction(
-                              icon: Symbols.photo_library,
-                              label: 'Album',
-                              onPressed: () => _addToAlbum(),
-                            ),
-                          ),
-                          Expanded(
-                            child: _BottomAction(
-                              icon: Symbols.label,
-                              label: 'Tags',
-                              onPressed: () => _openTagEditor(),
-                            ),
-                          ),
-                          if (widget.allowDeviceDelete)
                             Expanded(
                               child: _BottomAction(
-                                icon: Symbols.delete,
-                                label: 'Trash',
-                                color: Theme.of(context).colorScheme.error,
-                                onPressed: () => _trashFromDevice(),
+                                icon: isFavorite
+                                    ? Symbols.favorite
+                                    : Symbols.favorite_border,
+                                label: 'Favorite',
+                                color: isFavorite
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.onSurface,
+                                onPressed: () => _toggleFavorite(),
                               ),
                             ),
-                        ],
+                            Expanded(
+                              child: _BottomAction(
+                                icon: Symbols.share,
+                                label: 'Share',
+                                onPressed: () => _shareCurrentAsset(),
+                              ),
+                            ),
+                            Expanded(
+                              child: _BottomAction(
+                                icon: Symbols.photo_library,
+                                label: 'Album',
+                                onPressed: () => _addToAlbum(),
+                              ),
+                            ),
+                            Expanded(
+                              child: _BottomAction(
+                                icon: Symbols.label,
+                                label: 'Tags',
+                                onPressed: () => _openTagEditor(),
+                              ),
+                            ),
+                            if (widget.allowDeviceDelete)
+                              Expanded(
+                                child: _BottomAction(
+                                  icon: Symbols.delete,
+                                  label: 'Trash',
+                                  color: Theme.of(context).colorScheme.error,
+                                  onPressed: () => _trashFromDevice(),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -62,8 +62,9 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     List<Album> albums,
     Map<int, int> counts,
   ) {
-    if (deviceFolders.isEmpty && albums.isEmpty)
+    if (deviceFolders.isEmpty && albums.isEmpty) {
       return _buildEmptyState(context);
+    }
 
     return GridView.builder(
       padding: const EdgeInsets.all(12),

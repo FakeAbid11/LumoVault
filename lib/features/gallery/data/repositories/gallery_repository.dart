@@ -160,6 +160,13 @@ class GalleryRepository {
   /// at bootstrap (and in tests); see [RemoteDeleteCallback].
   RemoteDeleteCallback? _onRemoteDelete;
 
+  /// Called on every metadata mutation so Riverpod providers can re-evaluate.
+  VoidCallback? onDataChanged;
+
+  /// Called after a scan that changed rows, so DB-reading providers
+  /// (device folder albums, custom album counts) can be invalidated.
+  VoidCallback? onScanCompleted;
+
   /// O(1) position of [localId] in [_mediaItems], or -1 if absent.
   int _indexOfLocalId(String localId) => _indexByLocalId[localId] ?? -1;
 
@@ -379,6 +386,10 @@ class GalleryRepository {
       _notifyMetadataChange(localId: id, operation: 'scan_delete', item: null);
     }
 
+    // Let the DI layer refresh DB-reading providers (album folders, etc.)
+    // now that rows may have changed.
+    if (result.hasChanges) onScanCompleted?.call();
+
     return result;
   }
 
@@ -429,6 +440,11 @@ class GalleryRepository {
       description: existing.description,
       tags: existing.tags,
       aiLabels: existing.aiLabels,
+      // Preserve album/folder assignment when the fresh scan couldn't
+      // determine one (e.g. single-item builds) so the Albums tab doesn't
+      // lose folders on rescan.
+      albumName: fresh.albumName ?? existing.albumName,
+      deviceFolder: fresh.deviceFolder ?? existing.deviceFolder,
       status: hashChanged ? null : existing.status,
       telegramMessageId: hashChanged ? null : existing.telegramMessageId,
       telegramFileId: hashChanged ? null : existing.telegramFileId,
@@ -747,8 +763,20 @@ class GalleryRepository {
     );
   }
 
-  Future<void> toggleFavorite(String localId) async {
-    final index = _indexOfLocalId(localId);
+  /// Toggles the favorite flag on an item.
+  ///
+  /// Works even for an asset that's never been scanned: pass [asset] and a
+  /// minimal record is built on demand (same as [setBackupExcluded]), so
+  /// favoriting from the viewer doesn't silently no-op for unscanned photos.
+  Future<void> toggleFavorite(String localId, {AssetEntity? asset}) async {
+    var index = _indexOfLocalId(localId);
+    if (index == -1 && asset != null) {
+      final built = await _incrementalScanner.buildSingleItem(asset);
+      if (built == null) return;
+      _mediaItems.add(built);
+      _indexByLocalId[built.localId] = _mediaItems.length - 1;
+      index = _indexOfLocalId(localId);
+    }
     if (index != -1) {
       final updated = _mediaItems[index].copyWith(
         isFavorite: !_mediaItems[index].isFavorite,
@@ -1256,5 +1284,6 @@ class GalleryRepository {
     MediaItem? item,
   }) {
     _onMetadataChange?.call(localId: localId, operation: operation, item: item);
+    onDataChanged?.call();
   }
 }

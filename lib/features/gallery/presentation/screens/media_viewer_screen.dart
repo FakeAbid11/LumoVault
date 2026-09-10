@@ -305,8 +305,9 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   Future<void> _toggleFavorite() async {
     final asset = _currentAsset;
     final repository = ref.read(galleryRepositoryProvider);
-    await repository.toggleFavorite(asset.id);
+    await repository.toggleFavorite(asset.id, asset: asset);
     if (!mounted) return;
+    setState(() {});
     ref.invalidate(mediaItemProvider(asset.id));
   }
 

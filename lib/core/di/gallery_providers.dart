@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import 'album_providers.dart';
 import '../../features/gallery/data/models/device_folder.dart';
 import '../../features/gallery/data/models/media_item.dart';
 import '../../features/gallery/data/repositories/gallery_repository.dart';
@@ -37,16 +38,33 @@ final deviceFoldersProvider = FutureProvider.autoDispose<List<DeviceFolder>>((
   return scannerService.getDeviceFolders();
 });
 
+/// Bumped whenever metadata (tags, favorites, etc.) changes in the
+/// repository, so providers like [searchProvider] re-evaluate.
+final galleryDataVersionProvider = StateProvider<int>((ref) => 0);
+
 final galleryRepositoryProvider = Provider<GalleryRepository>((ref) {
   final scannerService = ref.watch(mediaScannerServiceProvider);
   final incrementalScanner = ref.watch(incrementalScannerProvider);
   final db = ref.watch(appDatabaseProvider);
-  return GalleryRepository(
+  final repository = GalleryRepository(
     scannerService: scannerService,
     mediaDao: db.mediaDao,
     faceDao: db.faceDao,
     incrementalScanner: incrementalScanner,
   );
+  // Bump the version counter on every metadata mutation so providers that
+  // watch [galleryDataVersionProvider] (like searchProvider) re-evaluate.
+  repository.onDataChanged = () {
+    ref.read(galleryDataVersionProvider.notifier).state++;
+  };
+  // Refresh DB-reading album providers after a scan discovers or updates
+  // rows — without this the Albums tab showed folders only after the user
+  // navigated away and back.
+  repository.onScanCompleted = () {
+    ref.invalidate(deviceFolderAlbumsProvider);
+    ref.invalidate(albumCountsProvider);
+  };
+  return repository;
 });
 
 final scanProgressProvider = StateProvider<ScanProgress>((ref) {
@@ -333,6 +351,7 @@ final searchProvider = Provider.autoDispose.family<List<MediaItem>, String>((
   ref,
   query,
 ) {
+  ref.watch(galleryDataVersionProvider);
   final repository = ref.watch(galleryRepositoryProvider);
   return repository.searchMedia(query);
 });

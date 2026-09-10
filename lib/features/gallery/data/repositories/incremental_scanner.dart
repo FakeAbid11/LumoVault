@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:convert/convert.dart' show AccumulatorSink;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/storage/thumbnail_warmup.dart';
@@ -170,8 +171,11 @@ class IncrementalScanner {
               // deviceFolder := album.name (the value stored in includedFolders,
               // and what the full scanner uses) so the scheduler's folder gate
               // matches; auto-include when the user filtered to this folder.
+              // albumName := basename so device folders surface in the
+              // Albums tab (its DAO query requires albumName IS NOT NULL).
               final item = built.copyWith(
                 deviceFolder: album.name,
+                albumName: p.basename(album.name),
                 isExcluded: filterActive ? false : built.isExcluded,
               );
               newItems.add(item);
@@ -193,6 +197,7 @@ class IncrementalScanner {
               if (built != null) {
                 final updated = built.copyWith(
                   deviceFolder: album.name,
+                  albumName: p.basename(album.name),
                   isExcluded: filterActive ? false : built.isExcluded,
                 );
                 updatedItems.add(updated);
@@ -325,6 +330,12 @@ class IncrementalScanner {
         // governs the bulk-scan discovery path.
         isExcluded: true,
         deviceFolder: asset.relativePath,
+        // Derived from the folder path so single-item builds (favorites,
+        // backup exclusion) also carry an album name; the batch scan path
+        // overrides this with the authoritative album.name.
+        albumName: asset.relativePath == null
+            ? null
+            : p.basename(asset.relativePath!),
         latitude: lat,
         longitude: lng,
       );

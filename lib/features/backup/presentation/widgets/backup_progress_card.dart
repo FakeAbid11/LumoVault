@@ -73,7 +73,9 @@ class BackupProgressCard extends StatelessWidget {
       case BackupEngineState.paused:
         icon = Symbols.pause_circle;
         statusText = 'Backup paused';
-        iconColor = colorScheme.error;
+        // Deliberately neutral: pausing is a user action, not a failure —
+        // error red here reads as "something broke".
+        iconColor = colorScheme.onSurfaceVariant;
       case BackupEngineState.error:
         icon = Symbols.error;
         statusText = 'Backup error';

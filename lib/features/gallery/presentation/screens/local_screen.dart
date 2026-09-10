@@ -496,8 +496,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen> {
           controller: _scrollController,
           slivers: [
             for (int i = 0; i < dateKeys.length; i++) ...[
-              SliverToBoxAdapter(
-                child: DateHeader(
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: StickyDateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedAssets[dateKeys[i]]?.length,
                 ),

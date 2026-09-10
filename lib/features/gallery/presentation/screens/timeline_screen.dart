@@ -163,8 +163,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           controller: _scrollController,
           slivers: [
             for (int i = 0; i < dateKeys.length; i++) ...[
-              SliverToBoxAdapter(
-                child: DateHeader(
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: StickyDateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedItems[dateKeys[i]]?.length,
                 ),

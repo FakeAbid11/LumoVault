@@ -10,6 +10,13 @@ import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+/// Corner radius of gallery thumbnails — rounded enough to read as cards,
+/// tight enough not to eat density at 4-5 grid columns.
+const double _kTileRadius = 12;
+
+/// Corner radius of the small overlay chips (duration, backup status).
+const double _kBadgeRadius = 8;
+
 class MediaTile extends StatefulWidget {
   const MediaTile({
     super.key,
@@ -167,9 +174,11 @@ class _MediaTileState extends State<MediaTile> {
         child: Container(
           width: widget.size,
           height: widget.size,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_kTileRadius),
+          ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(_kTileRadius),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -229,21 +238,21 @@ class _MediaTileState extends State<MediaTile> {
       bottom: 4,
       right: 4,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
           color: Colors.black54,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Symbols.play_arrow, color: Colors.white, size: 12),
+            const Icon(Symbols.play_arrow, color: Colors.white, size: 14),
             const SizedBox(width: 2),
             Text(
               _formatDuration(widget.mediaItem.durationMs),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -275,12 +284,12 @@ class _MediaTileState extends State<MediaTile> {
       top: 4,
       left: 4,
       child: Container(
-        padding: const EdgeInsets.all(2),
+        padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: Colors.black54,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
         ),
-        child: Icon(icon, color: color, size: 14),
+        child: Icon(icon, color: color, size: 16),
       ),
     );
   }

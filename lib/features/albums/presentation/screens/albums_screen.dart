@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../../../../core/database/daos/album_dao.dart';
 import '../../../../core/di/album_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../features/albums/data/models/album.dart';
+import '../../../gallery/data/models/device_folder.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -24,7 +24,9 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
   Widget build(BuildContext context) {
     final albumsAsync = ref.watch(albumsListProvider);
     final countsAsync = ref.watch(albumCountsProvider);
-    final deviceFoldersAsync = ref.watch(deviceFolderAlbumsProvider);
+    // Device folders straight from the device (photo_manager), so every
+    // folder with media appears — not just the ones a backup scan covered.
+    final deviceFoldersAsync = ref.watch(deviceFoldersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +60,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
 
   Widget _buildBody(
     BuildContext context,
-    List<DeviceFolderAlbum> deviceFolders,
+    List<DeviceFolder> deviceFolders,
     List<Album> albums,
     Map<int, int> counts,
   ) {
@@ -80,11 +82,14 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           final folder = deviceFolders[index];
           return _AlbumCard(
             name: folder.name,
-            itemCount: folder.count,
+            itemCount: folder.totalItems,
             coverId: folder.coverId,
             isDeviceFolder: true,
+            // Route by photo_manager path id (collision-free) with the
+            // display name as a query param for the title.
             onTap: () => context.push(
-              '/albums/folder/${Uri.encodeComponent(folder.name)}',
+              '/albums/folder/${folder.id}'
+              '?name=${Uri.encodeComponent(folder.name)}',
             ),
             onLongPress: null,
           );

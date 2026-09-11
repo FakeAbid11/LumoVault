@@ -88,8 +88,22 @@ class _AssetTileState extends State<AssetTile>
   // A fixed thumbnail size keeps every tile requesting the same cache
   // key from photo_manager's thumbnail cache regardless of the grid's
   // actual pixel size, so scrolling doesn't keep re-decoding.
-  Future<Uint8List?> _loadThumbnail() =>
-      widget.asset.thumbnailDataWithSize(const ThumbnailSize(300, 300));
+  //
+  // Bounded by a 15s timeout (mirrors MediaTile): photo_manager can stall
+  // indefinitely on recently-added assets while MediaStore re-indexes, and
+  // an unbounded future left the tile shimmering forever — which in dark
+  // theme reads as a missing row. On timeout/error the placeholder icon
+  // shows instead.
+  Future<Uint8List?> _loadThumbnail() async {
+    try {
+      return await widget.asset
+          .thumbnailDataWithSize(const ThumbnailSize(300, 300))
+          .timeout(const Duration(seconds: 15));
+    } catch (e) {
+      debugPrint('[AssetTile] Thumbnail failed for ${widget.asset.id}: $e');
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

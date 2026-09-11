@@ -9,6 +9,8 @@ import 'package:lumovault/features/gallery/data/repositories/media_scanner_servi
 import 'package:photo_manager/photo_manager.dart';
 
 class _StubScanner implements MediaScannerService {
+  @override
+  Future<List<AssetEntity>> getFolderAssets(String pathId) async => const [];
   List<MediaItem> items = [];
 
   @override

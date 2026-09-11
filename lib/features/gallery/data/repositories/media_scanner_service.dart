@@ -48,6 +48,11 @@ abstract class MediaScannerService {
   Future<Uint8List?> getThumbnail(String assetId);
   Future<File?> getFullFile(String assetId);
   Future<List<DeviceFolder>> getDeviceFolders();
+
+  /// All assets inside one device folder, by photo_manager path id.
+  /// Device-backed (no scan required) so the Albums tab can open any folder
+  /// on the device, not just the ones a backup scan has covered.
+  Future<List<AssetEntity>> getFolderAssets(String pathId);
 }
 
 class PhotoManagerScannerService implements MediaScannerService {
@@ -205,13 +210,31 @@ class PhotoManagerScannerService implements MediaScannerService {
       final assetCount = await album.assetCountAsync;
       final albumName = p.basename(album.name);
 
+      // First asset as the card cover — one cheap range query per folder,
+      // so the Albums tab shows real thumbnails without a scan.
+      String? coverId;
+      if (assetCount > 0) {
+        try {
+          final first = await album
+              .getAssetListRange(start: 0, end: 1)
+              .timeout(const Duration(seconds: 10));
+          coverId = first.isNotEmpty ? first.first.id : null;
+        } catch (e) {
+          debugPrint(
+            '[MediaScannerService] Cover lookup failed for $albumName: $e',
+          );
+        }
+      }
+
       folders.add(
         DeviceFolder(
+          id: album.id,
           path: album.name,
           name: albumName,
           isIncluded: true,
           totalItems: assetCount,
           totalSize: 0,
+          coverId: coverId,
           lastScannedAt: DateTime.now(),
           createdAt: DateTime.now(),
         ),
@@ -219,6 +242,19 @@ class PhotoManagerScannerService implements MediaScannerService {
     }
 
     return folders;
+  }
+
+  @override
+  Future<List<AssetEntity>> getFolderAssets(String pathId) async {
+    // Re-list and match by id rather than constructing an AssetPathEntity
+    // from a stored id: photo_manager path ids are only stable within a
+    // session, and a stale id would silently resolve to the wrong folder.
+    final albums = await PhotoManager.getAssetPathList(
+      type: RequestType.common,
+    );
+    final path = albums.where((a) => a.id == pathId).firstOrNull;
+    if (path == null) return const [];
+    return path.getAssetListPaged(page: 0, size: 10000);
   }
 
   @override

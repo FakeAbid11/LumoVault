@@ -13,42 +13,73 @@ import '../../../../shared/widgets/error_state.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class AlbumDetailScreen extends ConsumerWidget {
-  const AlbumDetailScreen({this.albumId, this.albumName, super.key});
+  const AlbumDetailScreen({
+    this.albumId,
+    this.folderPathId,
+    this.folderName,
+    super.key,
+  });
 
   final int? albumId;
-  final String? albumName;
 
-  bool get isDeviceFolder => albumName != null;
+  /// photo_manager path id when this screen shows a device folder.
+  final String? folderPathId;
+
+  /// Display name for a device folder (the path id is the stable key).
+  final String? folderName;
+
+  bool get isDeviceFolder => folderPathId != null;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final deviceAssets = ref.watch(deviceAssetsProvider);
 
     if (isDeviceFolder) {
-      return _buildDeviceFolder(context, ref, deviceAssets);
+      return _buildDeviceFolder(context, ref);
     }
     return _buildCustomAlbum(context, ref, deviceAssets);
   }
 
-  Widget _buildDeviceFolder(
-    BuildContext context,
-    WidgetRef ref,
-    AsyncValue<List<AssetEntity>> deviceAssets,
-  ) {
-    final itemsAsync = ref.watch(deviceFolderItemsProvider(albumName!));
+  Widget _buildDeviceFolder(BuildContext context, WidgetRef ref) {
+    // Device-backed listing: every folder on the phone opens here, even ones
+    // no backup scan has ever covered.
+    final assetsAsync = ref.watch(deviceFolderAssetsProvider(folderPathId!));
 
     return Scaffold(
-      appBar: AppBar(title: Text(albumName!)),
-      body: itemsAsync.when(
-        data: (items) => deviceAssets.when(
-          data: (assets) =>
-              _buildBody(context, ref, items, assets, allowRemove: false),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          // An asset-list failure must not render as "Folder is empty".
-          error: (_, __) => _buildAssetErrorBody(ref, items),
-        ),
+      appBar: AppBar(
+        title: Text(folderName?.isNotEmpty == true ? folderName! : 'Folder'),
+      ),
+      body: assetsAsync.when(
+        data: (assets) => assets.isEmpty
+            ? _buildEmptyState()
+            : GridView.builder(
+                padding: const EdgeInsets.all(2),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: galleryCrossAxisCount(
+                    ref.watch(settingsGridSizeProvider),
+                    ref.watch(settingsCompactModeProvider),
+                  ),
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
+                ),
+                itemCount: assets.length,
+                itemBuilder: (context, index) {
+                  final asset = assets[index];
+                  return AssetTile(
+                    asset: asset,
+                    onTap: () => context.push(
+                      '/gallery/media/${asset.id}',
+                      extra: (assets: assets, initialIndex: index),
+                    ),
+                  );
+                },
+              ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('$e')),
+        error: (e, s) => ErrorState(
+          error: e.toString(),
+          onRetry: () =>
+              ref.invalidate(deviceFolderAssetsProvider(folderPathId!)),
+        ),
       ),
     );
   }

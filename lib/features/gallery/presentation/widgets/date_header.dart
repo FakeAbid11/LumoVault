@@ -70,10 +70,24 @@ class StickyDateHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final scheme = Theme.of(context).colorScheme;
     // Opaque surface: grid thumbnails scroll behind the pinned header and
-    // must not show through it.
+    // must not show through it. A subtle shadow once content actually slides
+    // under it — without the cue the overlap reads as a glitch rather than
+    // an intentional pinned layer.
     return Container(
-      color: Theme.of(context).colorScheme.surface,
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        boxShadow: overlapsContent
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
       child: DateHeader(dateText: dateText, itemCount: itemCount),
     );
   }

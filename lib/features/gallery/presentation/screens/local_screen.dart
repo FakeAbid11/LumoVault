@@ -553,6 +553,9 @@ class _LocalScreenState extends ConsumerState<LocalScreen>
                 }, childCount: groupedAssets[dateKeys[i]]?.length ?? 0),
               ),
             ],
+            // Clear of the floating nav capsule (extendBody), like the
+            // timeline — without it the last date header hides behind it.
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),

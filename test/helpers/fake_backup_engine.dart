@@ -49,6 +49,8 @@ class FakeBackupEngineNotifier extends BackupEngineNotifier {
 
 class _NoopScanner implements MediaScannerService {
   @override
+  Future<List<AssetEntity>> getFolderAssets(String pathId) async => const [];
+  @override
   Future<bool> checkPermission() async => true;
 
   @override

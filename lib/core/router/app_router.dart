@@ -301,12 +301,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Device folder sub-screen (must be before /albums/:id)
+      // Device folder sub-screen (must be before /albums/:id). Keyed by the
+      // photo_manager path id, not the folder name — two folders named
+      // "Camera" (internal storage + SD card) used to merge into one.
       GoRoute(
-        path: '/albums/folder/:name',
+        path: '/albums/folder/:id',
         pageBuilder: (context, state) {
-          final name = state.pathParameters['name']!;
-          return _slideFromRight(AlbumDetailScreen(albumName: name), state);
+          final pathId = state.pathParameters['id']!;
+          final name = state.uri.queryParameters['name'] ?? '';
+          return _slideFromRight(
+            AlbumDetailScreen(folderPathId: pathId, folderName: name),
+            state,
+          );
         },
       ),
 

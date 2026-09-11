@@ -15,6 +15,9 @@ import 'package:photo_manager/photo_manager.dart';
 class _StubScanner implements MediaScannerService {
   _StubScanner(this._items, this._folders);
 
+  @override
+  Future<List<AssetEntity>> getFolderAssets(String pathId) async => const [];
+
   final List<MediaItem> _items;
   final List<DeviceFolder> _folders;
 

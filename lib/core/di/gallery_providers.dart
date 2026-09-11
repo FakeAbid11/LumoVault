@@ -38,6 +38,16 @@ final deviceFoldersProvider = FutureProvider.autoDispose<List<DeviceFolder>>((
   return scannerService.getDeviceFolders();
 });
 
+/// Assets inside one device folder, by photo_manager path id. Device-backed
+/// (no scan required), so the Albums tab can open ANY folder on the device —
+/// the previous DB-backed listing only ever showed folders a backup scan had
+/// covered, so WhatsApp et al. were invisible unless selected for backup.
+final deviceFolderAssetsProvider = FutureProvider.autoDispose
+    .family<List<AssetEntity>, String>((ref, pathId) async {
+      final scannerService = ref.watch(mediaScannerServiceProvider);
+      return scannerService.getFolderAssets(pathId);
+    });
+
 /// Bumped whenever metadata (tags, favorites, etc.) changes in the
 /// repository, so providers like [searchProvider] re-evaluate.
 final galleryDataVersionProvider = StateProvider<int>((ref) => 0);
@@ -64,9 +74,9 @@ final galleryRepositoryProvider = Provider<GalleryRepository>((ref) {
   };
   // Refresh DB-reading album providers after a scan discovers or updates
   // rows — without this the Albums tab showed folders only after the user
-  // navigated away and back.
+  // navigated away and back. (Device folders now come from the device via
+  // deviceFoldersProvider, so only custom-album counts need invalidating.)
   repository.onScanCompleted = () {
-    ref.invalidate(deviceFolderAlbumsProvider);
     ref.invalidate(albumCountsProvider);
   };
   return repository;

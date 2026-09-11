@@ -35,6 +35,8 @@ final Uint8List kTransparentPng = Uint8List.fromList(const [
 
 class MockMediaScannerService implements MediaScannerService {
   @override
+  Future<List<AssetEntity>> getFolderAssets(String pathId) async => const [];
+  @override
   Future<bool> checkPermission() async => true;
 
   @override

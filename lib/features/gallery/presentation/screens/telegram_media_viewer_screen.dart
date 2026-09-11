@@ -150,62 +150,78 @@ class _TelegramMediaViewerScreenState
   @override
   Widget build(BuildContext context) {
     final currentItem = widget.items[_currentIndex];
-    return PopScope(
-      canPop: !_isVideoFullscreen,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _isVideoFullscreen) {
-          setState(() => _isVideoFullscreen = false);
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: _isVideoFullscreen
-            ? null
-            : AppBar(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                title: Text(
-                  '${_currentIndex + 1} / ${widget.items.length}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+    // Light system icons: the viewer backdrop is pure black in both themes,
+    // and without this a light theme rendered dark status-bar icons on it.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: PopScope(
+        canPop: !_isVideoFullscreen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _isVideoFullscreen) {
+            setState(() => _isVideoFullscreen = false);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          // Let the photo bleed behind the gradient-scrimmed app bar.
+          extendBodyBehindAppBar: true,
+          appBar: _isVideoFullscreen
+              ? null
+              : AppBar(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.black54, Colors.transparent],
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    '${_currentIndex + 1} / ${widget.items.length}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Symbols.download),
+                      tooltip: 'Save to gallery',
+                      onPressed: () => _downloadToGallery(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Symbols.info),
+                      tooltip: 'Info & EXIF',
+                      onPressed: () => _showExifDetails(currentItem),
+                    ),
+                  ],
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Symbols.download),
-                    tooltip: 'Save to gallery',
-                    onPressed: () => _downloadToGallery(),
-                  ),
-                  IconButton(
-                    icon: const Icon(Symbols.info),
-                    tooltip: 'Info & EXIF',
-                    onPressed: () => _showExifDetails(currentItem),
-                  ),
-                ],
-              ),
-        body: SwipeDismissWrapper(
-          enabled: !_isZoomed,
-          onSwipeUp: () => _showExifDetails(currentItem),
-          child: PageView.builder(
-            controller: _pageController,
-            physics: _isZoomed
-                ? const NeverScrollableScrollPhysics()
-                : const BouncingScrollPhysics(),
-            itemCount: widget.items.length,
-            onPageChanged: (index) {
-              if (_currentIndex != index) {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _currentIndex = index;
-                  _isZoomed = false;
-                });
-              }
-            },
-            itemBuilder: (context, index) => _TelegramPreview(
-              item: widget.items[index],
-              onZoomChanged: (zoomed) {
-                if (_isZoomed != zoomed) {
-                  setState(() => _isZoomed = zoomed);
+          body: SwipeDismissWrapper(
+            enabled: !_isZoomed,
+            onSwipeUp: () => _showExifDetails(currentItem),
+            child: PageView.builder(
+              controller: _pageController,
+              physics: _isZoomed
+                  ? const NeverScrollableScrollPhysics()
+                  : const BouncingScrollPhysics(),
+              itemCount: widget.items.length,
+              onPageChanged: (index) {
+                if (_currentIndex != index) {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _currentIndex = index;
+                    _isZoomed = false;
+                  });
                 }
               },
+              itemBuilder: (context, index) => _TelegramPreview(
+                item: widget.items[index],
+                onZoomChanged: (zoomed) {
+                  if (_isZoomed != zoomed) {
+                    setState(() => _isZoomed = zoomed);
+                  }
+                },
+              ),
             ),
           ),
         ),

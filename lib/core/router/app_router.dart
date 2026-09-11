@@ -239,10 +239,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Gallery sub-screens
+      // Gallery search — `?similar=<localId>` shows visually similar photos
       GoRoute(
         path: '/gallery/search',
-        pageBuilder: (context, state) =>
-            _slideFromRight(const SearchScreen(), state),
+        pageBuilder: (context, state) {
+          final similar = state.uri.queryParameters['similar'];
+          return _slideFromRight(SearchScreen(similarTo: similar), state);
+        },
       ),
       GoRoute(
         path: '/gallery/media/:id',

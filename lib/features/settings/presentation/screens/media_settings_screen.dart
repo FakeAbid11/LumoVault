@@ -50,6 +50,24 @@ class MediaSettingsScreen extends ConsumerWidget {
 
           const Divider(),
 
+          const _SectionHeader(title: 'AI'),
+          SwitchListTile(
+            secondary: const Icon(Symbols.auto_awesome),
+            title: const Text('AI photo labels'),
+            subtitle: const Text(
+              'Hourly background scan labels new photos so search can find '
+              'them by subject',
+            ),
+            value: settings.aiScanEnabled,
+            onChanged: (value) {
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .updateField((s) => s.copyWith(aiScanEnabled: value));
+            },
+          ),
+
+          const Divider(),
+
           const _SectionHeader(title: 'Folders'),
           ref
               .watch(deviceFoldersProvider)

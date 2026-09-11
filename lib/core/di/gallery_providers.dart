@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
@@ -409,7 +411,7 @@ final mediaItemProvider = FutureProvider.autoDispose.family<MediaItem?, String>(
 );
 
 /// Singleton instance of the AI image classifier.
-final imageClassifierProvider = Provider<ImageClassifierService>((ref) {
+final imageClassifierProvider = Provider<AiLabeler>((ref) {
   return ImageClassifierService.instance;
 });
 
@@ -530,10 +532,72 @@ final generateEmbeddingsProvider = FutureProvider.autoDispose<void>((
   }
 });
 
-/// Currently active search mode: keyword or semantic.
-enum SearchMode { keyword, semantic }
+/// The text-embedding seam for semantic search (the CLIP text tower).
+final textEmbedderProvider = Provider<AiTextEmbedder>((ref) {
+  return ClipEmbeddingService.instance;
+});
 
-/// The active search mode for the search screen.
-final searchModeProvider = StateProvider<SearchMode>(
-  (ref) => SearchMode.keyword,
-);
+/// Whether the Search screen ranks by CLIP text-embedding similarity
+/// (true) or by keyword matching (false). Real, backed behavior — this
+/// toggle changes which search path runs.
+final semanticModeProvider = StateProvider<bool>((ref) => false);
+
+/// Text→image semantic search: embeds [query] with the CLIP text tower and
+/// ranks the stored image embeddings by cosine similarity. Throws when the
+/// text model isn't shipped in this build so the UI can say so explicitly.
+final semanticTextSearchProvider = FutureProvider.autoDispose
+    .family<List<MediaItem>, String>((ref, query) async {
+      final embedder = ref.watch(textEmbedderProvider);
+      await embedder.initText();
+      if (!embedder.isTextReady) {
+        throw StateError(
+          embedder.textInitError ??
+              'Semantic search needs the AI text model, which is not in this '
+                  'build.',
+        );
+      }
+      final embedding = await embedder.embedText(query);
+      if (embedding == null) return const [];
+      return ref
+          .watch(galleryRepositoryProvider)
+          .semanticSearch(embedding, limit: 60);
+    });
+
+/// "Find similar" — ranks items by CLIP image-embedding cosine similarity to
+/// the seed item. The seed's embedding is generated on demand if missing
+/// (same 336×336 thumbnail pipeline as [generateEmbeddingsProvider]); the
+/// seed itself is excluded from the results. Throws when the ONNX model
+/// can't load so the UI can show an honest error instead of empty results.
+final similarItemsProvider = FutureProvider.autoDispose
+    .family<List<MediaItem>, String>((ref, localId) async {
+      final repository = ref.watch(galleryRepositoryProvider);
+      final item = repository.getItemById(localId);
+      if (item == null) return const [];
+
+      List<double>? embedding;
+      final stored = item.clipEmbedding;
+      if (stored != null && stored.length == 2048) {
+        embedding = Float32List.view(stored.buffer).toList();
+      }
+
+      if (embedding == null) {
+        final clip = ClipEmbeddingService.instance;
+        await clip.init();
+        if (!clip.isReady) {
+          throw StateError(clip.initError ?? 'AI model failed to load');
+        }
+        final asset = await AssetEntity.fromId(localId);
+        final thumbBytes = await asset?.thumbnailDataWithSize(
+          const ThumbnailSize(336, 336),
+        );
+        if (thumbBytes == null || thumbBytes.isEmpty) return const [];
+        embedding = await clip.embedImage(thumbBytes);
+        if (embedding == null) return const [];
+        await repository.updateClipEmbedding(localId, embedding);
+      }
+
+      return repository
+          .semanticSearch(embedding, limit: 60)
+          .where((r) => r.localId != localId)
+          .toList();
+    });

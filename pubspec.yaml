@@ -111,6 +111,10 @@ flutter:
     - assets/models/w600k_mbf.onnx
     - assets/models/efficientnet_lite0.onnx
     - assets/models/mobileclip_s0.onnx
+    # INT8 TEXT TOWER — uncomment after running tool/export_text_tower.py
+    # (semantic text search degrades gracefully until then):
+    # - assets/models/mobileclip_s0_text_int8.onnx
+    # - assets/tokenizer/
 
 # Launcher icon generation — `dart run flutter_launcher_icons`.
 #

@@ -8,15 +8,21 @@ import '../../../../shared/utils/snackbars.dart';
 import '../../../../shared/widgets/error_state.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import '../providers/ai_scan_provider.dart';
 import '../../data/models/media_item.dart';
 import '../widgets/asset_tile.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Search screen — live search over scanned media (file name, description,
 /// album, tags, AI labels) via [searchProvider]. Includes an AI scan feature
-/// that labels photos using EfficientNet-Lite0.
+/// that labels photos using EfficientNet-Lite0, and a visual "find similar"
+/// mode driven by CLIP image embeddings.
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.similarTo});
+
+  /// When set, the screen shows photos visually similar to this item
+  /// (CLIP image-embedding cosine similarity) instead of keyword search.
+  final String? similarTo;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -25,9 +31,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
-  bool _scanning = false;
-  int _scanProgress = 0;
-  int _scanTotal = 0;
   _SearchFilter _activeFilter = _SearchFilter.all;
 
   @override
@@ -43,88 +46,103 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // Trigger background embedding generation for images without CLIP embeddings.
     ref.watch(generateEmbeddingsProvider);
 
-    final searchMode = ref.watch(searchModeProvider);
+    // Scan failures (no photos / model failed to load) surface as a snackbar;
+    // the AI card also shows them inline.
+    ref.listen(aiScanControllerProvider, (previous, next) {
+      if (!next.running &&
+          next.error != null &&
+          previous?.error != next.error) {
+        showLumoSnackBar(context, next.error!);
+      }
+    });
+
+    final similarTo = widget.similarTo;
+    final semanticMode = ref.watch(semanticModeProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search'),
+        title: Text(similarTo != null ? 'Similar photos' : 'Search'),
         actions: [
-          // Semantic search toggle
-          IconButton(
-            icon: Icon(
-              searchMode == SearchMode.semantic
-                  ? Symbols.psychology
-                  : Symbols.search,
+          if (similarTo == null)
+            IconButton(
+              icon: Icon(semanticMode ? Symbols.psychology : Symbols.search),
+              tooltip: semanticMode ? 'Semantic search ON' : 'Keyword search',
+              onPressed: () =>
+                  ref.read(semanticModeProvider.notifier).state = !semanticMode,
             ),
-            tooltip: searchMode == SearchMode.semantic
-                ? 'Semantic search ON'
-                : 'Keyword search',
-            onPressed: () {
-              ref
-                  .read(searchModeProvider.notifier)
-                  .state = searchMode == SearchMode.semantic
-                  ? SearchMode.keyword
-                  : SearchMode.semantic;
-            },
-          ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _controller,
-              autofocus: true,
-              onChanged: (value) => setState(() => _query = value.trim()),
-              decoration: InputDecoration(
-                hintText: 'Search by name, tag, AI label, or location...',
-                prefixIcon: const Icon(Symbols.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Symbols.close),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() => _query = '');
-                        },
-                      ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                filled: true,
-              ),
-            ),
-          ),
-          // Filter chips — height scales with the accessibility text setting
-          // so the chips aren't clipped at large font scales.
-          SizedBox(
-            height: MediaQuery.textScalerOf(context).scale(40),
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+      body: similarTo != null
+          ? _buildSimilarResults(similarTo)
+          : Column(
               children: [
-                _buildSearchFilterChip('All', _SearchFilter.all),
-                const SizedBox(width: 6),
-                _buildSearchFilterChip('People', _SearchFilter.people),
-                const SizedBox(width: 6),
-                _buildSearchFilterChip('Locations', _SearchFilter.locations),
-                const SizedBox(width: 6),
-                _buildSearchFilterChip('Tags', _SearchFilter.tags),
-                const SizedBox(width: 6),
-                _buildSearchFilterChip('AI Labels', _SearchFilter.aiLabels),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    onChanged: (value) => setState(() => _query = value.trim()),
+                    decoration: InputDecoration(
+                      hintText: semanticMode
+                          ? 'Describe what you\'re looking for…'
+                          : 'Search by name, tag, AI label, or location...',
+                      prefixIcon: const Icon(Symbols.search),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Symbols.close),
+                              onPressed: () {
+                                _controller.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      filled: true,
+                    ),
+                  ),
+                ),
+                // Filter chips — height scales with the accessibility text setting
+                // so the chips aren't clipped at large font scales.
+                SizedBox(
+                  height: MediaQuery.textScalerOf(context).scale(40),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    children: [
+                      _buildSearchFilterChip('All', _SearchFilter.all),
+                      const SizedBox(width: 6),
+                      _buildSearchFilterChip('People', _SearchFilter.people),
+                      const SizedBox(width: 6),
+                      _buildSearchFilterChip(
+                        'Locations',
+                        _SearchFilter.locations,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildSearchFilterChip('Tags', _SearchFilter.tags),
+                      const SizedBox(width: 6),
+                      _buildSearchFilterChip(
+                        'AI Labels',
+                        _SearchFilter.aiLabels,
+                      ),
+                    ],
+                  ),
+                ),
+                if (ref.watch(aiScanControllerProvider).running)
+                  _buildScanProgress(),
+                Expanded(child: _buildResults()),
               ],
             ),
-          ),
-          if (_scanning) _buildScanProgress(),
-          Expanded(child: _buildResults()),
-        ],
-      ),
     );
   }
 
   Widget _buildScanProgress() {
-    final progress = _scanTotal > 0 ? _scanProgress / _scanTotal : 0.0;
+    final scan = ref.watch(aiScanControllerProvider);
+    final progress = scan.total > 0 ? scan.completed / scan.total : 0.0;
+    final pace = scan.etaMinutes != null
+        ? ' · ~${scan.etaMinutes!.ceil()} min left'
+        : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -138,7 +156,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'AI scanning: $_scanProgress / $_scanTotal photos',
+              'AI scanning: ${scan.completed} / ${scan.total} photos$pace',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
               ),
@@ -146,7 +164,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           IconButton(
             icon: const Icon(Symbols.close, size: 18),
-            onPressed: () => setState(() => _scanning = false),
+            onPressed: () => ref.read(aiScanControllerProvider.notifier).stop(),
             tooltip: 'Stop scan',
           ),
         ],
@@ -155,6 +173,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildResults() {
+    final similarTo = widget.similarTo;
+    if (similarTo != null) {
+      return _buildSimilarResults(similarTo);
+    }
+
+    // Semantic mode ranks by CLIP text-embedding similarity instead of
+    // keyword matching.
+    if (ref.watch(semanticModeProvider) && _query.isNotEmpty) {
+      return _buildSemanticResults(_query);
+    }
+
     if (_query.isEmpty) {
       return _buildHint();
     }
@@ -205,9 +234,185 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildHint() {
-    final labeledCount = ref.watch(labeledCountProvider);
+  /// Visual "find similar" results for [localId], ranked by CLIP image
+  /// embedding similarity via [similarItemsProvider].
+  Widget _buildSimilarResults(String localId) {
+    final similarAsync = ref.watch(similarItemsProvider(localId));
+    final deviceAssets = ref.watch(deviceAssetsProvider);
 
+    return deviceAssets.when(
+      data: (assets) => similarAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => ErrorState(
+          error: e.toString(),
+          onRetry: () => ref.invalidate(similarItemsProvider(localId)),
+        ),
+        data: (items) {
+          final byId = {for (final a in assets) a.id: a};
+          final resolved = <MediaItem>[];
+          final resolvedAssets = <AssetEntity>[];
+          for (final item in items) {
+            final asset = byId[item.localId];
+            if (asset == null) continue;
+            resolved.add(item);
+            resolvedAssets.add(asset);
+          }
+          if (resolved.isEmpty) return _buildSimilarEmptyState();
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: galleryCrossAxisCount(
+                ref.watch(settingsGridSizeProvider),
+                ref.watch(settingsCompactModeProvider),
+              ),
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: resolved.length,
+            itemBuilder: (context, index) {
+              return AssetTile(
+                asset: resolvedAssets[index],
+                onTap: () => context.push(
+                  '/gallery/media/${resolvedAssets[index].id}',
+                  extra: (assets: resolvedAssets, initialIndex: index),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => ErrorState(
+        error: e.toString(),
+        onRetry: () => ref.invalidate(deviceAssetsProvider),
+      ),
+    );
+  }
+
+  Widget _buildSimilarEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Symbols.image_search,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No similar photos yet',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Similar photos are matched by on-device AI.\n'
+              'Keep the Search tab open for a moment so it\ncan generate '
+              'embeddings, then try again.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Semantic results for the query — ranked by CLIP text-embedding cosine
+  /// similarity against the stored image embeddings (not keyword matching).
+  Widget _buildSemanticResults(String query) {
+    final semanticAsync = ref.watch(semanticTextSearchProvider(query));
+    final deviceAssets = ref.watch(deviceAssetsProvider);
+
+    return deviceAssets.when(
+      data: (assets) => semanticAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => ErrorState(
+          error: e.toString(),
+          onRetry: () => ref.invalidate(semanticTextSearchProvider(query)),
+        ),
+        data: (items) {
+          final byId = {for (final a in assets) a.id: a};
+          final resolved = <MediaItem>[];
+          final resolvedAssets = <AssetEntity>[];
+          for (final item in items) {
+            final asset = byId[item.localId];
+            if (asset == null) continue;
+            resolved.add(item);
+            resolvedAssets.add(asset);
+          }
+          if (resolved.isEmpty) return _buildSemanticEmptyState();
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: galleryCrossAxisCount(
+                ref.watch(settingsGridSizeProvider),
+                ref.watch(settingsCompactModeProvider),
+              ),
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: resolved.length,
+            itemBuilder: (context, index) {
+              return AssetTile(
+                asset: resolvedAssets[index],
+                onTap: () => context.push(
+                  '/gallery/media/${resolvedAssets[index].id}',
+                  extra: (assets: resolvedAssets, initialIndex: index),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => ErrorState(
+        error: e.toString(),
+        onRetry: () => ref.invalidate(deviceAssetsProvider),
+      ),
+    );
+  }
+
+  Widget _buildSemanticEmptyState() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Symbols.psychology,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No semantic matches yet',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Semantic search ranks your photos by meaning.\n'
+              'Photo embeddings are generated while this tab\nis open — give '
+              'it a moment and try again.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHint() {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -234,12 +439,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 32),
             // AI Scan Card
-            _AiScanCard(
-              labeledCount: labeledCount,
-              scanning: _scanning,
-              onStartScan: _startScan,
-              onStopScan: () => setState(() => _scanning = false),
-            ),
+            const _AiScanCard(),
           ],
         ),
       ),
@@ -486,85 +686,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Future<void> _startScan() async {
-    // Fetch ALL device images — not just gallery items from included folders.
-    final allAssets = await ref.read(deviceAssetsProvider.future);
-    final deviceImages = allAssets
-        .where((a) => a.type == AssetType.image)
-        .toList();
-    if (deviceImages.isEmpty) {
-      if (!mounted) return;
-      showLumoSnackBar(context, 'No photos found on this device.');
-      return;
-    }
-
-    // Build the set of already-labeled IDs so we can skip them.
-    final repository = ref.read(galleryRepositoryProvider);
-    final labeledIds = repository.labeledLocalIds;
-    final unlabeled = deviceImages
-        .where((a) => !labeledIds.contains(a.id))
-        .toList();
-    if (unlabeled.isEmpty) {
-      if (!mounted) return;
-      showLumoSnackBar(context, 'All photos are already labeled.');
-      return;
-    }
-
-    // Enable auto-scan for future photos.
-    ref
-        .read(appSettingsProvider.notifier)
-        .updateField((s) => s.copyWith(aiScanEnabled: true));
-
-    setState(() {
-      _scanning = true;
-      _scanProgress = 0;
-      _scanTotal = unlabeled.length;
-    });
-
-    try {
-      final classifier = ref.read(imageClassifierProvider);
-      await classifier.init();
-
-      if (!classifier.isReady) {
-        debugPrint('[SearchScreen] Classifier failed to initialize');
-        if (!mounted) return;
-        showLumoSnackBar(
-          context,
-          'AI model failed to load. Restart the app and try again.',
-        );
-        return;
-      }
-
-      for (var i = 0; i < unlabeled.length; i++) {
-        if (!mounted || !_scanning) break;
-
-        final asset = unlabeled[i];
-        try {
-          final labels = await classifier.classify(asset);
-          if (labels.isNotEmpty) {
-            await repository.labelAnyMediaItem(asset.id, labels);
-          }
-        } catch (e) {
-          debugPrint('[SearchScreen] Failed to classify ${asset.id}: $e');
-        }
-
-        if (mounted) {
-          setState(() => _scanProgress = i + 1);
-        }
-      }
-    } catch (e) {
-      debugPrint('[SearchScreen] Scan failed: $e');
-      if (!mounted) return;
-      showLumoSnackBar(context, 'AI scan failed. Please try again.');
-    } finally {
-      if (mounted) {
-        setState(() => _scanning = false);
-        ref.invalidate(unlabeledItemsProvider);
-        ref.invalidate(labeledCountProvider);
-      }
-    }
-  }
-
   Widget _buildSearchFilterChip(String label, _SearchFilter filter) {
     final isSelected = _activeFilter == filter;
     return FilterChip(
@@ -578,20 +699,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _AiScanCard extends ConsumerWidget {
-  const _AiScanCard({
-    required this.labeledCount,
-    required this.scanning,
-    required this.onStartScan,
-    required this.onStopScan,
-  });
-
-  final int labeledCount;
-  final bool scanning;
-  final VoidCallback onStartScan;
-  final VoidCallback onStopScan;
+  const _AiScanCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scan = ref.watch(aiScanControllerProvider);
+    final labeledCount = ref.watch(labeledCountProvider);
     final deviceAssetsAsync = ref.watch(deviceAssetsProvider);
 
     return Card(
@@ -622,6 +735,16 @@ class _AiScanCard extends ConsumerWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+            if (scan.error != null && !scan.running) ...[
+              const SizedBox(height: 8),
+              Text(
+                scan.error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             deviceAssetsAsync.when(
               data: (allAssets) {
@@ -640,8 +763,12 @@ class _AiScanCard extends ConsumerWidget {
                 return SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: scanning ? null : onStartScan,
-                    icon: scanning
+                    onPressed: scan.running
+                        ? null
+                        : () => ref
+                              .read(aiScanControllerProvider.notifier)
+                              .start(),
+                    icon: scan.running
                         ? const SizedBox(
                             width: 16,
                             height: 16,
@@ -652,8 +779,8 @@ class _AiScanCard extends ConsumerWidget {
                           )
                         : const Icon(Symbols.smart_toy, size: 18),
                     label: Text(
-                      scanning
-                          ? 'Scanning...'
+                      scan.running
+                          ? 'Scanning… ${scan.completed} / ${scan.total}'
                           : 'AI Scan ($remaining remaining)',
                     ),
                   ),

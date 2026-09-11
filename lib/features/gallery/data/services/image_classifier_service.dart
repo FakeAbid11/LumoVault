@@ -8,12 +8,25 @@ import 'package:photo_manager/photo_manager.dart';
 
 import 'label_map.dart';
 
+/// The labeling surface the AI scan controller consumes — kept as an
+/// interface so tests can substitute a fake without ONNX or the platform.
+abstract class AiLabeler {
+  /// Load the ONNX model. Safe to call multiple times.
+  Future<void> init();
+
+  /// Whether [init] succeeded and [classify] can run.
+  bool get isReady;
+
+  /// Classify a device asset, returning human-readable labels.
+  Future<List<String>> classify(AssetEntity asset);
+}
+
 /// Runs EfficientNet-Lite0 image classification on photo thumbnails.
 ///
 /// The model outputs a 1000-class softmax probability vector. We take the
 /// top-N labels above a confidence threshold and return them as human-readable
 /// strings.
-class ImageClassifierService {
+class ImageClassifierService implements AiLabeler {
   ImageClassifierService._();
 
   static final ImageClassifierService instance = ImageClassifierService._();
@@ -32,11 +45,13 @@ class ImageClassifierService {
   /// Maximum labels to return per image.
   static const int _maxLabels = 5;
 
+  @override
   bool get isReady => _initialized;
 
   String? get initError => _initError;
 
   /// Initializes the ONNX session. Safe to call multiple times.
+  @override
   Future<void> init() async {
     if (_initialized) return;
     try {
@@ -57,6 +72,7 @@ class ImageClassifierService {
   ///
   /// [asset] is the device asset to classify. A 224×224 thumbnail is decoded
   /// on-device, normalized, and fed through the model.
+  @override
   Future<List<String>> classify(AssetEntity asset) async {
     if (!_initialized) return const [];
 

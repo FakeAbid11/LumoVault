@@ -4,13 +4,33 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
+import 'clip_tokenizer.dart';
+
+/// The text-embedding surface the semantic search pipeline consumes — kept
+/// as an interface so tests can substitute a fake without ONNX, and so the
+/// app degrades gracefully when the text model isn't shipped.
+abstract class AiTextEmbedder {
+  /// Load the text-tower ONNX session. Safe to call multiple times.
+  Future<void> initText();
+
+  /// Whether [initText] succeeded and [embedText] can run.
+  bool get isTextReady;
+
+  /// Why [initText] failed, if it did.
+  String? get textInitError;
+
+  /// Embed a search query into the same 512-dim space as the image
+  /// embeddings (L2-normalized). Returns null when embedding fails.
+  Future<List<double>?> embedText(String query);
+}
+
 /// Generates 512-dim CLIP embeddings for images and text.
 ///
-/// Uses MobileCLIP S0 (Apple's mobile-optimized CLIP model). The model
-/// must be downloaded separately and placed at `assets/models/mobileclip_s0.onnx`.
-///
-/// When the model is not available, semantic search is gracefully disabled.
-class ClipEmbeddingService {
+/// Uses MobileCLIP S0 (Apple's mobile-optimized CLIP model). The image tower
+/// ships at `assets/models/mobileclip_s0.onnx`; the text tower is exported
+/// separately by `tool/export_text_tower.py` and lazily loaded on the first
+/// text search — when it's absent, text embedding fails gracefully.
+class ClipEmbeddingService implements AiTextEmbedder {
   ClipEmbeddingService._();
 
   static final ClipEmbeddingService instance = ClipEmbeddingService._();
@@ -153,5 +173,81 @@ class ClipEmbeddingService {
   Future<void> dispose() async {
     await _session.close();
     _initialized = false;
+    if (_textInitialized) {
+      await _textSession.close();
+      _textInitialized = false;
+    }
+  }
+
+  // --- Text tower (semantic search) ---
+
+  static const String _textModelAsset =
+      'assets/models/mobileclip_s0_text_int8.onnx';
+
+  late OnnxRuntime _textOrt;
+  late OrtSession _textSession;
+  bool _textInitialized = false;
+  String? _textInitError;
+  ClipTokenizer? _tokenizer;
+
+  @override
+  bool get isTextReady => _textInitialized;
+
+  @override
+  String? get textInitError => _textInitError;
+
+  @override
+  Future<void> initText() async {
+    if (_textInitialized) return;
+    try {
+      _textOrt = OnnxRuntime();
+      _textSession = await _textOrt.createSessionFromAsset(_textModelAsset);
+      _tokenizer = await ClipTokenizer.fromAssets();
+      _textInitialized = true;
+      _textInitError = null;
+      debugPrint('[ClipEmbedding] text-tower session ready');
+    } catch (e) {
+      _textInitError = e.toString();
+      debugPrint('[ClipEmbedding] text-tower init failed: $e');
+    }
+  }
+
+  /// Embeds a search query into the same 512-dim space as the image
+  /// embeddings. The query is tokenized with CLIP's BPE (padded to the
+  /// model's context length) and run through the text tower.
+  @override
+  Future<List<double>?> embedText(String query) async {
+    if (!_textInitialized) return null;
+    final tokenizer = _tokenizer;
+    if (tokenizer == null) return null;
+
+    OrtValue? ortValue;
+    OrtValue? output;
+    try {
+      final tokens = tokenizer.tokenize(query);
+      ortValue = await OrtValue.fromList(Int64List.fromList(tokens), [
+        1,
+        tokens.length,
+      ]);
+
+      final outputs = await _textSession.run({
+        _textSession.inputNames.first: ortValue,
+      });
+
+      output = outputs[_textSession.outputNames.first];
+      if (output == null) return null;
+
+      final embedding = await output.asFlattenedList();
+      final floats = embedding.map((e) => (e as num).toDouble()).toList();
+      // The export already L2-normalizes; normalize again defensively so a
+      // quantization wobble can't skew cosine ranking.
+      return _l2Normalize(floats);
+    } catch (e) {
+      debugPrint('[ClipEmbedding] embedText failed: $e');
+      return null;
+    } finally {
+      await ortValue?.dispose();
+      await output?.dispose();
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/channel_scan_providers.dart';
@@ -184,6 +185,13 @@ class _TelegramMediaViewerScreenState
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   actions: [
+                    IconButton(
+                      icon: const Icon(Symbols.image_search),
+                      tooltip: 'Find similar',
+                      onPressed: () => context.push(
+                        '/gallery/search?similar=${widget.items[_currentIndex].localId}',
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Symbols.download),
                       tooltip: 'Save to gallery',

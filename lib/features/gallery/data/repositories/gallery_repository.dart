@@ -134,9 +134,16 @@ class GalleryRepository {
   }
 
   /// Invalidate the person names cache (call after face assignment changes).
+  ///
+  /// Clearing alone used to leave the cache empty until the next [hydrate] —
+  /// the only loader lived inside `hydrate()` — so renaming a person made
+  /// person-name search return nothing until an app restart. The reload is
+  /// scheduled here, and [onDataChanged] fires once it lands so open search
+  /// results re-evaluate with fresh names.
   void invalidatePersonNamesCache() {
     _personNamesCacheLoaded = false;
     _personNamesCache = {};
+    unawaited(_ensurePersonNamesLoaded().then((_) => onDataChanged?.call()));
   }
 
   /// Get cached person names for a media item (synchronous, from cache).
@@ -571,10 +578,11 @@ class GalleryRepository {
 
   /// Searches media items by query string.
   ///
-  /// Splits the query into words and matches if ANY word appears as a
-  /// substring in ANY searchable field (fileName, description, albumName,
-  /// tags, aiLabels). This allows "family selfie" to match photos labeled
-  /// with both "ai_family" and "ai_selfie".
+  /// Splits the query into words; an item matches when EVERY word appears as
+  /// a substring in at least one searchable field (fileName, description,
+  /// albumName, locationName, tags, aiLabels, person names). Multi-word
+  /// queries therefore narrow results — each word may match a different
+  /// field.
   List<MediaItem> searchMedia(String query) {
     final words = query
         .toLowerCase()

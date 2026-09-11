@@ -182,6 +182,14 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                         ),
                         actions: [
                           IconButton(
+                            icon: const Icon(Symbols.image_search),
+                            tooltip: 'Find similar',
+                            onPressed: () => context.push(
+                              '/gallery/search'
+                              '?similar=${widget.assets[_currentIndex].id}',
+                            ),
+                          ),
+                          IconButton(
                             icon: const Icon(Symbols.info),
                             tooltip: 'Info & EXIF',
                             onPressed: _showExifDetails,

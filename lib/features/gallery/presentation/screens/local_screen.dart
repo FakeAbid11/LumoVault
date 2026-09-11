@@ -512,8 +512,11 @@ class _LocalScreenState extends ConsumerState<LocalScreen>
           slivers: [
             for (int i = 0; i < dateKeys.length; i++) ...[
               SliverPersistentHeader(
-                pinned: true,
-                delegate: StickyDateHeaderDelegate(
+                // Deliberately NOT pinned: with many 1-3 item sections, a
+                // pinned header spends most of its scroll life covering the
+                // few tiles it labels (headers stacking over photos).
+                pinned: false,
+                delegate: DateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedAssets[dateKeys[i]]?.length,
                   textScale: textScale,

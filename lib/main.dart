@@ -9,6 +9,7 @@ import 'core/di/backup_providers.dart';
 import 'core/di/database_providers.dart';
 import 'core/di/gallery_providers.dart';
 import 'core/di/production_providers.dart';
+import 'core/di/tdlib_providers.dart';
 import 'core/error_handling/global_error_handler.dart';
 import 'core/error_handling/crash_reporter.dart';
 import 'core/logging/app_logger.dart';
@@ -160,6 +161,23 @@ Future<ProviderContainer> _bootstrap() async {
   // Activate auto-scan monitoring — registers/cancels AI scan and face scan
   // WorkManager tasks based on whether the user has done a first manual scan.
   container.read(autoScanSyncProvider);
+
+  // Resolve Telegram auth from the persisted TDLib session for this launch.
+  // Fire-and-forget: TDLib connect takes seconds and must not delay the
+  // first frame. Without this, a returning user's Cloud tab read the
+  // in-memory default (unauthenticated) and showed "Not connected to
+  // Telegram" until they happened to open the Account screen — while the
+  // background isolate could upload fine the whole time. With auth
+  // resolved at launch, the auto-scan and backup gates also work as
+  // designed on the first tab visit.
+  unawaited(
+    container
+        .read(tdLibInitializedProvider.future)
+        .then((_) => container.read(authServiceProvider).initialize())
+        .catchError((Object e) {
+          debugPrint('[Bootstrap] TDLib/auth init failed: $e');
+        }),
+  );
 
   return container;
 }

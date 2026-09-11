@@ -160,6 +160,9 @@ void main() {
       // hangs the test forever. runAsync runs it in the real async zone.
       await tester.runAsync(() => authService.verifyCode('000000'));
       await tester.pumpAndSettle();
+      // Flush the zero-delay stub timers the auth-resolution kick creates
+      // when providers re-evaluate back inside the FakeAsync zone.
+      await tester.pump(const Duration(milliseconds: 1));
 
       expect(engine.startCalls, 1);
     },

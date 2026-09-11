@@ -27,23 +27,36 @@ class BrandSettings {
   static Future<String> resolvePackageName() async => 'com.lumovault.app';
 
   /// Try to open a list of [uris] in order, returning the first one that launches.
-  /// Falls back to the app's own settings page if none work.
+  ///
+  /// Uses launch-in-try/catch rather than `canLaunchUrl`: on Android 11+
+  /// `canLaunchUrl` is gated by package visibility and returns false for
+  /// settings-component intents even when they would launch fine, which made
+  /// every MIUI guide button a silent no-op.
   static Future<bool> _tryLaunch(
     List<Uri> uris, {
     String? fallbackPackage,
   }) async {
     for (final uri in uris) {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return true;
+      try {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (launched) return true;
+      } catch (_) {
+        // ActivityNotFound / visibility rejection — try the next candidate.
+        // (Intentionally silent: the caller shows its own fallback hint.)
       }
     }
     // Fallback: open app settings
     if (fallbackPackage != null) {
-      final fallback = Uri.parse('package:$fallbackPackage/details');
-      if (await canLaunchUrl(fallback)) {
-        await launchUrl(fallback, mode: LaunchMode.externalApplication);
-        return true;
+      try {
+        return await launchUrl(
+          Uri.parse('package:$fallbackPackage/details'),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {
+        return false;
       }
     }
     return false;
@@ -51,24 +64,43 @@ class BrandSettings {
 
   // ── MIUI (Xiaomi / Redmi / POCO) ────────────────────────────────
 
+  /// MIUI autostart lives in the Security Center app. `package:` URIs with
+  /// `#autostart` fragments are NOT real MIUI deep links — the fragment is
+  /// stripped and only the generic App Info page opens, which is why the
+  /// onboarding button did nothing useful. The component intent below lands
+  /// directly on Security Center → Autostart.
+  static List<Uri> miuiAutostartUris(String packageName) => [
+    Uri.parse(
+      'intent:#Intent;component=com.miui.securitycenter/'
+      'com.miui.permcenter.autostart.AutoStartManagementActivity;end',
+    ),
+    Uri(scheme: 'package', host: packageName, path: 'details'),
+  ];
+
+  /// MIUI per-app battery page (Security Center → battery saver list), with
+  /// the target package passed as a string extra — `S.name=value` in intent
+  /// URI syntax.
+  static List<Uri> miuiBatteryUris(String packageName) => [
+    Uri.parse(
+      'intent:#Intent;component=com.miui.securitycenter/'
+      'com.miui.powerkeeper.ui.HiddenAppsConfigActivity'
+      ';S.package_name=$packageName;end',
+    ),
+    Uri(scheme: 'package', host: packageName, path: 'details'),
+  ];
+
   static Future<bool> openAutostartSettings(String packageName) async {
     if (nativeAutostartOverride != null) {
       return nativeAutostartOverride!();
     }
-    return _tryLaunch([
-      Uri.parse('package:$packageName/details#autostart'),
-      Uri(scheme: 'package', host: packageName, path: 'details'),
-    ], fallbackPackage: packageName);
+    return _tryLaunch(miuiAutostartUris(packageName));
   }
 
   static Future<bool> openBatterySettings(String packageName) async {
     if (nativeBatteryOverride != null) {
       return nativeBatteryOverride!();
     }
-    return _tryLaunch([
-      Uri.parse('package:$packageName/details#power'),
-      Uri(scheme: 'package', host: packageName, path: 'details'),
-    ], fallbackPackage: packageName);
+    return _tryLaunch(miuiBatteryUris(packageName));
   }
 
   // ── Samsung (One UI) ─────────────────────────────────────────────

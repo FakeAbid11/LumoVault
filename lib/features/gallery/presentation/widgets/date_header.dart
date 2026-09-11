@@ -40,11 +40,15 @@ class DateHeader extends StatelessWidget {
   }
 }
 
-/// Pinned [DateHeader] for [SliverPersistentHeader]: stays anchored at the
-/// top of the viewport while its date section scrolls underneath, so the
-/// section on screen is always labelled (Google Photos-style galleries).
-class StickyDateHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const StickyDateHeaderDelegate({
+/// Styled date header for [SliverPersistentHeader], used UNPINNED on the
+/// Local and Cloud grids. It was pinned briefly (Google-Photos style), but
+/// with sections of 1-3 items a pinned header spends most of its scroll
+/// life covering the few tiles it labels — headers stacking over photos read
+/// as a rendering bug, so headers now scroll with their section. The
+/// textScale-aware extent is kept: it prevents title clipping at
+/// accessibility font sizes either way.
+class DateHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const DateHeaderDelegate({
     required this.dateText,
     this.itemCount,
     this.textScale = 1.0,
@@ -53,7 +57,7 @@ class StickyDateHeaderDelegate extends SliverPersistentHeaderDelegate {
   final String dateText;
   final int? itemCount;
 
-  /// Font scale from [MediaQuery.textScalerOf] at the call site. The pinned
+  /// Font scale from [MediaQuery.textScalerOf] at the call site. The header
   /// extent must grow with it, or the title clips inside the header at
   /// accessibility text sizes.
   final double textScale;
@@ -70,29 +74,15 @@ class StickyDateHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final scheme = Theme.of(context).colorScheme;
-    // Opaque surface: grid thumbnails scroll behind the pinned header and
-    // must not show through it. A subtle shadow once content actually slides
-    // under it — without the cue the overlap reads as a glitch rather than
-    // an intentional pinned layer.
+    // Opaque surface so thumbnails scrolling behind the (unpinned) header
+    // during fast flings never show through it.
     return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        boxShadow: overlapsContent
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
+      color: Theme.of(context).colorScheme.surface,
       child: DateHeader(dateText: dateText, itemCount: itemCount),
     );
   }
 
   @override
-  bool shouldRebuild(covariant StickyDateHeaderDelegate old) =>
+  bool shouldRebuild(covariant DateHeaderDelegate old) =>
       old.dateText != dateText || old.itemCount != itemCount;
 }

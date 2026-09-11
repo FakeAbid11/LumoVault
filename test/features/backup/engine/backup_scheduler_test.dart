@@ -292,6 +292,117 @@ void main() {
         expect(result.included, isFalse);
       });
 
+      test('excludes files in a folder missing from the included list', () {
+        const settings = BackupSettings(includedFolders: ['/DCIM/Camera']);
+        final item = MediaItem(
+          localId: '1',
+          fileHash: 'hash1',
+          filePath: '/DCIM/WhatsApp/test.jpg',
+          fileName: 'test.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+          width: 1920,
+          height: 1080,
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          scannedAt: DateTime.now(),
+          deviceFolder: '/DCIM/WhatsApp',
+        );
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: item,
+          settings: settings,
+        );
+
+        expect(result.included, isFalse);
+        expect(result.reason, contains('not in included list'));
+      });
+
+      test('userInitiated bypasses the folder gates', () {
+        // Explicit "Back up" on one photo overrides folder selection — both
+        // the missing-from-included-list and the on-the-excluded-list cases.
+        const settings = BackupSettings(
+          includedFolders: ['/DCIM/Camera'],
+          excludedFolders: ['/DCIM/Screenshots'],
+        );
+        final whatsapp = MediaItem(
+          localId: '1',
+          fileHash: 'hash1',
+          filePath: '/DCIM/WhatsApp/test.jpg',
+          fileName: 'test.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+          width: 1920,
+          height: 1080,
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          scannedAt: DateTime.now(),
+          deviceFolder: '/DCIM/WhatsApp',
+        );
+        final screenshots = MediaItem(
+          localId: '2',
+          fileHash: 'hash2',
+          filePath: '/DCIM/Screenshots/test.jpg',
+          fileName: 'test.jpg',
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+          width: 1920,
+          height: 1080,
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          scannedAt: DateTime.now(),
+          deviceFolder: '/DCIM/Screenshots',
+        );
+
+        expect(
+          BackupScheduler.evaluateMediaItem(
+            item: whatsapp,
+            settings: settings,
+            userInitiated: true,
+          ).included,
+          isTrue,
+        );
+        expect(
+          BackupScheduler.evaluateMediaItem(
+            item: screenshots,
+            settings: settings,
+            userInitiated: true,
+          ).included,
+          isTrue,
+        );
+      });
+
+      test('userInitiated still enforces size and type gates', () {
+        const settings = BackupSettings(
+          includedFolders: ['/DCIM/Camera'],
+          backupVideos: false,
+          maxFileSize: 1024,
+        );
+        final hugeVideo = MediaItem(
+          localId: '1',
+          fileHash: 'hash1',
+          filePath: '/DCIM/Camera/clip.mp4',
+          fileName: 'clip.mp4',
+          mimeType: 'video/mp4',
+          fileSize: 4096,
+          width: 1920,
+          height: 1080,
+          durationMs: 1000,
+          createdAt: DateTime.now(),
+          modifiedAt: DateTime.now(),
+          scannedAt: DateTime.now(),
+          deviceFolder: '/DCIM/Camera',
+        );
+
+        final result = BackupScheduler.evaluateMediaItem(
+          item: hugeVideo,
+          settings: settings,
+          userInitiated: true,
+        );
+
+        expect(result.included, isFalse);
+      });
+
       test('excludes files with excluded hash', () {
         const settings = BackupSettings(excludedFileHashes: ['hash1']);
         final item = MediaItem(

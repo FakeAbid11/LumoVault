@@ -124,6 +124,19 @@ void main() {
     });
 
     group('initialize', () {
+      test('hasResolvedAuth flips true once the state is resolved', () async {
+        mockClient.authStateType = 'authorizationStateWaitPhoneNumber';
+        expect(repository.hasResolvedAuth, isFalse);
+
+        await repository.initialize();
+
+        // WaitPhoneNumber IS a resolution — it definitively answers "not
+        // signed in (yet)", which the Cloud tab must not confuse with
+        // "still connecting".
+        expect(repository.hasResolvedAuth, isTrue);
+        expect(repository.currentState, AuthState.unauthenticated);
+      });
+
       test('sets initial state from TDLib', () async {
         mockClient.authStateType = 'authorizationStateWaitPhoneNumber';
         await repository.initialize();

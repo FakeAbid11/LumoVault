@@ -500,9 +500,13 @@ class BackupEngine {
       return const SingleBackupResult(SingleBackupOutcome.alreadyBackedUp);
     }
 
+    // userInitiated: this IS the explicit per-photo override — folder
+    // selection governs automatic backup, not a "Back up" tap on a specific
+    // photo (which is how users back up anything outside their folders).
     final include = BackupScheduler.evaluateMediaItem(
       item: item,
       settings: settings,
+      userInitiated: true,
     );
     if (!include.included) {
       return SingleBackupResult(

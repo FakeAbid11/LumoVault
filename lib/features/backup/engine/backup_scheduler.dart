@@ -86,9 +86,16 @@ class BackupScheduler {
   }
 
   /// Evaluate whether a specific media item should be included for backup.
+  ///
+  /// [userInitiated] marks an explicit per-photo request ("Back up" tapped on
+  /// this exact item in the viewer). Folder selection governs AUTOMATIC
+  /// backup; an explicit tap on one photo overrides the folder gates (both
+  /// include- and exclude-list), though the size cap and type toggles stay
+  /// enforced. The automatic paths keep [userInitiated] false.
   static IncludeResult evaluateMediaItem({
     required MediaItem item,
     required BackupSettings settings,
+    bool userInitiated = false,
   }) {
     if (item.isExcluded) {
       return const IncludeResult(
@@ -140,20 +147,25 @@ class BackupScheduler {
       );
     }
 
-    if (item.deviceFolder != null &&
-        settings.isFolderExcluded(item.deviceFolder!)) {
-      return IncludeResult(
-        included: false,
-        reason: 'Folder "${item.deviceFolder}" is excluded.',
-      );
-    }
+    // Folder gates: skipped for user-initiated backups — the user tapped
+    // "Back up" on this exact photo, which is an explicit override of the
+    // folder selection (that selection governs automatic backup).
+    if (!userInitiated) {
+      if (item.deviceFolder != null &&
+          settings.isFolderExcluded(item.deviceFolder!)) {
+        return IncludeResult(
+          included: false,
+          reason: 'Folder "${item.deviceFolder}" is excluded.',
+        );
+      }
 
-    if (item.deviceFolder != null &&
-        !settings.isFolderIncluded(item.deviceFolder!)) {
-      return IncludeResult(
-        included: false,
-        reason: 'Folder "${item.deviceFolder}" is not in included list.',
-      );
+      if (item.deviceFolder != null &&
+          !settings.isFolderIncluded(item.deviceFolder!)) {
+        return IncludeResult(
+          included: false,
+          reason: 'Folder "${item.deviceFolder}" is not in included list.',
+        );
+      }
     }
 
     if (settings.isFileExcluded(item.fileHash)) {

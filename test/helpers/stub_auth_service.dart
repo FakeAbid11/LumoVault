@@ -24,6 +24,7 @@ class StubAuthService implements AuthService {
 
   AuthState _currentState = AuthState.unauthenticated;
   bool _initialized = false;
+  bool _authResolved = false;
   final _stateController = StreamController<AuthState>.broadcast();
 
   @override
@@ -32,8 +33,12 @@ class StubAuthService implements AuthService {
   @override
   Stream<AuthState> get stateStream => _stateController.stream;
 
+  @override
+  bool get hasResolvedAuth => _authResolved;
+
   void _updateState(AuthState newState) {
     _currentState = newState;
+    _authResolved = true;
     _stateController.add(newState);
   }
 
@@ -43,6 +48,8 @@ class StubAuthService implements AuthService {
     if (!_initialized) {
       _initialized = true;
       _updateState(AuthState.unauthenticated);
+    } else {
+      _authResolved = true;
     }
   }
 

@@ -8,6 +8,11 @@ abstract class AuthService {
   /// Stream of authentication state changes.
   Stream<AuthState> get stateStream;
 
+  /// Whether the auth state has been resolved from TDLib at least once this
+  /// launch. False means "still connecting / unknown" — UIs must not treat
+  /// unauthenticated + unresolved as "signed out" until this is true.
+  bool get hasResolvedAuth;
+
   /// Initialize the auth service and TDLib client.
   Future<void> initialize();
 

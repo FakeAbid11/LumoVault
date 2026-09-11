@@ -55,6 +55,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     // Watch channel scan progress for loading indicator.
     final (scanned, total, isScanning) = ref.watch(channelScanProgressProvider);
 
+    final authResolved = ref.watch(authResolvedProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     final uploadedItems = repository.mediaItems
@@ -89,6 +90,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         scanned,
         total,
         isAuthenticated,
+        authResolved,
       ),
     );
   }
@@ -100,7 +102,15 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     int scanned,
     int total,
     bool isAuthenticated,
+    bool authResolved,
   ) {
+    // Auth state not resolved yet (TDLib still restoring the persisted
+    // session) — show "connecting" rather than a false "Not connected" that
+    // offered a redundant Sign In button.
+    if (!authResolved) {
+      return _buildConnectingState(context);
+    }
+
     if (!isAuthenticated) {
       return _buildNotConnectedState(context);
     }
@@ -166,8 +176,11 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           slivers: [
             for (int i = 0; i < dateKeys.length; i++) ...[
               SliverPersistentHeader(
-                pinned: true,
-                delegate: StickyDateHeaderDelegate(
+                // Deliberately NOT pinned: with many 1-3 item sections, a
+                // pinned header spends most of its scroll life covering the
+                // few tiles it labels (headers stacking over photos).
+                pinned: false,
+                delegate: DateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedItems[dateKeys[i]]?.length,
                   textScale: textScale,
@@ -251,6 +264,29 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
         onPressed: () => context.push('/connect-telegram'),
         icon: const Icon(Icons.telegram),
         label: const Text('Sign in to Telegram'),
+      ),
+    );
+  }
+
+  Widget _buildConnectingState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 24),
+          Text(
+            'Connecting to Telegram…',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Restoring your session. This can take a few seconds.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

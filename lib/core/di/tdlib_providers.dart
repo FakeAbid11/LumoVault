@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -102,13 +103,30 @@ final storageChannelServiceProvider = Provider<StorageChannelService>((ref) {
   return service;
 });
 
+/// Whether the Telegram auth state has been resolved from the persisted
+/// TDLib session at least once this launch. False = still connecting /
+/// unknown — UIs must show a connecting state, not "not connected".
+final authResolvedProvider = Provider<bool>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  ref.watch(_authStateStreamProvider);
+  // Kicking resolution here means ANY consumer of auth state (Cloud tab,
+  // auto-scan, backup gates) forces the persisted session to be queried,
+  // instead of every launch reading the cold-start `unauthenticated`
+  // default until the user happens to open the Account screen.
+  unawaited(authService.initialize().catchError((_) {}));
+  return authService.hasResolvedAuth;
+});
+
 /// Whether the user is currently authenticated.
 final isAuthenticatedProvider = Provider<bool>((ref) {
   final authStateAsync = ref.watch(_authStateStreamProvider);
+  final authService = ref.watch(authServiceProvider);
+
+  // Kicks auth resolution — see [authResolvedProvider].
+  unawaited(authService.initialize().catchError((_) {}));
 
   // While the stream hasn't emitted yet, fall back to the synchronous value.
   if (authStateAsync is AsyncLoading) {
-    final authService = ref.watch(authServiceProvider);
     return authService.currentState == AuthState.authenticated;
   }
 

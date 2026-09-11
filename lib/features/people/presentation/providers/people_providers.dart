@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,7 +13,17 @@ import '../../data/services/face_detection_service.dart';
 import '../../data/services/face_clustering_service.dart';
 
 final faceDetectionServiceProvider = Provider<FaceDetectionService>((ref) {
-  return FaceDetectionService();
+  // Adaptive detector tier: 8+ core SoCs get the higher-recall SCRFD-2.5G
+  // (better coverage of small/profile/occluded faces); everything else keeps
+  // the tiny 500M model with unchanged behavior. Core count is a pure
+  // synchronous signal; RAM isn't exposed by device_info_plus.
+  return FaceDetectionService(
+    config: FaceDetectionConfig(
+      detectorAsset: selectDetectorAsset(
+        processorCount: Platform.numberOfProcessors,
+      ),
+    ),
+  );
 });
 
 final faceClusteringServiceProvider = Provider<FaceClusteringService>((ref) {

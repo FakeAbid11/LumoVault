@@ -48,8 +48,10 @@ class StorageSettingsScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Symbols.photo_library),
-            title: const Text('Rebuild Thumbnails'),
-            subtitle: const Text('Regenerate all thumbnail images'),
+            title: const Text('Reset Thumbnails'),
+            subtitle: const Text(
+              'Clear cached thumbnails; visible tiles reload immediately',
+            ),
             onTap: () => _confirmRebuildThumbnails(context, ref),
           ),
           const Divider(),
@@ -164,7 +166,7 @@ class StorageSettingsScreen extends ConsumerWidget {
   void _confirmRebuildThumbnails(BuildContext context, WidgetRef ref) {
     _confirmAction(
       context: context,
-      title: 'Rebuild Thumbnails?',
+      title: 'Reset Thumbnails?',
       content:
           'This may take a while for large libraries. Thumbnails will '
           'be regenerated as photos are viewed.',

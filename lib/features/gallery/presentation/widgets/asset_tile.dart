@@ -6,6 +6,7 @@ import 'package:photo_manager/photo_manager.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
+import '../../data/services/thumbnail_load_limiter.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Corner radius of gallery thumbnails — matches [MediaTile].
@@ -71,6 +72,10 @@ class _AssetTileState extends State<AssetTile>
   // off a fresh decode every frame. Refreshed only when the asset changes.
   late Future<Uint8List?> _thumbnailFuture;
 
+  /// Whether the last load failed (timeout/error) — switches the placeholder
+  /// to a refresh glyph so "failed" is visually distinct from "loading".
+  bool _lastLoadFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,18 +94,22 @@ class _AssetTileState extends State<AssetTile>
   // key from photo_manager's thumbnail cache regardless of the grid's
   // actual pixel size, so scrolling doesn't keep re-decoding.
   //
-  // Bounded by a 15s timeout (mirrors MediaTile): photo_manager can stall
-  // indefinitely on recently-added assets while MediaStore re-indexes, and
-  // an unbounded future left the tile shimmering forever — which in dark
-  // theme reads as a missing row. On timeout/error the placeholder icon
-  // shows instead.
+  // Bounded by a 15s timeout AND the shared load limiter: photo_manager can
+  // stall on recently-added assets while MediaStore re-indexes, and an
+  // unbounded future left the tile shimmering forever — which in dark theme
+  // reads as a missing row. On timeout/error the placeholder shows a refresh
+  // glyph so "failed" is never mistaken for an empty section.
   Future<Uint8List?> _loadThumbnail() async {
+    _lastLoadFailed = false;
     try {
-      return await widget.asset
-          .thumbnailDataWithSize(const ThumbnailSize(300, 300))
-          .timeout(const Duration(seconds: 15));
+      return await thumbnailLoadLimiter.run(
+        () => widget.asset
+            .thumbnailDataWithSize(const ThumbnailSize(300, 300))
+            .timeout(const Duration(seconds: 15)),
+      );
     } catch (e) {
       debugPrint('[AssetTile] Thumbnail failed for ${widget.asset.id}: $e');
+      _lastLoadFailed = true;
       return null;
     }
   }
@@ -164,10 +173,17 @@ class _AssetTileState extends State<AssetTile>
   }
 
   Widget _buildPlaceholder(BuildContext context) {
+    // A failed load shows a refresh glyph — "will retry on re-scroll" — so a
+    // stuck tile is never mistaken for an empty section.
+    final icon = _lastLoadFailed
+        ? Symbols.refresh
+        : widget.asset.type == AssetType.video
+        ? Symbols.videocam
+        : Symbols.image;
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(
-        widget.asset.type == AssetType.video ? Symbols.videocam : Symbols.image,
+        icon,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
         size: 32,
       ),

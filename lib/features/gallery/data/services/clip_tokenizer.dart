@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show rootBundle;
@@ -30,9 +31,14 @@ class ClipTokenizer {
     final byteEncoder = _buildByteEncoder();
     final byteValues = byteEncoder.values.toList();
 
-    // open_clip: merges = lines[1 : 49415 - 256 - 2 + 1]. The end is clamped
-    // so the tiny synthetic vocabs used in tests don't range-error.
-    final end = (49415 - 256 - 2 + 1).clamp(1, lines.length);
+    // open_clip: merges = lines[1 : 49152 - 256 - 2 + 1]. The end is clamped
+    // so the tiny synthetic vocabs used in tests don't range-error. The
+    // constant yields exactly 48,894 merges -> 256 + 256 + 48,894 + 2
+    // specials = the canonical 49,408-entry CLIP vocabulary, matching the
+    // fixed SOT/EOT ids and the model's embedding table. (An earlier
+    // 49415-based slice pulled 263 extra merges whose derived ids collided
+    // with SOT/EOT and ran past the embedding table.)
+    final end = (49152 - 256 - 2 + 1).clamp(1, lines.length);
     final merges = lines
         .sublist(1, end)
         .map((line) => line.split(' '))
@@ -109,7 +115,7 @@ class ClipTokenizer {
       }
     }
 
-    final kept = ids.take(contextLength - 2).toList();
+    final kept = ids.take(math.max(0, contextLength - 2)).toList();
     final tokens = List<int>.filled(contextLength, 0);
     tokens[0] = _sotId;
     for (var i = 0; i < kept.length; i++) {

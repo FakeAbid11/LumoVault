@@ -123,6 +123,14 @@ class MediaDao extends DatabaseAccessor<AppDatabase> with _$MediaDaoMixin {
         .get();
   }
 
+  /// Removes album memberships for deleted media and repairs affected
+  /// covers. Delegates to [AlbumDao], which owns the album tables; called
+  /// from [GalleryRepository.deletePermanentlyBatch] via this DAO because
+  /// the repository only holds a [MediaDao] reference.
+  Future<void> detachMediaFromAlbums(List<String> mediaIds) async {
+    await attachedDatabase.albumDao.detachMediaFromAlbums(mediaIds);
+  }
+
   /// File hashes that appear more than once (duplicate groups).
   ///
   /// Excludes empty hashes and trashed items. Each result contains the hash

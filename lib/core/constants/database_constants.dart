@@ -25,7 +25,10 @@ abstract final class DatabaseConstants {
   /// v15: added is_date_user_set flag to preserve user-edited capture dates.
   /// v16: added location_name column for reverse-geocoded place names.
   /// v17: added clip_embedding column for semantic search vectors.
-  static const int schemaVersion = 17;
+  /// v18: cleared face data — capable devices now detect with SCRFD-2.5G
+  ///      (500M elsewhere); detections from two different detectors cannot
+  ///      be mixed, so People rebuilds from scratch under the tier's model.
+  static const int schemaVersion = 18;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

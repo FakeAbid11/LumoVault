@@ -39,6 +39,7 @@ class ClipEmbeddingService implements AiTextEmbedder {
   late OrtSession _session;
   bool _initialized = false;
   String? _initError;
+  Future<void>? _initInFlight;
 
   /// Input size expected by MobileCLIP S0.
   static const int _inputSize = 336;
@@ -55,9 +56,15 @@ class ClipEmbeddingService implements AiTextEmbedder {
   bool get isReady => _initialized;
   String? get initError => _initError;
 
-  /// Initializes the ONNX session. Safe to call multiple times.
-  Future<void> init() async {
-    if (_initialized) return;
+  /// Initializes the ONNX session. Safe to call multiple times — concurrent
+  /// callers share one in-flight init instead of each creating a session
+  /// (the loser of that race leaked native memory).
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    return _initInFlight ??= _initNow();
+  }
+
+  Future<void> _initNow() async {
     try {
       _ort = OnnxRuntime();
       _session = await _ort.createSessionFromAsset(
@@ -69,6 +76,8 @@ class ClipEmbeddingService implements AiTextEmbedder {
     } catch (e) {
       _initError = e.toString();
       debugPrint('[ClipEmbedding] Init failed: $e');
+    } finally {
+      _initInFlight = null;
     }
   }
 
@@ -171,8 +180,12 @@ class ClipEmbeddingService implements AiTextEmbedder {
   }
 
   Future<void> dispose() async {
-    await _session.close();
-    _initialized = false;
+    // _session/_textSession are `late` and only assigned on successful init —
+    // guard so dispose after a failed init doesn't throw LateInitializationError.
+    if (_initialized) {
+      await _session.close();
+      _initialized = false;
+    }
     if (_textInitialized) {
       await _textSession.close();
       _textInitialized = false;
@@ -188,6 +201,7 @@ class ClipEmbeddingService implements AiTextEmbedder {
   late OrtSession _textSession;
   bool _textInitialized = false;
   String? _textInitError;
+  Future<void>? _textInitInFlight;
   ClipTokenizer? _tokenizer;
 
   @override
@@ -197,18 +211,31 @@ class ClipEmbeddingService implements AiTextEmbedder {
   String? get textInitError => _textInitError;
 
   @override
-  Future<void> initText() async {
-    if (_textInitialized) return;
+  Future<void> initText() {
+    if (_textInitialized) return Future.value();
+    return _textInitInFlight ??= _initTextNow();
+  }
+
+  Future<void> _initTextNow() async {
     try {
       _textOrt = OnnxRuntime();
       _textSession = await _textOrt.createSessionFromAsset(_textModelAsset);
-      _tokenizer = await ClipTokenizer.fromAssets();
+      try {
+        _tokenizer = await ClipTokenizer.fromAssets();
+      } catch (e) {
+        // Tokenizer asset missing after the model loaded — close the session
+        // so a later attempt (once the asset lands) doesn't leak this one.
+        await _textSession.close();
+        rethrow;
+      }
       _textInitialized = true;
       _textInitError = null;
       debugPrint('[ClipEmbedding] text-tower session ready');
     } catch (e) {
       _textInitError = e.toString();
       debugPrint('[ClipEmbedding] text-tower init failed: $e');
+    } finally {
+      _textInitInFlight = null;
     }
   }
 

@@ -254,12 +254,12 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
 
   Future<void> _saveName() async {
     final name = _nameController.text.trim();
+    // An empty submit means "no change", not "erase the name" — passing null
+    // to updatePersonName overwrote the stored name with NULL.
+    if (name.isEmpty) return;
     final repository = ref.read(faceRepositoryProvider);
     try {
-      await repository.updatePersonName(
-        widget.personId,
-        name.isEmpty ? null : name,
-      );
+      await repository.updatePersonName(widget.personId, name);
       ref.invalidate(personProvider(widget.personId));
       ref.invalidate(peopleProvider);
     } catch (e) {

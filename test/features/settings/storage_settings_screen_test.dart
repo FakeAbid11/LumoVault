@@ -65,13 +65,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Rebuild Thumbnails'),
+      find.text('Reset Thumbnails'),
       120,
       scrollable: find.byType(Scrollable),
     );
-    await tester.tap(find.text('Rebuild Thumbnails'));
+    await tester.tap(find.text('Reset Thumbnails'));
     await tester.pumpAndSettle();
-    expect(find.text('Rebuild Thumbnails?'), findsOneWidget);
+    expect(find.text('Reset Thumbnails?'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(TextButton, 'Rebuild'));
     await tester.pumpAndSettle();

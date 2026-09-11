@@ -599,10 +599,38 @@ void _workerEntry(SendPort sendPort) {
 // FaceDetectionService
 // ---------------------------------------------------------------------------
 
+/// Model configuration for [FaceDetectionService] — which detector asset to
+/// load and its score threshold. SCRFD tiers (500M vs 2.5G) share strides
+/// [8, 16, 32] and 1–2 anchors per cell, so the decode math is identical;
+/// only the asset and threshold differ.
+class FaceDetectionConfig {
+  const FaceDetectionConfig({
+    this.detectorAsset = defaultDetectorAsset,
+    this.scoreThreshold = 0.5,
+  });
+
+  static const String defaultDetectorAsset = 'assets/models/det_500m.onnx';
+
+  final String detectorAsset;
+  final double scoreThreshold;
+}
+
+/// Picks the detector asset by device capability. 8+ core SoCs get the
+/// higher-recall SCRFD-2.5G (better coverage of small/profile/occluded
+/// faces); everything else keeps the tiny 500M model, whose behavior is
+/// unchanged. Pure so tests can pass a core count.
+String selectDetectorAsset({required int processorCount}) {
+  return processorCount >= 8
+      ? 'assets/models/scrfd_2_5g_kps_fp16.onnx'
+      : FaceDetectionConfig.defaultDetectorAsset;
+}
+
 class FaceDetectionService {
-  FaceDetectionService() {
+  FaceDetectionService({this.config = const FaceDetectionConfig()}) {
     _init();
   }
+
+  final FaceDetectionConfig config;
 
   late OnnxRuntime _ort;
   late OrtSession _detectorSession;
@@ -616,7 +644,7 @@ class FaceDetectionService {
   bool _workerReady = false;
 
   static const int _detectorInputSize = 640;
-  static const double _scoreThreshold = 0.5;
+  // Score threshold comes from [config] (tier-dependent, retunable).
   static const double _nmsThreshold = 0.4;
   static const int _embedderInputSize = 112;
   static const int _embedBatchSize = 8;
@@ -639,11 +667,24 @@ class FaceDetectionService {
 
   Future<void> _init() async {
     try {
-      // Load ONNX models
+      // Load ONNX models. The tier-selected detector may not be bundled
+      // (the 2.5G asset ships commented until the file is downloaded) —
+      // fall back to the default 500M model so capable-but-unbundled
+      // devices keep working and self-upgrade once the asset lands.
       _ort = OnnxRuntime();
-      _detectorSession = await _ort.createSessionFromAsset(
-        'assets/models/det_500m.onnx',
-      );
+      try {
+        _detectorSession = await _ort.createSessionFromAsset(
+          config.detectorAsset,
+        );
+      } catch (e) {
+        debugPrint(
+          '[FaceDetectionService] Detector ${config.detectorAsset} not '
+          'bundled — falling back to 500M: $e',
+        );
+        _detectorSession = await _ort.createSessionFromAsset(
+          FaceDetectionConfig.defaultDetectorAsset,
+        );
+      }
       _embedderSession = await _ort.createSessionFromAsset(
         'assets/models/w600k_mbf.onnx',
       );
@@ -920,7 +961,7 @@ class FaceDetectionService {
         kpsByStride: kpsByStride,
         anchorsByStride: anchorsByStride,
         inputSize: _detectorInputSize,
-        scoreThreshold: _scoreThreshold,
+        scoreThreshold: config.scoreThreshold,
         scaleX: preprocess.imgWidth / _detectorInputSize,
         scaleY: preprocess.imgHeight / _detectorInputSize,
       );

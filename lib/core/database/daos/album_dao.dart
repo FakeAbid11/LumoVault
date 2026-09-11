@@ -44,6 +44,23 @@ class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
     );
   }
 
+  /// Removes album memberships for deleted media and repairs covers that
+  /// pointed at any of them (each falls back to the album's own newest
+  /// remaining item). Without this, permanently deleting media left
+  /// dangling album_items rows (inflating counts) and stale cover pointers.
+  Future<void> detachMediaFromAlbums(List<String> mediaIds) async {
+    if (mediaIds.isEmpty) return;
+    await (delete(albumItems)..where((t) => t.mediaId.isIn(mediaIds))).go();
+
+    final albums = await allAlbums();
+    for (final album in albums) {
+      final cover = album.coverId;
+      if (cover != null && mediaIds.contains(cover)) {
+        await updateAutoCover(album.id);
+      }
+    }
+  }
+
   Future<void> addToAlbum(int albumId, String mediaId) async {
     await into(albumItems).insertOnConflictUpdate(
       AlbumItemsCompanion.insert(

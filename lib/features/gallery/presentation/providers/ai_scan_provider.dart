@@ -77,6 +77,12 @@ class AiScanController extends Notifier<AiScanState> {
   Future<void> start() async {
     if (state.running) return;
 
+    // Set synchronously BEFORE the first await: two rapid taps used to both
+    // pass the running check during the initial asset fetch and double-run
+    // the scan; a stop() pressed in that window was also silently erased.
+    _cancelRequested = false;
+    state = const AiScanState(running: true);
+
     // Fetch ALL device images — not just items from folders included in
     // backup — so search covers the whole library.
     final allAssets = await ref.read(deviceAssetsProvider.future);
@@ -113,12 +119,7 @@ class AiScanController extends Notifier<AiScanState> {
       return;
     }
 
-    _cancelRequested = false;
-    state = AiScanState(
-      running: true,
-      total: unlabeled.length,
-      startedAt: DateTime.now(),
-    );
+    state = state.copyWith(total: unlabeled.length, startedAt: DateTime.now());
 
     for (var i = 0; i < unlabeled.length; i++) {
       if (_cancelRequested) break;

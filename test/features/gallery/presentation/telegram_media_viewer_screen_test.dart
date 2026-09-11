@@ -143,6 +143,11 @@ void main() {
     // thumbnail is requested up front.
     expect(downloads.calls.length, 1);
     expect(downloads.calls.single.mode, DownloadMode.thumbnail);
+
+    // The holding service never completes, so the fetcher's 20s guard timer
+    // is pending; pump past it to leave the fake-async zone clean. The
+    // guard fires, records the failure cooldown, and resolves to null.
+    await tester.pump(const Duration(seconds: 21));
   });
 
   testWidgets('the info action opens the backup detail sheet', (tester) async {

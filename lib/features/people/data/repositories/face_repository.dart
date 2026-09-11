@@ -507,6 +507,7 @@ class FaceRepository {
     }
     await recomputeCentroid(targetId);
     await reclusterOrphans();
+    onAssignmentsChanged?.call();
   }
 
   /// Delete multiple people, unassigning all their faces.
@@ -516,11 +517,13 @@ class FaceRepository {
       await faceDao.deletePerson(personId);
     }
     await reclusterOrphans();
+    onAssignmentsChanged?.call();
   }
 
   Future<void> deletePerson(int personId) async {
     await faceDao.deletePerson(personId);
     await reclusterOrphans();
+    onAssignmentsChanged?.call();
   }
 
   Future<int> getFaceCount() => faceDao.faceCount();

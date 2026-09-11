@@ -348,6 +348,18 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE media_items ADD COLUMN clip_embedding BLOB',
         );
       }
+      if (from < 18) {
+        // The detector tier changed (SCRFD-2.5G on capable devices, 500M
+        // elsewhere). Detections from two different detectors cannot be
+        // mixed — box geometry and score distributions differ — so People
+        // rebuilds from scratch under the tier's model. Names go with the
+        // faces they were assigned to; face_scans clears so the next pass
+        // re-detects everything.
+        await m.database.customStatement('DELETE FROM face_persons');
+        await m.database.customStatement('DELETE FROM faces');
+        await m.database.customStatement('DELETE FROM people');
+        await m.database.customStatement('DELETE FROM face_scans');
+      }
     },
   );
 }

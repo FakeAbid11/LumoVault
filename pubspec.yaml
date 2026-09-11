@@ -108,6 +108,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/models/det_500m.onnx
+    # ADAPTIVE DETECTOR — uncomment after downloading scrfd_2.5g_kps.onnx and
+    # running tool/convert_face_models_fp16.py on it (8+ core devices then
+    # get the higher-recall detector; the app falls back to 500M until then):
+    # - assets/models/scrfd_2_5g_kps_fp16.onnx
     - assets/models/w600k_mbf.onnx
     - assets/models/efficientnet_lite0.onnx
     - assets/models/mobileclip_s0.onnx

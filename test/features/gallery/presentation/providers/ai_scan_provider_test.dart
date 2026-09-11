@@ -29,11 +29,13 @@ class _InstantCatClassifier implements AiLabeler {
   Future<List<String>> classify(AssetEntity asset) async => ['ai_cat'];
 }
 
-/// Classifies everything as a cat, blocking the first classify() until
-/// [gate] completes, so a test can call stop() mid-scan.
+/// Classifies everything as a cat. The first classify() signals
+/// [started] and then blocks until [gate] completes, so a test can issue
+/// stop() deterministically mid-photo.
 class _BlockingCatClassifier implements AiLabeler {
-  _BlockingCatClassifier(this.gate);
+  _BlockingCatClassifier(this.started, this.gate);
 
+  final Completer<void> started;
   final Completer<void> gate;
 
   @override
@@ -43,8 +45,10 @@ class _BlockingCatClassifier implements AiLabeler {
   bool get isReady => true;
 
   @override
-  Future<List<String>> classify(AssetEntity asset) =>
-      gate.future.then((_) => ['ai_cat']);
+  Future<List<String>> classify(AssetEntity asset) {
+    if (!started.isCompleted) started.complete();
+    return gate.future.then((_) => ['ai_cat']);
+  }
 }
 
 class _NoopScanner implements MediaScannerService {
@@ -191,23 +195,24 @@ void main() {
 
   test('stop() prevents further labeling after the current photo', () async {
     final repository = await _seedRepository(db);
-    final gate = Completer<void>();
-    final container = _container(
-      db,
-      repository,
-      classifier: _BlockingCatClassifier(gate),
+    // The classifier signals when the first classify STARTS and blocks until
+    // released — so stop() can be issued deterministically mid-photo.
+    final firstClassifyStarted = Completer<void>();
+    final releaseGate = Completer<void>();
+    final classifier = _BlockingCatClassifier(
+      firstClassifyStarted,
+      releaseGate,
     );
+    final container = _container(db, repository, classifier: classifier);
     addTearDown(container.dispose);
 
     final startFuture = container
         .read(aiScanControllerProvider.notifier)
         .start();
-    while (!container.read(aiScanControllerProvider).running) {
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
+    await firstClassifyStarted.future.timeout(const Duration(seconds: 5));
 
     container.read(aiScanControllerProvider.notifier).stop();
-    gate.complete();
+    releaseGate.complete();
     await startFuture;
 
     final state = container.read(aiScanControllerProvider);

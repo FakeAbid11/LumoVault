@@ -56,7 +56,8 @@ final albumItemsProvider = FutureProvider.autoDispose
               scannedAt: r.scannedAt,
               uploadedAt: r.uploadedAt,
               backedUpAt: r.backedUpAt,
-              status: MediaStatus.values[r.status],
+              status: MediaStatus
+                  .values[r.status.clamp(0, MediaStatus.values.length - 1)],
               errorMessage: r.errorMessage,
               isFavorite: r.isFavorite,
               isHidden: r.isHidden,

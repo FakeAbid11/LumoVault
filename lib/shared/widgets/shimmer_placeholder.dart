@@ -50,7 +50,15 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
         ? theme.colorScheme.surfaceContainerHighest
         : theme.colorScheme.surfaceContainerHigh;
     final highlightColor = isDark
-        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+        // Must be LIGHTER than the base: the old highlight was the base
+        // color at 50% alpha — darker than the base over a near-black
+        // background — so a whole section of loading tiles was visually
+        // indistinguishable from an empty page.
+        ? Color.lerp(
+            theme.colorScheme.surfaceContainerHighest,
+            theme.colorScheme.onSurface,
+            0.12,
+          )!
         : theme.colorScheme.surface.withValues(alpha: 0.8);
 
     return AnimatedBuilder(

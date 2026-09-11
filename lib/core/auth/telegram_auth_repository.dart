@@ -207,11 +207,9 @@ class TelegramAuthRepository implements AuthService {
       // If auth is complete, it emits authorizationStateReady.
       return const AuthSuccess();
     } on TdLibException catch (e) {
-      if (e.code == 'PASSWORD_HASH_INVALID') {
-        _updateState(AuthState.passwordRequired);
-        return const AuthPasswordRequired();
-      }
-
+      // PASSWORD_HASH_INVALID belongs to the password step, not here — a
+      // wrong code is a generic auth error. The keyword → password transition
+      // happens via TDLib's authorizationStateWaitPassword update.
       _updateState(AuthState.error);
       return AuthError(message: e.displayMessage, code: e.code);
     }

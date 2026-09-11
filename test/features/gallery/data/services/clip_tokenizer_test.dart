@@ -81,6 +81,33 @@ void main() {
       expect(a, b);
     });
 
+    test('vocabulary boundary: full-size vocab yields exactly 49408 ids', () {
+      // Build a full-size vocab file: 48,894 merge lines (the canonical
+      // count) where the last in-slice merge is 'z z</w>' (id 49405) and the
+      // first EXCLUDED merge is 'q q</w>'. The old 49415-based slice pulled
+      // such excluded merges into the vocab, colliding with SOT/EOT ids and
+      // running past the model's 49,408-row embedding table.
+      final merges = List<String>.generate(48895, (i) => 'm$i n$i');
+      merges[48893] = 'z z</w>'; // last in-slice merge -> id 49405
+
+      final lines = ['#version: 0.2', ...merges];
+      final tokenizer = ClipTokenizer.fromLines(lines, contextLength: 8);
+
+      // 'zz' merges through the boundary merge -> exactly 49405, never the
+      // hardcoded SOT id that a colliding vocab entry would produce.
+      expect(tokenizer.tokenize('zz'), [49406, 49405, 49407, 0, 0, 0, 0, 0]);
+
+      // 'qq' exercises the first EXCLUDED merge: its pair is unknown, so the
+      // pieces fall back to byte ids — never reaching SOT/EOT ids.
+      expect(tokenizer.tokenize('qq'), [
+        49406,
+        80, // 'q'      (0x71 - 0x21 = 80)
+        336, // 'q</w>' (80 + 256)
+        49407,
+        0, 0, 0, 0,
+      ]);
+    });
+
     test('fromVocabBytes round-trips through gzip', () {
       final gz = Uint8List.fromList(
         gzip.encode(utf8.encode(_lines.join('\n'))),

@@ -1096,6 +1096,10 @@ class GalleryRepository {
     _mediaItems.removeWhere((item) => ids.contains(item.localId));
     _rebuildIndex();
     await _mediaDao?.deleteByLocalIds(localIds);
+    // Clean custom-album references: album_items rows pointing at deleted
+    // media would inflate album counts forever, and a stale coverId would
+    // render a deleted photo as the album cover.
+    await _mediaDao?.detachMediaFromAlbums(localIds);
 
     final remoteDelete = _onRemoteDelete;
     if (revokeRemote && remoteDelete != null && messageIds.isNotEmpty) {

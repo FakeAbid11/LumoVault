@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -104,13 +105,24 @@ class TelegramThumbnailFetcher {
         storageChannelService.setCachedChannelId(channelId);
       }
 
-      final download = await downloadService.downloadFile(
-        taskId:
-            'thumb_${item.localId}_${DateTime.now().millisecondsSinceEpoch}',
-        messageId: messageId,
-        channelId: channelId,
-        mode: DownloadMode.thumbnail,
-      );
+      final download = await downloadService
+          .downloadFile(
+            taskId:
+                'thumb_${item.localId}_${DateTime.now().millisecondsSinceEpoch}',
+            messageId: messageId,
+            channelId: channelId,
+            mode: DownloadMode.thumbnail,
+          )
+          .timeout(
+            // A hung TDLib thumbnail download used to shimmer its tile for
+            // the full 30-minute download timeout — read by the user as a
+            // missing photo row. Thumbnails must be fast or the tile falls
+            // back to its placeholder; TimeoutException flows into the
+            // catch below, which records the failure cooldown.
+            const Duration(seconds: 20),
+            onTimeout: () =>
+                throw TimeoutException('Thumbnail download timed out'),
+          );
 
       final bytes = await File(
         download.filePath,

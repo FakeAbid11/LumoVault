@@ -8,6 +8,7 @@ import '../../../../core/storage/thumbnail_cache.dart';
 import '../../../../core/theme/status_color.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
+import '../../data/services/thumbnail_load_limiter.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Corner radius of gallery thumbnails — rounded enough to read as cards,
@@ -77,14 +78,20 @@ class MediaTile extends StatefulWidget {
     try {
       // Same defensive pattern as the scanners: photo_manager platform calls
       // can stall indefinitely (e.g. permission revoked, plugin deadlock), so
-      // bound them and fall back instead of blocking the grid on a stuck tile.
-      final asset = await AssetEntity.fromId(
-        item.localId,
-      ).timeout(const Duration(seconds: 15));
+      // bound them, run them through the shared load limiter (a whole
+      // viewport firing at once is what stalled them into invisible
+      // shimmer), and fall back instead of blocking the grid on a stuck tile.
+      final asset = await thumbnailLoadLimiter.run(
+        () => AssetEntity.fromId(
+          item.localId,
+        ).timeout(const Duration(seconds: 15)),
+      );
       if (asset == null) return _readFileFallback(item);
-      bytes = await asset
-          .thumbnailDataWithSize(const ThumbnailSize(300, 300))
-          .timeout(const Duration(seconds: 15));
+      bytes = await thumbnailLoadLimiter.run(
+        () => asset
+            .thumbnailDataWithSize(const ThumbnailSize(300, 300))
+            .timeout(const Duration(seconds: 15)),
+      );
     } catch (e) {
       // Timeout, photo permission revoked, platform error, etc. — fall
       // through to the on-disk file rather than giving up.

@@ -414,12 +414,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// Open a single photo in the media viewer.
   void _openItem(BuildContext context, MediaItem item) {
     AssetEntity.fromId(item.localId).then((asset) {
-      if (asset != null && context.mounted) {
+      if (!context.mounted) return;
+      if (asset != null) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: true),
         );
+        return;
       }
+      // No local file — cloud-only, or deleted from the device since the
+      // scan. The Telegram viewer can still show the backed-up copy (same
+      // fallback the timeline uses); never leave the tap dead.
+      context.push(
+        '/gallery/telegram-media/${item.localId}',
+        extra: (items: [item], initialIndex: 0),
+      );
     });
   }
 

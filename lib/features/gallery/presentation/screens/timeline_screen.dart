@@ -217,16 +217,23 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       return;
     }
 
-    // For local items, try to find the corresponding AssetEntity and open
-    // the media viewer.
+    // For local items, find the corresponding AssetEntity and open the media
+    // viewer. When the local file is gone (or the item only exists in the
+    // channel), fall back to the Telegram viewer so the tap is never dead.
     final assetFuture = AssetEntity.fromId(item.localId);
     assetFuture.then((asset) {
-      if (asset != null && context.mounted) {
+      if (!context.mounted) return;
+      if (asset != null) {
         context.push(
           '/gallery/media/${asset.id}',
           extra: (assets: [asset], initialIndex: 0),
         );
+        return;
       }
+      context.push(
+        '/gallery/telegram-media/${item.localId}',
+        extra: (items: [item], initialIndex: 0),
+      );
     });
   }
 

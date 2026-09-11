@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/gallery_providers.dart';
+import '../../../../shared/utils/snackbars.dart';
+import '../../../../shared/widgets/error_state.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../data/models/media_item.dart';
@@ -195,7 +197,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         return _buildGrid(results, assets, extraAssets: extra);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => _buildGrid(results, const []),
+      error: (e, s) => ErrorState(
+        error: e.toString(),
+        onRetry: () => ref.invalidate(deviceAssetsProvider),
+      ),
     );
   }
 
@@ -252,9 +257,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final byId = {for (final a in allAssets) a.id: a};
     final resolved = <MediaItem>[];
     final assets = <AssetEntity>[];
+    var cloudOnly = 0;
     for (final item in items) {
       final asset = byId[item.localId];
-      if (asset == null) continue;
+      if (asset == null) {
+        // Cloud-only match (no local file to render in this grid) — counted
+        // so the UI can say so instead of hiding it silently.
+        cloudOnly++;
+        continue;
+      }
       resolved.add(item);
       assets.add(asset);
     }
@@ -297,12 +308,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No results',
+              cloudOnly > 0 ? 'Found in your Telegram backup' : 'No results',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              'Try searching for something else.',
+              cloudOnly > 0
+                  ? '$cloudOnly ${cloudOnly == 1 ? 'match is' : 'matches are'} '
+                        'cloud-only — restore from Telegram\nto view them here.'
+                  : 'Try searching for something else.',
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -314,6 +329,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Column(
       children: [
+        if (cloudOnly > 0)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '$cloudOnly cloud-only '
+              '${cloudOnly == 1 ? 'match is' : 'matches are'} not shown — '
+              'restore from Telegram to view.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         // AI label chips for matched items
         if (resolved.any((item) => item.aiLabels.isNotEmpty))
           SizedBox(
@@ -461,7 +490,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final deviceImages = allAssets
         .where((a) => a.type == AssetType.image)
         .toList();
-    if (deviceImages.isEmpty) return;
+    if (deviceImages.isEmpty) {
+      if (!mounted) return;
+      showLumoSnackBar(context, 'No photos found on this device.');
+      return;
+    }
 
     // Build the set of already-labeled IDs so we can skip them.
     final repository = ref.read(galleryRepositoryProvider);
@@ -469,7 +502,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final unlabeled = deviceImages
         .where((a) => !labeledIds.contains(a.id))
         .toList();
-    if (unlabeled.isEmpty) return;
+    if (unlabeled.isEmpty) {
+      if (!mounted) return;
+      showLumoSnackBar(context, 'All photos are already labeled.');
+      return;
+    }
 
     // Enable auto-scan for future photos.
     ref
@@ -488,6 +525,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
       if (!classifier.isReady) {
         debugPrint('[SearchScreen] Classifier failed to initialize');
+        if (!mounted) return;
+        showLumoSnackBar(
+          context,
+          'AI model failed to load. Restart the app and try again.',
+        );
         return;
       }
 
@@ -510,6 +552,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     } catch (e) {
       debugPrint('[SearchScreen] Scan failed: $e');
+      if (!mounted) return;
+      showLumoSnackBar(context, 'AI scan failed. Please try again.');
     } finally {
       if (mounted) {
         setState(() => _scanning = false);

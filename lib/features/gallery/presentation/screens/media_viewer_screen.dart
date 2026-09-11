@@ -38,9 +38,10 @@ class MediaViewerScreen extends ConsumerStatefulWidget {
 
   /// Whether to offer "Delete from phone" in the bottom bar.
   ///
-  /// Only the Local tab passes `true`: there the asset is a file physically on
-  /// this device, so trashing it is meaningful. Every other entry point
-  /// (Timeline, Map, Search, Trash, Archive, Hidden) leaves this `false`.
+  /// Only the Local tab and Map pass `true`: there the asset was resolved as
+  /// a file physically on this device, so trashing it is meaningful. Every
+  /// other entry point (Timeline, Search, Trash, Archive, Hidden) leaves
+  /// this `false`.
   final bool allowDeviceDelete;
 
   @override

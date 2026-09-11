@@ -40,19 +40,32 @@ class LocalScreen extends ConsumerStatefulWidget {
   ConsumerState<LocalScreen> createState() => _LocalScreenState();
 }
 
-class _LocalScreenState extends ConsumerState<LocalScreen> {
+class _LocalScreenState extends ConsumerState<LocalScreen>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissions();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning from system Settings (via the "Open Settings" dialog) may
+    // mean the media permission just changed — re-evaluate so the tab never
+    // shows a stale "permission required" state after the user granted it.
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(mediaPermissionStatusProvider);
+    }
   }
 
   Future<void> _checkPermissions() async {

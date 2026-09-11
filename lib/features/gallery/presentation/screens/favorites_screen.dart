@@ -55,15 +55,62 @@ class FavoritesScreen extends ConsumerWidget {
     final byId = {for (final a in allAssets) a.id: a};
     final resolved = <MediaItem>[];
     final assets = <AssetEntity>[];
+    var unavailable = 0;
     for (final item in items) {
       final asset = byId[item.localId];
-      if (asset == null) continue;
+      // Not dropped silently: favorites whose file isn't on this device
+      // (cloud-only, or deleted locally) are counted and surfaced below.
+      if (asset == null) {
+        unavailable++;
+        continue;
+      }
       resolved.add(item);
       assets.add(asset);
     }
 
-    if (resolved.isEmpty) return _buildEmptyState();
+    if (resolved.isEmpty) {
+      return EmptyState(
+        icon: Symbols.favorite,
+        title: 'Favorites not on this device',
+        message:
+            '$unavailable favorited ${unavailable == 1 ? 'photo is' : 'photos are'} '
+            'in your Telegram backup, but not\nstored on this phone. Restore '
+            'them to view them here.',
+        action: FilledButton.icon(
+          onPressed: () => context.push('/restore'),
+          icon: const Icon(Symbols.cloud_download),
+          label: const Text('Go to Restore'),
+        ),
+      );
+    }
 
+    return Column(
+      children: [
+        if (unavailable > 0)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '$unavailable favorited '
+              '${unavailable == 1 ? 'photo is' : 'photos are'} not on this '
+              'device — restore from Telegram to view.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        Expanded(child: _buildGrid(context, ref, resolved, assets)),
+      ],
+    );
+  }
+
+  Widget _buildGrid(
+    BuildContext context,
+    WidgetRef ref,
+    List<MediaItem> resolved,
+    List<AssetEntity> assets,
+  ) {
     return GridView.builder(
       padding: const EdgeInsets.all(2),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

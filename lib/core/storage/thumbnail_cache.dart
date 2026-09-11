@@ -169,7 +169,13 @@ class ThumbnailCache {
   }
 
   void _addToMemoryCache(String key, Uint8List bytes) {
-    _memoryCache.remove(key);
+    // Subtract the replaced entry's size before adding — without this the
+    // running total only ever grew on overwrite (re-scan, warmup re-put),
+    // inflating the counter until eviction thrashed real entries out.
+    final replaced = _memoryCache.remove(key);
+    if (replaced != null) {
+      _currentMemoryBytes -= replaced.length;
+    }
     _memoryCache[key] = bytes;
     _currentMemoryBytes += bytes.length;
 

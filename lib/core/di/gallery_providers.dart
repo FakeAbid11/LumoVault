@@ -46,11 +46,16 @@ final galleryRepositoryProvider = Provider<GalleryRepository>((ref) {
   final scannerService = ref.watch(mediaScannerServiceProvider);
   final incrementalScanner = ref.watch(incrementalScannerProvider);
   final db = ref.watch(appDatabaseProvider);
+  final settingsRepository = ref.watch(settingsRepositoryProvider);
   final repository = GalleryRepository(
     scannerService: scannerService,
     mediaDao: db.mediaDao,
     faceDao: db.faceDao,
     incrementalScanner: incrementalScanner,
+    // Trash auto-purge honors the user's "Trash duration" setting instead of
+    // silently falling back to the hardcoded 30-day default.
+    trashRetentionDaysResolver: () async =>
+        (await settingsRepository.getSettings()).trashDurationDays,
   );
   // Bump the version counter on every metadata mutation so providers that
   // watch [galleryDataVersionProvider] (like searchProvider) re-evaluate.

@@ -137,6 +137,16 @@ class MetadataRepository {
   /// Called by MediaScanner (Prompt 6) when a new item is discovered.
   /// This is fire-and-forget from the caller's perspective.
   Future<void> recordNewItem(MediaItem item) async {
+    // A permanent delete leaves a tombstone in the partition, and the file
+    // itself stays on disk — so the next scan re-discovers the file and
+    // lands here. Overwriting the tombstone with a live item would re-dirty
+    // the partition and push the resurrection to every device (the restore
+    // engine carries the same isTombstoned guard). Keep the deletion.
+    final existing = _localMetadata[item.localId];
+    if (existing != null && existing.isDeleted) {
+      return;
+    }
+
     final partitionItem = PartitionItem.fromMediaItem(item);
 
     _localMetadata[item.localId] = partitionItem;

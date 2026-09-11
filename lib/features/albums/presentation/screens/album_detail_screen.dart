@@ -9,6 +9,7 @@ import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_state.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class AlbumDetailScreen extends ConsumerWidget {
@@ -43,7 +44,8 @@ class AlbumDetailScreen extends ConsumerWidget {
           data: (assets) =>
               _buildBody(context, ref, items, assets, allowRemove: false),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _buildBody(context, ref, items, const []),
+          // An asset-list failure must not render as "Folder is empty".
+          error: (_, __) => _buildAssetErrorBody(ref, items),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text('$e')),
@@ -78,11 +80,22 @@ class AlbumDetailScreen extends ConsumerWidget {
           data: (assets) =>
               _buildBody(context, ref, items, assets, allowRemove: true),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _buildBody(context, ref, items, const []),
+          // An asset-list failure must not render as "Album is empty".
+          error: (_, __) => _buildAssetErrorBody(ref, items),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text('$e')),
       ),
+    );
+  }
+
+  /// When the device asset list fails to load but the album HAS items, show
+  /// an honest error with a retry instead of the lying "empty" state.
+  Widget _buildAssetErrorBody(WidgetRef ref, List<dynamic> items) {
+    if (items.isEmpty) return _buildEmptyState();
+    return ErrorState(
+      error: 'Could not load the photos on this device.',
+      onRetry: () => ref.invalidate(deviceAssetsProvider),
     );
   }
 

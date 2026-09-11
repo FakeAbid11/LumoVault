@@ -5,6 +5,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
+import '../../../../shared/widgets/error_state.dart';
 import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
@@ -36,7 +37,14 @@ class ArchiveScreen extends ConsumerWidget {
           data: (items) => deviceAssets.when(
             data: (assets) => _buildBody(context, ref, items, assets),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, s) => _buildBody(context, ref, items, const []),
+            // An asset-list failure must not render as "Archive is empty" —
+            // show the shared error state with a retry instead.
+            error: (e, s) => items.isEmpty
+                ? _buildEmptyState(context)
+                : ErrorState(
+                    error: e.toString(),
+                    onRetry: () => ref.invalidate(deviceAssetsProvider),
+                  ),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, s) => Center(child: Text('$e')),

@@ -109,6 +109,13 @@ class MediaItem {
       telegramMessageId != null &&
       (filePath.isEmpty || filePath.startsWith('telegram://'));
 
+  /// Create a copy of this item with the given fields replaced.
+  ///
+  /// [resetUploadState] is an explicit clear — copyWith's `??` merge cannot
+  /// express "set to null". When true it forces the item back to
+  /// [MediaStatus.pending] and drops the Telegram pointers, upload
+  /// timestamps and error, so an edited file (new content hash) is picked up
+  /// for re-upload instead of keeping its stale "uploaded" badge.
   MediaItem copyWith({
     int? id,
     String? localId,
@@ -135,6 +142,7 @@ class MediaItem {
     bool? isTrashed,
     DateTime? trashedAt,
     bool clearTrashedAt = false,
+    bool resetUploadState = false,
     bool? isExcluded,
     String? albumName,
     String? deviceFolder,
@@ -153,8 +161,12 @@ class MediaItem {
       id: id ?? this.id,
       localId: localId ?? this.localId,
       fileHash: fileHash ?? this.fileHash,
-      telegramMessageId: telegramMessageId ?? this.telegramMessageId,
-      telegramFileId: telegramFileId ?? this.telegramFileId,
+      telegramMessageId: resetUploadState
+          ? null
+          : (telegramMessageId ?? this.telegramMessageId),
+      telegramFileId: resetUploadState
+          ? null
+          : (telegramFileId ?? this.telegramFileId),
       filePath: filePath ?? this.filePath,
       fileName: fileName ?? this.fileName,
       mimeType: mimeType ?? this.mimeType,
@@ -165,10 +177,12 @@ class MediaItem {
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
       scannedAt: scannedAt ?? this.scannedAt,
-      uploadedAt: uploadedAt ?? this.uploadedAt,
-      backedUpAt: backedUpAt ?? this.backedUpAt,
-      status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
+      uploadedAt: resetUploadState ? null : (uploadedAt ?? this.uploadedAt),
+      backedUpAt: resetUploadState ? null : (backedUpAt ?? this.backedUpAt),
+      status: resetUploadState ? MediaStatus.pending : (status ?? this.status),
+      errorMessage: resetUploadState
+          ? null
+          : (errorMessage ?? this.errorMessage),
       isFavorite: isFavorite ?? this.isFavorite,
       isHidden: isHidden ?? this.isHidden,
       isArchived: isArchived ?? this.isArchived,

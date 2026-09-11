@@ -42,6 +42,8 @@ class PartitionItem {
     this.description,
     this.tags = const [],
     this.isDateUserSet = false,
+    this.locationName,
+    this.aiLabels = const [],
     this.status = MediaStatus.pending,
     this.fileName,
     this.supersededMessageIds = const [],
@@ -72,6 +74,8 @@ class PartitionItem {
       description: item.description,
       tags: item.tags,
       isDateUserSet: item.isDateUserSet,
+      locationName: item.locationName,
+      aiLabels: item.aiLabels,
       status: item.status,
       fileName: item.fileName,
     );
@@ -108,6 +112,8 @@ class PartitionItem {
       description: json['desc'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isDateUserSet: json['dus'] as bool? ?? false,
+      locationName: json['locn'] as String?,
+      aiLabels: (json['ail'] as List<dynamic>?)?.cast<String>() ?? const [],
       supersededMessageIds:
           (json['smids'] as List<dynamic>?)?.cast<String>() ?? const [],
       // Clamp instead of letting an out-of-range value throw RangeError:
@@ -152,6 +158,14 @@ class PartitionItem {
   final String? description;
   final List<String> tags;
   final bool isDateUserSet;
+
+  /// Reverse-geocoded place name for the capture location. Absent from old
+  /// partition files (defaults to null) — added so user-set locations sync.
+  final String? locationName;
+
+  /// On-device AI labels (EfficientNet). Absent from old partition files —
+  /// added so AI labels sync instead of living only on the labeling device.
+  final List<String> aiLabels;
   final MediaStatus status;
   final String? fileName;
 
@@ -191,6 +205,8 @@ class PartitionItem {
     String? description,
     List<String>? tags,
     bool? isDateUserSet,
+    String? locationName,
+    List<String>? aiLabels,
     MediaStatus? status,
     String? fileName,
     List<String>? supersededMessageIds,
@@ -220,6 +236,8 @@ class PartitionItem {
       description: description ?? this.description,
       tags: tags ?? this.tags,
       isDateUserSet: isDateUserSet ?? this.isDateUserSet,
+      locationName: locationName ?? this.locationName,
+      aiLabels: aiLabels ?? this.aiLabels,
       status: status ?? this.status,
       fileName: fileName ?? this.fileName,
       supersededMessageIds: supersededMessageIds ?? this.supersededMessageIds,
@@ -255,6 +273,8 @@ class PartitionItem {
     if (description != null) map['desc'] = description;
     if (tags.isNotEmpty) map['tags'] = tags;
     if (isDateUserSet) map['dus'] = true;
+    if (locationName != null) map['locn'] = locationName;
+    if (aiLabels.isNotEmpty) map['ail'] = aiLabels;
     if (supersededMessageIds.isNotEmpty) map['smids'] = supersededMessageIds;
     map['st'] = status.index;
     return map;

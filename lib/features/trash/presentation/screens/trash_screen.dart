@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../gallery/data/models/media_item.dart';
@@ -98,6 +97,10 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   Widget _buildBody(List<MediaItem> items) {
     if (items.isEmpty) return _buildEmptyState();
 
+    // Show the user's actual Trash-duration setting, not the hardcoded
+    // default — "Never delete" must not claim a 30-day purge.
+    final retentionDays = ref.watch(appSettingsProvider).trashDurationDays;
+
     return Column(
       children: [
         Container(
@@ -105,9 +108,11 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Text(
-            'Items are permanently deleted after '
-            '${AppConstants.trashRetentionDays} days. '
-            'Long-press to select.',
+            retentionDays <= 0
+                ? 'Items stay in Trash until you delete them. '
+                      'Long-press to select.'
+                : 'Items are permanently deleted after $retentionDays days. '
+                      'Long-press to select.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -231,12 +236,14 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const EmptyState(
+    final retentionDays = ref.watch(appSettingsProvider).trashDurationDays;
+    return EmptyState(
       icon: Symbols.delete,
       title: 'Trash is empty',
-      message:
-          'Items moved to trash will be\npermanently deleted after '
-          '${AppConstants.trashRetentionDays} days.',
+      message: retentionDays <= 0
+          ? 'Items moved to trash will\nstay until you delete them.'
+          : 'Items moved to trash will be\npermanently deleted after '
+                '$retentionDays days.',
     );
   }
 }

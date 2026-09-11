@@ -34,6 +34,17 @@ class TransferError {
       _ => TransferErrorCategory.unknown,
     };
 
+    // TDLib reports flood waits as "Too Many Requests: retry after N" —
+    // extract N so the retry path waits exactly as long as Telegram demands
+    // instead of burning the retry budget on premature attempts.
+    int? retryAfter;
+    if (category == TransferErrorCategory.floodWait) {
+      final match = RegExp(
+        r'retry after (\d+)',
+      ).firstMatch(message.toLowerCase());
+      retryAfter = match == null ? null : int.tryParse(match.group(1)!);
+    }
+
     return TransferError(
       category: category,
       message: message,
@@ -41,6 +52,7 @@ class TransferError {
       retryable:
           category == TransferErrorCategory.network ||
           category == TransferErrorCategory.floodWait,
+      retryAfterSeconds: retryAfter,
       occurredAt: DateTime.now(),
     );
   }

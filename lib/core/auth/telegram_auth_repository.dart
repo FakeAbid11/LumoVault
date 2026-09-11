@@ -241,7 +241,12 @@ class TelegramAuthRepository implements AuthService {
       await _client.logOut();
       _updateState(AuthState.unauthenticated);
     } catch (e) {
-      _updateState(AuthState.unauthenticated);
+      // Logout failed (network error, timeout) — TDLib may still be
+      // authenticated. Reporting "signed out" here showed a Sign-In button
+      // while the session was live on the server; surface the failure
+      // instead and let a retry or an auth-state update decide the truth.
+      debugPrint('[TelegramAuthRepository] Logout failed: $e');
+      _updateState(AuthState.error);
     }
   }
 

@@ -180,10 +180,13 @@ class BackupScheduler {
   /// Calculate exponential backoff delay for retries.
   ///
   /// Per PRD: transient errors retry with exponential backoff.
-  /// Formula: baseDelay * 2^(attemptCount - 1), capped at 5 minutes.
+  /// Formula: baseDelay * 2^attemptCount, capped at 5 minutes. [attemptCount]
+  /// is the pre-increment retry count, so the first retry waits one base
+  /// delay. (The old `2^(attemptCount - 1)` made the first two retries
+  /// identical 5 s waits — an off-by-one that never staggered them.)
   static Duration calculateBackoff(int attemptCount) {
     const baseDelay = Duration(seconds: 5);
-    final multiplier = 1 << (attemptCount - 1).clamp(0, 7);
+    final multiplier = 1 << attemptCount.clamp(0, 7);
     final delay = baseDelay * multiplier;
     const maxDelay = Duration(minutes: 5);
     return delay > maxDelay ? maxDelay : delay;

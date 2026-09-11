@@ -288,12 +288,18 @@ class BackupEngine {
     await _ready;
     if (_state == BackupEngineState.scanning) return;
 
+    // Remember what was running before the scan so it can be restored: this
+    // scan is triggered on every app resume (foreground sync) and used to
+    // force the state to `idle` on completion — clobbering `uploading` and
+    // breaking the very guard that keeps backupItemNow from double-uploading
+    // a task _processQueue is already working on.
+    final stateBeforeScan = _state;
     _setState(BackupEngineState.scanning);
 
     try {
       // No folders selected — nothing to back up.
       if (settings.includedFolders.isEmpty) {
-        _setState(BackupEngineState.idle);
+        _setState(stateBeforeScan);
         return;
       }
 
@@ -325,7 +331,11 @@ class BackupEngine {
       _queue.enqueueBatch(newItems);
 
       _updateStats();
-      _setState(BackupEngineState.idle);
+      // Restore the pre-scan state rather than forcing idle — see
+      // [stateBeforeScan] above.
+      if (_state == BackupEngineState.scanning) {
+        _setState(stateBeforeScan);
+      }
 
       settings = settings.copyWith(lastScanAt: DateTime.now());
       onBackupTimestampsChanged?.call(
@@ -333,7 +343,11 @@ class BackupEngine {
         settings.lastScanAt,
       );
     } catch (e) {
-      _setState(BackupEngineState.error);
+      // Same preservation rule as the success path: a failed scan must not
+      // clobber an in-flight upload's state either.
+      if (_state == BackupEngineState.scanning) {
+        _setState(stateBeforeScan);
+      }
       rethrow;
     }
   }
@@ -405,9 +419,20 @@ class BackupEngine {
   }
 
   /// Cancel a specific upload task.
-  void cancelTask(String taskId) {
+  ///
+  /// Removes the queue entry first — so a completion racing the cancel can't
+  /// resurrect the task via [UploadQueue.updateTask]'s re-add behavior — and
+  /// then tells the upload service to abandon any in-flight transfer for it
+  /// (which previously was never called at all: "cancel" left the TDLib
+  /// upload running to completion).
+  Future<void> cancelTask(String taskId) async {
     _queue.removeTask(taskId);
     _updateStats();
+    try {
+      await uploadService.cancelUpload(taskId);
+    } catch (e) {
+      debugPrint('[BackupEngine] Cancel upload $taskId failed: $e');
+    }
   }
 
   /// Add a single item to the queue (user-initiated).
@@ -670,6 +695,28 @@ class BackupEngine {
     });
   }
 
+  /// Apply a queue update for [taskId] built from its CURRENT queue entry.
+  ///
+  /// Two reasons this exists instead of calling `_queue.updateTask(
+  /// task.copyWith(...))` on the snapshot the upload started with:
+  ///
+  /// 1. [UploadQueue.updateTask] re-adds unknown tasks (that's how persisted
+  ///    queues merge in), so a completion or failure arriving for a task the
+  ///    user cancelled — no longer in the queue — used to resurrect it and
+  ///    run markUploaded anyway.
+  /// 2. Building from the stale snapshot dropped interim progress and any
+  ///    concurrent retryCount change; the current entry carries them forward.
+  ///
+  /// Updates for un-queued tasks are dropped.
+  void _updateTaskIfQueued(
+    String taskId,
+    UploadTask Function(UploadTask current) update,
+  ) {
+    final current = _queue.getTaskById(taskId);
+    if (current == null) return;
+    _queue.updateTask(update(current));
+  }
+
   /// Forward a progress event from [uploadService] into the matching queue
   /// task, so the dashboard's progress bar and byte counter actually move
   /// during an upload instead of sitting at 0% until it finishes.
@@ -684,8 +731,9 @@ class BackupEngine {
   Future<void> _uploadTask(UploadTask task) async {
     // Duplicate check before upload.
     if (_queue.isAlreadyBackedUp(task.fileHash)) {
-      _queue.updateTask(
-        task.copyWith(
+      _updateTaskIfQueued(
+        task.id,
+        (t) => t.copyWith(
           status: UploadStatus.completed,
           progress: 1.0,
           completedAt: DateTime.now(),
@@ -695,8 +743,10 @@ class BackupEngine {
       return;
     }
 
-    _queue.updateTask(
-      task.copyWith(status: UploadStatus.uploading, startedAt: DateTime.now()),
+    _updateTaskIfQueued(
+      task.id,
+      (t) =>
+          t.copyWith(status: UploadStatus.uploading, startedAt: DateTime.now()),
     );
     _updateStats();
 
@@ -760,8 +810,9 @@ class BackupEngine {
           '[BackupEngine] Uploaded ${task.fileName} but failed to save the '
           'result locally: $e',
         );
-        _queue.updateTask(
-          task.copyWith(
+        _updateTaskIfQueued(
+          task.id,
+          (t) => t.copyWith(
             status: UploadStatus.failed,
             error: TransferError(
               category: TransferErrorCategory.unknown,
@@ -776,8 +827,9 @@ class BackupEngine {
         return;
       }
 
-      _queue.updateTask(
-        task.copyWith(
+      _updateTaskIfQueued(
+        task.id,
+        (t) => t.copyWith(
           status: UploadStatus.completed,
           progress: 1.0,
           telegramMessageId: result.messageId.toString(),
@@ -802,12 +854,13 @@ class BackupEngine {
         'message=${e.message}',
       );
 
-      _queue.updateTask(
-        task.copyWith(
+      _updateTaskIfQueued(
+        task.id,
+        (t) => t.copyWith(
           status: shouldRetry ? UploadStatus.queued : UploadStatus.failed,
           error: e,
           failedAt: DateTime.now(),
-          retryCount: task.retryCount + 1,
+          retryCount: t.retryCount + 1,
         ),
       );
 
@@ -819,7 +872,14 @@ class BackupEngine {
         // attempt time (getNextBatch skips it until then) and arm a timer to
         // wake the queue when the soonest backoff elapses; the loop moves on
         // to the next task immediately.
-        final backoff = BackupScheduler.calculateBackoff(task.retryCount);
+        //
+        // A flood wait waits out Telegram's OWN window when the error
+        // carried one — retrying inside it used to burn the whole attempt
+        // budget on a guaranteed failure and end the task permanently
+        // failed.
+        final backoff = e.retryAfterSeconds != null
+            ? Duration(seconds: e.retryAfterSeconds!.clamp(1, 3600))
+            : BackupScheduler.calculateBackoff(task.retryCount);
         final wakeAt = DateTime.now().add(backoff);
         _queue.updateTask(
           (_queue.getTaskById(task.id) ?? task).copyWith(nextAttemptAt: wakeAt),
@@ -838,8 +898,9 @@ class BackupEngine {
       debugPrint(
         '[BackupEngine] Unexpected failure uploading ${task.fileName}: $e',
       );
-      _queue.updateTask(
-        task.copyWith(
+      _updateTaskIfQueued(
+        task.id,
+        (t) => t.copyWith(
           status: UploadStatus.failed,
           error: TransferError(
             category: TransferErrorCategory.unknown,

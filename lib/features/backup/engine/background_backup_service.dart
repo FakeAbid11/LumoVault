@@ -579,7 +579,19 @@ class BackgroundTaskRunner {
       );
 
       var lastCompleted = -1;
+      var lastHeartbeat = DateTime.now();
       progress = engine.statsStream.listen((stats) {
+        // Keep the run lock alive on ANY activity, not only completed-count
+        // changes: a single large video can upload for up to 30 minutes with
+        // zero completions, and the lock goes stale after 20 minutes without
+        // a heartbeat — the next WorkManager fire would then legally take it
+        // and start a concurrent backup against the same TDLib database.
+        // Throttled so a per-byte stats stream doesn't hammer the lock file.
+        final now = DateTime.now();
+        if (now.difference(lastHeartbeat) >= const Duration(seconds: 10)) {
+          lastHeartbeat = now;
+          unawaited(_runLock.heartbeat());
+        }
         // statsStream fires on every byte of progress; only re-post when the
         // completed count actually moves, or the notification thrashes.
         if (stats.backedUpCount == lastCompleted) return;
@@ -593,7 +605,6 @@ class BackgroundTaskRunner {
             maxProgress: stats.queueTotal,
           ),
         );
-        unawaited(_runLock.heartbeat());
       });
 
       await engine.startBackup();

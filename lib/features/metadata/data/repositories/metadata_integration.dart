@@ -59,6 +59,11 @@ class MetadataIntegration {
           albumName: p.albumName,
           description: p.description,
           tags: p.tags,
+          // Locations and AI labels now sync too. Note copyWith's ?? merge
+          // can't clear: a remotely-cleared location name won't erase the
+          // local one (locations are set far more often than cleared).
+          locationName: p.locationName,
+          aiLabels: p.aiLabels,
         ),
       );
     }
@@ -84,6 +89,14 @@ class MetadataIntegration {
       case 'hidden_toggle':
       case 'archive_toggle':
       case 'backup_exclusion_toggle':
+      // User edits that previously fell through to the unknown-operation
+      // default and never synced: the item carries the new location name,
+      // capture date, tags, or AI labels, and _handleStateChange's
+      // PartitionItem.fromMediaItem captures all of them.
+      case 'location_set':
+      case 'date_set':
+      case 'tags_update':
+      case 'ai_label':
         _handleStateChange(localId, operation, item);
         break;
       case 'trash':

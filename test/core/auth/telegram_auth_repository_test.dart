@@ -319,8 +319,12 @@ void main() {
         await repository.initialize();
         await repository.logout();
 
-        // Should still transition to unauthenticated
-        expect(repository.currentState, AuthState.unauthenticated);
+        // A failed logout must NOT claim unauthenticated — TDLib may still be
+        // authenticated, and showing "signed out" while the session is live
+        // is a security-relevant lie. The repository surfaces the failure as
+        // an error state instead (a retry or an auth-state update resolves
+        // the real state).
+        expect(repository.currentState, AuthState.error);
       });
     });
 

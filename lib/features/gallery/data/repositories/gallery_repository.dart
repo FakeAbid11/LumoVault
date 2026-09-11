@@ -49,12 +49,19 @@ class GalleryRepository {
     this._mediaDao,
     this._faceDao,
     IncrementalScanner? incrementalScanner,
+    this.trashRetentionDaysResolver,
   }) : _incrementalScanner = incrementalScanner ?? IncrementalScanner();
 
   final MediaScannerService _scannerService;
   final MediaDao? _mediaDao;
   final FaceDao? _faceDao;
   final IncrementalScanner _incrementalScanner;
+
+  /// Resolves the user's trash-retention preference ("Trash duration") so
+  /// [hydrate]'s auto-purge honors it instead of the hardcoded default.
+  /// Returns null when unset; null (or a resolver absent entirely, as in
+  /// tests) falls back to [AppConstants.trashRetentionDays].
+  final Future<int?> Function()? trashRetentionDaysResolver;
 
   final List<MediaItem> _mediaItems = [];
   final List<DeviceFolder> _folders = [];
@@ -219,7 +226,14 @@ class GalleryRepository {
     _rebuildIndex();
 
     await _ensurePersonNamesLoaded();
-    await purgeExpiredTrashedItems();
+    // Honor the user's "Trash duration" setting — previously the purge
+    // always ran with the hardcoded 30-day default, so a user who chose
+    // "Never delete" still lost trashed items on launch after day 30.
+    final resolver = trashRetentionDaysResolver;
+    final retentionDays = resolver == null ? null : await resolver();
+    await purgeExpiredTrashedItems(
+      retentionDays: retentionDays ?? AppConstants.trashRetentionDays,
+    );
   }
 
   Future<bool> requestPermission() async {
@@ -445,12 +459,18 @@ class GalleryRepository {
       // lose folders on rescan.
       albumName: fresh.albumName ?? existing.albumName,
       deviceFolder: fresh.deviceFolder ?? existing.deviceFolder,
-      status: hashChanged ? null : existing.status,
-      telegramMessageId: hashChanged ? null : existing.telegramMessageId,
-      telegramFileId: hashChanged ? null : existing.telegramFileId,
-      uploadedAt: hashChanged ? null : existing.uploadedAt,
-      backedUpAt: hashChanged ? null : existing.backedUpAt,
-      errorMessage: hashChanged ? null : existing.errorMessage,
+      // Upload state: on a hash change the fresh item must start from a
+      // clean slate — copyWith's ?? merge keeps old values for null, which
+      // is what let an edited file keep its "uploaded" badge and stale
+      // Telegram ids forever (so it was never re-uploaded). resetUploadState
+      // is the explicit clear.
+      resetUploadState: hashChanged,
+      status: existing.status,
+      telegramMessageId: existing.telegramMessageId,
+      telegramFileId: existing.telegramFileId,
+      uploadedAt: existing.uploadedAt,
+      backedUpAt: existing.backedUpAt,
+      errorMessage: existing.errorMessage,
       // Preserve user-set coordinates through rescans. EXIF-derived
       // coordinates are always overwritten by the fresh scan (the default
       // when isLocationUserSet is false).
@@ -1099,6 +1119,10 @@ class GalleryRepository {
     int retentionDays = AppConstants.trashRetentionDays,
     bool revokeRemote = false,
   }) async {
+    // 0 (or negative) means "Never delete" in the Trash-duration setting —
+    // the purge must not run at all: a 0-day cutoff would delete every
+    // trashed item immediately.
+    if (retentionDays <= 0) return 0;
     final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
     final expired = _mediaItems
         .where(

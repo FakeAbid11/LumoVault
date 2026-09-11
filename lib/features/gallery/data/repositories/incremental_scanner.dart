@@ -235,8 +235,15 @@ class IncrementalScanner {
     if (isFiltered || hadIncompletePage) {
       deletedIds = const [];
     } else {
-      deletedIds = lastKnownItems.keys
-          .where((id) => !seenIds.contains(id))
+      deletedIds = lastKnownItems.values
+          // Telegram-only items (restored or channel-scanned) have no device
+          // asset and would always look "deleted" to this whole-library
+          // comparison — which wiped a freshly restored library on the next
+          // scan. They are never scan-deletion candidates: only an explicit
+          // user delete or a remote tombstone removes them.
+          .where((item) => !item.isTelegram)
+          .where((item) => !seenIds.contains(item.localId))
+          .map((item) => item.localId)
           .toList();
     }
 

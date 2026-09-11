@@ -191,20 +191,18 @@ class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
   }
 
   Future<void> updateAutoCover(int albumId) async {
-    final newest =
-        await (select(mediaItems)
-              ..where(
-                (t) => t.isTrashed.equals(false) & t.isHidden.equals(false),
-              )
-              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-              ..limit(1))
-            .get();
-
-    if (newest.isNotEmpty) {
-      await setCover(albumId, newest.first.localId);
-    } else {
+    // The cover must come from THIS album's own items — the query used to
+    // have no album predicate at all, so every album mutation set every
+    // album's cover to the globally newest photo in the library.
+    final items = await itemsForAlbum(albumId);
+    if (items.isEmpty) {
       await setCover(albumId, null);
+      return;
     }
+    final newest = items.reduce(
+      (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+    );
+    await setCover(albumId, newest.localId);
   }
 
   Future<List<MediaItemRow>> itemsForAlbum(int albumId) async {

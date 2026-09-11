@@ -418,18 +418,21 @@ void main() {
     });
 
     group('calculateBackoff', () {
-      test('first retry is 5 seconds', () {
-        final delay = BackupScheduler.calculateBackoff(1);
+      // The engine passes the PRE-increment retryCount, so the first retry
+      // is attemptCount 0 (old formula shifted 2^(n-1) and gave the first
+      // two retries identical 5s waits).
+      test('first retry (attempt 0) is 5 seconds', () {
+        final delay = BackupScheduler.calculateBackoff(0);
         expect(delay.inSeconds, 5);
       });
 
-      test('second retry is 10 seconds', () {
-        final delay = BackupScheduler.calculateBackoff(2);
+      test('second retry (attempt 1) is 10 seconds', () {
+        final delay = BackupScheduler.calculateBackoff(1);
         expect(delay.inSeconds, 10);
       });
 
-      test('third retry is 20 seconds', () {
-        final delay = BackupScheduler.calculateBackoff(3);
+      test('third retry (attempt 2) is 20 seconds', () {
+        final delay = BackupScheduler.calculateBackoff(2);
         expect(delay.inSeconds, 20);
       });
 

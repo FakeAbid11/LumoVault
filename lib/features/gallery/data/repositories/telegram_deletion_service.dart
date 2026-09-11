@@ -46,13 +46,29 @@ class TelegramDeletionService implements DeletionService {
     bool revoke = true,
   }) async {
     if (messageIds.isEmpty) return;
-    await _sendRequest(
-      method: 'deleteMessages',
-      params: {
-        'chat_id': channelId,
-        'message_ids': messageIds,
-        'revoke': revoke,
-      },
-    );
+    // TDLib's deleteMessages accepts at most 100 ids per request — larger
+    // batches fail wholesale, which used to lose the entire remote revoke
+    // when "delete forever" was used on a few hundred items.
+    const chunkSize = 100;
+    for (var i = 0; i < messageIds.length; i += chunkSize) {
+      final chunk = messageIds.sublist(
+        i,
+        (i + chunkSize) > messageIds.length ? messageIds.length : i + chunkSize,
+      );
+      try {
+        await _sendRequest(
+          method: 'deleteMessages',
+          params: {
+            'chat_id': channelId,
+            'message_ids': chunk,
+            'revoke': revoke,
+          },
+        );
+      } catch (e) {
+        // Keep revoking the remaining chunks — a failed chunk is recovered
+        // by the local tombstone converging peers, same as before.
+        debugPrint('[TelegramDeletionService] Chunk revoke failed: $e');
+      }
+    }
   }
 }

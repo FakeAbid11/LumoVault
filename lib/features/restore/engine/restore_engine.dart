@@ -258,7 +258,15 @@ class RestoreEngine {
         currentPhaseDescription: 'Loading thumbnails...',
       );
 
-      await _downloadThumbnails(channelId, messages, allMetadata);
+      final thumbnailsDone = await _downloadThumbnails(
+        channelId,
+        messages,
+        allMetadata,
+      );
+      // A cancelled thumbnail phase must not fall through to "Restore
+      // complete!" — the loop used to just `break`, and startRestore then
+      // reported success for a cancelled run.
+      if (!thumbnailsDone) return false;
 
       // Phase 6: Mark as complete (originals download on-demand)
       _updateProgress(
@@ -412,29 +420,33 @@ class RestoreEngine {
   /// the caption mediaItemId (`msg_<id>` fallback), the same scheme the
   /// channel scan uses, so a restore that runs over an existing library also
   /// skips everything the user still has from before.
-  Future<void> _downloadThumbnails(
+  ///
+  /// Returns false when the restore was cancelled mid-phase, true when every
+  /// message was processed (downloaded, skipped, or failed).
+  Future<bool> _downloadThumbnails(
     int channelId,
     List<ChannelMessage> messages,
     List<PartitionItem> allMetadata,
   ) async {
     int downloaded = 0;
     int skipped = 0;
+    int failed = 0;
     final total = messages.length;
 
     for (final message in messages) {
-      if (_isCancelled) break;
+      if (_isCancelled) return false;
       while (_isPaused) {
         await Future.delayed(const Duration(milliseconds: 100));
-        if (_isCancelled) break;
+        if (_isCancelled) return false;
       }
-      if (_isCancelled) break;
+      if (_isCancelled) return false;
 
       final metadata = message.captionMetadata;
       final localId = (metadata == null || metadata.mediaItemId.isEmpty)
           ? 'msg_${message.messageId}'
           : metadata.mediaItemId;
 
-      final processed = downloaded + skipped;
+      final processed = downloaded + skipped + failed;
       if (await ThumbnailCache.instance.contains(localId)) {
         skipped++;
         _updateProgress(
@@ -453,7 +465,10 @@ class RestoreEngine {
           fileName: message.fileName,
           mode: DownloadMode.thumbnail,
           onProgress: (progress) {
-            _updateProgress(overallProgress: (downloaded + progress) / total);
+            // Base on `processed` (everything finished before this item) —
+            // the old formula used `downloaded` alone, so with skipped items
+            // in the mix every intra-file tick made the bar jump backwards.
+            _updateProgress(overallProgress: (processed + progress) / total);
           },
         );
 
@@ -478,9 +493,18 @@ class RestoreEngine {
         }
       } catch (e) {
         debugPrint('[RestoreEngine] Thumbnail download failed: $e');
-        // Continue with next item - thumbnails are non-critical
+        // Thumbnails are non-critical, but the failure still counts toward
+        // overall progress — otherwise completedItems could never reach
+        // `total` and the bar never filled.
+        failed++;
+        _updateProgress(
+          completedItems: processed + 1,
+          overallProgress: (processed + 1) / total,
+          currentFileName: message.fileName,
+        );
       }
     }
+    return true;
   }
 
   /// Download a full-resolution file on-demand.

@@ -213,17 +213,26 @@ class TelegramDownloadService implements DownloadService {
         }
       });
 
-      // Request the download — subscription is already listening.
-      await _sendRequest(
-        method: 'downloadFile',
-        params: {
-          'file_id': fileId,
-          'priority': mode == DownloadMode.thumbnail ? 1 : 16,
-          'offset': 0,
-          'limit': 0,
-          'synchronous': false,
-        },
-      );
+      // Request the download — subscription is already listening. If the
+      // request itself throws, the listener must be detached HERE: its only
+      // other exit is _awaitDownloadCompletion's finally, which is never
+      // reached on this path, and a leaked subscription would stay attached
+      // to the broadcast stream forever.
+      try {
+        await _sendRequest(
+          method: 'downloadFile',
+          params: {
+            'file_id': fileId,
+            'priority': mode == DownloadMode.thumbnail ? 1 : 16,
+            'offset': 0,
+            'limit': 0,
+            'synchronous': false,
+          },
+        );
+      } catch (e) {
+        await subscription.cancel();
+        rethrow;
+      }
 
       // Wait for TDLib to actually finish the download, emitting real
       // progress along the way, and resolve with the final local path.

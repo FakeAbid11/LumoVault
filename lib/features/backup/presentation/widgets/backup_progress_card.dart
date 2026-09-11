@@ -136,9 +136,11 @@ class BackupProgressCard extends StatelessWidget {
           minHeight: 8,
           borderRadius: BorderRadius.circular(4),
           backgroundColor: colorScheme.surfaceContainerHighest,
+          // Same semantic as the paused header icon above: pausing is a
+          // deliberate user action — the bar used to paint error red here.
           valueColor: AlwaysStoppedAnimation<Color>(
             engineState == BackupEngineState.paused
-                ? colorScheme.error
+                ? colorScheme.onSurfaceVariant
                 : colorScheme.primary,
           ),
         ),
@@ -149,32 +151,41 @@ class BackupProgressCard extends StatelessWidget {
   Widget _buildStatsRow(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Expanded so four side-by-side labels can't overflow the card at
+    // large accessibility font scales.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildStatItem(
-          context,
-          label: 'Pending',
-          value: stats.pendingCount.toString(),
-          color: colorScheme.tertiary,
+        Expanded(
+          child: _buildStatItem(
+            context,
+            label: 'Pending',
+            value: stats.pendingCount.toString(),
+            color: colorScheme.tertiary,
+          ),
         ),
-        _buildStatItem(
-          context,
-          label: 'Uploading',
-          value: stats.uploadingCount.toString(),
-          color: colorScheme.primary,
+        Expanded(
+          child: _buildStatItem(
+            context,
+            label: 'Uploading',
+            value: stats.uploadingCount.toString(),
+            color: colorScheme.primary,
+          ),
         ),
-        _buildStatItem(
-          context,
-          label: 'Completed',
-          value: stats.backedUpCount.toString(),
-          color: successColor,
+        Expanded(
+          child: _buildStatItem(
+            context,
+            label: 'Completed',
+            value: stats.backedUpCount.toString(),
+            color: successColor,
+          ),
         ),
-        _buildStatItem(
-          context,
-          label: 'Failed',
-          value: stats.failedCount.toString(),
-          color: colorScheme.error,
+        Expanded(
+          child: _buildStatItem(
+            context,
+            label: 'Failed',
+            value: stats.failedCount.toString(),
+            color: colorScheme.error,
+          ),
         ),
       ],
     );

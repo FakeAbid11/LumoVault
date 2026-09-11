@@ -96,9 +96,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
           ),
-          // Filter chips
+          // Filter chips — height scales with the accessibility text setting
+          // so the chips aren't clipped at large font scales.
           SizedBox(
-            height: 40,
+            height: MediaQuery.textScalerOf(context).scale(40),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -343,10 +344,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
           ),
-        // AI label chips for matched items
+        // AI label chips for matched items — height scales with the
+        // accessibility text setting.
         if (resolved.any((item) => item.aiLabels.isNotEmpty))
           SizedBox(
-            height: 40,
+            height: MediaQuery.textScalerOf(context).scale(40),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),

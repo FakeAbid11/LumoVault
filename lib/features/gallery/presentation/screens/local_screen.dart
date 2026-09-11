@@ -489,6 +489,8 @@ class _LocalScreenState extends ConsumerState<LocalScreen>
     GalleryRepository repository,
   ) {
     final dateKeys = groupedAssets.keys.toList();
+    // Scale the pinned header's extent with the accessibility text setting.
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final crossAxisCount = galleryCrossAxisCount(
       ref.watch(settingsGridSizeProvider),
       ref.watch(settingsCompactModeProvider),
@@ -514,6 +516,7 @@ class _LocalScreenState extends ConsumerState<LocalScreen>
                 delegate: StickyDateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedAssets[dateKeys[i]]?.length,
+                  textScale: textScale,
                 ),
               ),
               SliverGrid(

@@ -44,19 +44,25 @@ class DateHeader extends StatelessWidget {
 /// top of the viewport while its date section scrolls underneath, so the
 /// section on screen is always labelled (Google Photos-style galleries).
 class StickyDateHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const StickyDateHeaderDelegate({required this.dateText, this.itemCount});
+  const StickyDateHeaderDelegate({
+    required this.dateText,
+    this.itemCount,
+    this.textScale = 1.0,
+  });
 
   final String dateText;
   final int? itemCount;
 
-  /// 8px top padding + 24px `titleMedium` line + 8px bottom padding.
-  static const double _extent = 40;
+  /// Font scale from [MediaQuery.textScalerOf] at the call site. The pinned
+  /// extent must grow with it, or the title clips inside the header at
+  /// accessibility text sizes.
+  final double textScale;
 
   @override
-  double get minExtent => _extent;
+  double get minExtent => 16 + 24 * textScale;
 
   @override
-  double get maxExtent => _extent;
+  double get maxExtent => 16 + 24 * textScale;
 
   @override
   Widget build(

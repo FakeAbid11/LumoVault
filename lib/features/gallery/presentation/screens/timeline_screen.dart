@@ -131,6 +131,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     Map<String, List<MediaItem>> groupedItems,
   ) {
     final dateKeys = groupedItems.keys.toList();
+    // Scale the pinned header's extent with the accessibility text setting.
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final crossAxisCount = galleryCrossAxisCount(
       ref.watch(settingsGridSizeProvider),
       ref.watch(settingsCompactModeProvider),
@@ -168,6 +170,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 delegate: StickyDateHeaderDelegate(
                   dateText: dateKeys[i],
                   itemCount: groupedItems[dateKeys[i]]?.length,
+                  textScale: textScale,
                 ),
               ),
               SliverGrid(

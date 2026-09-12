@@ -17,8 +17,7 @@ class VideoThumbnailScrubber extends StatefulWidget {
   final File file;
 
   @override
-  State<VideoThumbnailScrubber> createState() =>
-      _VideoThumbnailScrubberState();
+  State<VideoThumbnailScrubber> createState() => _VideoThumbnailScrubberState();
 }
 
 class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
@@ -83,8 +82,9 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
         if (!mounted) return;
 
         try {
-          final boundary = _thumbKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
+          final boundary =
+              _thumbKey.currentContext?.findRenderObject()
+                  as RenderRepaintBoundary?;
           if (boundary != null && boundary.hasSize) {
             final image = await boundary.toImage(pixelRatio: 1.0);
             _thumbnails.add(image);
@@ -145,8 +145,7 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
         // Visible scrubber UI
         GestureDetector(
           onHorizontalDragStart: (details) => _onDragStart(details, context),
-          onHorizontalDragUpdate: (details) =>
-              _onDragUpdate(details, context),
+          onHorizontalDragUpdate: (details) => _onDragUpdate(details, context),
           onHorizontalDragEnd: _onDragEnd,
           child: SizedBox(
             height: _isHovering ? 100 : 56,
@@ -214,8 +213,7 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
                               color: Colors.white,
                               shape: BoxShape.circle,
                               boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black26, blurRadius: 4),
+                                BoxShadow(color: Colors.black26, blurRadius: 4),
                               ],
                             ),
                           ),
@@ -261,8 +259,7 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
             right: 0,
             child: Center(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(2),
@@ -283,8 +280,7 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
     );
   }
 
-  int? _thumbnailIndexForPosition(
-      Duration position, Duration duration) {
+  int? _thumbnailIndexForPosition(Duration position, Duration duration) {
     if (_thumbnails.isEmpty || duration.inMilliseconds <= 0) return null;
     final interval = duration.inMilliseconds ~/ (_thumbnailCount + 1);
     if (interval <= 0) return null;
@@ -308,8 +304,7 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
 
   void _seekToPosition(Offset localPosition, BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final progress =
-        (localPosition.dx / (screenWidth - 24)).clamp(0.0, 1.0);
+    final progress = (localPosition.dx / (screenWidth - 24)).clamp(0.0, 1.0);
     final duration = widget.controller.value.duration;
     final position = Duration(
       milliseconds: (duration.inMilliseconds * progress).round(),

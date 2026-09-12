@@ -26,10 +26,11 @@ abstract class AiTextEmbedder {
 
 /// Generates 512-dim CLIP embeddings for images and text.
 ///
-/// Uses MobileCLIP S0 (Apple's mobile-optimized CLIP model). The image tower
-/// ships at `assets/models/mobileclip_s0.onnx`; the text tower is exported
-/// separately by `tool/export_text_tower.py` and lazily loaded on the first
-/// text search — when it's absent, text embedding fails gracefully.
+/// Uses MobileCLIP S1 (Apple's mobile-optimized CLIP model). The image tower
+/// ships at `assets/models/mobileclip_s1.onnx`; the text tower is exported
+/// separately by `tool/export_text_tower.py --model mobileclip_s1` and lazily
+/// loaded on the first text search — when it's absent, text embedding fails
+/// gracefully.
 class ClipEmbeddingService implements AiTextEmbedder {
   ClipEmbeddingService._();
 
@@ -41,7 +42,7 @@ class ClipEmbeddingService implements AiTextEmbedder {
   String? _initError;
   Future<void>? _initInFlight;
 
-  /// Input size expected by MobileCLIP S0.
+  /// Input size expected by MobileCLIP S1.
   static const int _inputSize = 336;
 
   /// CLIP normalization mean (per channel).
@@ -68,7 +69,7 @@ class ClipEmbeddingService implements AiTextEmbedder {
     try {
       _ort = OnnxRuntime();
       _session = await _ort.createSessionFromAsset(
-        'assets/models/mobileclip_s0.onnx',
+        'assets/models/mobileclip_s1.onnx',
       );
       _initialized = true;
       _initError = null;
@@ -195,7 +196,7 @@ class ClipEmbeddingService implements AiTextEmbedder {
   // --- Text tower (semantic search) ---
 
   static const String _textModelAsset =
-      'assets/models/mobileclip_s0_text_int8.onnx';
+      'assets/models/mobileclip_s1_text_int8.onnx';
 
   late OnnxRuntime _textOrt;
   late OrtSession _textSession;

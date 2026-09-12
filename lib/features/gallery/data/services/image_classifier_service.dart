@@ -21,7 +21,7 @@ abstract class AiLabeler {
   Future<List<String>> classify(AssetEntity asset);
 }
 
-/// Runs EfficientNet-Lite0 image classification on photo thumbnails.
+/// Runs MobileOne-S2 image classification on photo thumbnails.
 ///
 /// The model outputs a 1000-class softmax probability vector. We take the
 /// top-N labels above a confidence threshold and return them as human-readable
@@ -36,7 +36,7 @@ class ImageClassifierService implements AiLabeler {
   bool _initialized = false;
   String? _initError;
 
-  /// Input size expected by EfficientNet-Lite0.
+  /// Input size expected by MobileOne-S2.
   static const int _inputSize = 224;
 
   /// Minimum confidence to include a label.
@@ -57,7 +57,7 @@ class ImageClassifierService implements AiLabeler {
     try {
       _ort = OnnxRuntime();
       _session = await _ort.createSessionFromAsset(
-        'assets/models/efficientnet_lite0.onnx',
+        'assets/models/mobileone_s2.onnx',
       );
       _initialized = true;
       _initError = null;
@@ -128,25 +128,31 @@ class ImageClassifierService implements AiLabeler {
     }
   }
 
-  /// Preprocesses a 224×224 image into a normalized Float32List for EfficientNet.
+  /// Preprocesses a 224×224 image into a normalized Float32List for MobileOne-S2.
   ///
-  /// EfficientNet-Lite0 expects pixels in [0, 1] range, channels RGB,
-  /// stored as CHW (channel-first) layout.
+  /// MobileOne-S2 expects ImageNet normalization: mean=[0.485, 0.456, 0.406],
+  /// std=[0.229, 0.224, 0.225], channels RGB, stored as CHW (channel-first).
   Float32List _preprocess(img.Image image) {
+    const mean = [0.485, 0.456, 0.406];
+    const std = [0.229, 0.224, 0.225];
     final buffer = Float32List(3 * _inputSize * _inputSize);
     var idx = 0;
     for (var c = 0; c < 3; c++) {
       for (var y = 0; y < _inputSize; y++) {
         for (var x = 0; x < _inputSize; x++) {
           final pixel = image.getPixel(x, y);
+          double value;
           switch (c) {
             case 0:
-              buffer[idx++] = pixel.r / 255.0;
+              value = pixel.r / 255.0;
             case 1:
-              buffer[idx++] = pixel.g / 255.0;
+              value = pixel.g / 255.0;
             case 2:
-              buffer[idx++] = pixel.b / 255.0;
+              value = pixel.b / 255.0;
+            default:
+              value = 0;
           }
+          buffer[idx++] = (value - mean[c]) / std[c];
         }
       }
     }

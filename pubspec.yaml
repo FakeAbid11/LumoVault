@@ -113,9 +113,12 @@ flutter:
     - assets/models/scrfd_2_5g_kps_fp16.onnx
     - assets/models/w600k_mbf.onnx
     - assets/models/efficientnet_lite0.onnx
+    - assets/models/mobileone_s2.onnx
     - assets/models/mobileclip_s0.onnx
-    # INT8 TEXT TOWER — enables semantic CLIP text search.
+    - assets/models/mobileclip_s1.onnx
+    # INT8 TEXT TOWERS — enables semantic CLIP text search.
     - assets/models/mobileclip_s0_text_int8.onnx
+    - assets/models/mobileclip_s1_text_int8.onnx
     - assets/tokenizer/
 
 # Launcher icon generation — `dart run flutter_launcher_icons`.

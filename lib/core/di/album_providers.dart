@@ -135,6 +135,25 @@ class AlbumActions {
     _ref.invalidate(albumItemsProvider(albumId));
     _ref.invalidate(mediaAlbumsProvider(mediaId));
   }
+
+  /// Move a photo between albums in one step: removed from [fromAlbumId],
+  /// added to [toAlbumId], covers repaired on both, all relevant providers
+  /// invalidated.
+  Future<void> moveMedia({
+    required int fromAlbumId,
+    required int toAlbumId,
+    required String mediaId,
+  }) async {
+    if (fromAlbumId == toAlbumId) return;
+    await _db.albumDao.removeFromAlbum(fromAlbumId, mediaId);
+    await _db.albumDao.addToAlbum(toAlbumId, mediaId);
+    await _db.albumDao.updateAutoCover(fromAlbumId);
+    await _db.albumDao.updateAutoCover(toAlbumId);
+    _ref.invalidate(albumCountsProvider);
+    _ref.invalidate(albumItemsProvider(fromAlbumId));
+    _ref.invalidate(albumItemsProvider(toAlbumId));
+    _ref.invalidate(mediaAlbumsProvider(mediaId));
+  }
 }
 
 final albumActionsProvider = Provider<AlbumActions>((ref) {

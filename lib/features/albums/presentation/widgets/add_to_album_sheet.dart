@@ -5,6 +5,12 @@ import '../../../../core/di/album_providers.dart';
 import '../../../../features/albums/data/models/album.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+/// Bottom sheet for managing a photo's custom-album membership.
+///
+/// Tapping an album toggles membership (in = add, out = remove). When the
+/// photo already belongs to an album, each membership row also offers a
+/// "move" action: tapping it switches the sheet into move mode, where the
+/// next album tapped receives the photo (removed from the source).
 class AddToAlbumSheet extends ConsumerStatefulWidget {
   const AddToAlbumSheet({required this.mediaId, super.key});
 
@@ -15,6 +21,11 @@ class AddToAlbumSheet extends ConsumerStatefulWidget {
 }
 
 class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
+  /// Set while a move is in progress: the album the photo will be removed
+  /// from. Tap targets become move destinations instead of toggles.
+  int? _moveSourceAlbumId;
+  String? _moveSourceAlbumName;
+
   @override
   Widget build(BuildContext context) {
     final albumsAsync = ref.watch(albumsListProvider);
@@ -50,21 +61,45 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Add to Album',
-                        style: TextStyle(
-                          fontSize: 18,
+                        _moveSourceAlbumId == null
+                            ? 'Albums'
+                            : 'Move out of "$_moveSourceAlbumName" — tap a destination',
+                        style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Symbols.add),
-                      tooltip: 'New album',
-                      onPressed: () => _showCreateDialog(context),
-                    ),
+                    if (_moveSourceAlbumId != null)
+                      IconButton(
+                        icon: const Icon(Symbols.close),
+                        tooltip: 'Cancel move',
+                        onPressed: () => setState(() {
+                          _moveSourceAlbumId = null;
+                          _moveSourceAlbumName = null;
+                        }),
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Symbols.add),
+                        tooltip: 'New album',
+                        onPressed: () => _showCreateDialog(context),
+                      ),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Tap an album to add or remove this photo.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -72,16 +107,23 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
                 child: mediaAlbumsAsync.when(
                   data: (albumIds) => albumsAsync.when(
                     data: (albums) => countsAsync.when(
-                      data: (counts) =>
-                          _buildList(context, albums, counts, albumIds),
+                      data: (counts) => _buildList(
+                        context,
+                        scrollController,
+                        albums,
+                        counts,
+                        albumIds,
+                      ),
                       loading: () => _buildList(
                         context,
+                        scrollController,
                         albumsAsync.value ?? [],
                         const {},
                         albumIds,
                       ),
                       error: (_, __) => _buildList(
                         context,
+                        scrollController,
                         albumsAsync.value ?? [],
                         const {},
                         albumIds,
@@ -105,6 +147,7 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
 
   Widget _buildList(
     BuildContext context,
+    ScrollController scrollController,
     List<Album> albums,
     Map<int, int> counts,
     List<int> currentAlbumIds,
@@ -136,12 +179,37 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
     }
 
     return ListView.builder(
-      controller: ScrollController(),
+      // The DraggableScrollableSheet's controller: dragging the list can
+      // close the sheet, and no per-rebuild controller leaks.
+      controller: scrollController,
       itemCount: albums.length,
       itemBuilder: (context, index) {
         final album = albums[index];
         final count = counts[album.id] ?? 0;
         final isAdded = currentAlbumIds.contains(album.id);
+        final isMoveSource = album.id == _moveSourceAlbumId;
+
+        if (_moveSourceAlbumId != null) {
+          // Move mode: the source is disabled, every other album is a
+          // destination.
+          return ListTile(
+            enabled: !isMoveSource,
+            leading: Icon(
+              isMoveSource ? Symbols.check_circle : Symbols.drive_file_move,
+              color: isMoveSource
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            title: Text(
+              album.name,
+              style: isMoveSource
+                  ? const TextStyle(decoration: TextDecoration.lineThrough)
+                  : null,
+            ),
+            subtitle: Text('$count ${count == 1 ? 'item' : 'items'}'),
+            onTap: isMoveSource ? null : () => _moveTo(context, album),
+          );
+        }
 
         return ListTile(
           leading: Icon(
@@ -151,6 +219,18 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
           title: Text(album.name),
           subtitle: Text('$count ${count == 1 ? 'item' : 'items'}'),
           onTap: () => _toggleAlbum(context, album, isAdded),
+          // Membership rows get an explicit move affordance — the only
+          // visible "move" verb in the app.
+          trailing: isAdded
+              ? IconButton(
+                  icon: const Icon(Symbols.drive_file_move),
+                  tooltip: 'Move out of this album',
+                  onPressed: () => setState(() {
+                    _moveSourceAlbumId = album.id;
+                    _moveSourceAlbumName = album.name;
+                  }),
+                )
+              : null,
         );
       },
     );
@@ -178,6 +258,32 @@ class _AddToAlbumSheetState extends ConsumerState<AddToAlbumSheet> {
                 ? 'Removed from ${album.name}'
                 : 'Added to ${album.name}',
           ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _moveTo(BuildContext context, Album destination) async {
+    if (_moveSourceAlbumId == null || destination.id == null) return;
+    final actions = ref.read(albumActionsProvider);
+    await actions.moveMedia(
+      fromAlbumId: _moveSourceAlbumId!,
+      toAlbumId: destination.id!,
+      mediaId: widget.mediaId,
+    );
+    final fromName = _moveSourceAlbumName ?? 'album';
+
+    if (mounted) {
+      setState(() {
+        _moveSourceAlbumId = null;
+        _moveSourceAlbumName = null;
+      });
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Moved from $fromName to ${destination.name}'),
           duration: const Duration(seconds: 2),
         ),
       );

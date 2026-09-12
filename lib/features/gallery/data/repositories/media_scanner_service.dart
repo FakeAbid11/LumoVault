@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/storage/thumbnail_warmup.dart';
+import '../../../../shared/utils/media_file_utils.dart';
 import '../models/media_item.dart';
 import '../models/device_folder.dart';
 import 'asset_location.dart';
@@ -363,6 +364,7 @@ class PhotoManagerScannerService implements MediaScannerService {
   }
 
   String _getMimeType(AssetEntity asset) {
+    if (isGifFileName(asset.title)) return 'image/gif';
     if (asset.type == AssetType.image) {
       return 'image/jpeg';
     } else if (asset.type == AssetType.video) {

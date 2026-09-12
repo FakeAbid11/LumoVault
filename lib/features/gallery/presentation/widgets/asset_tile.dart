@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/theme/status_color.dart';
+import '../../../../shared/utils/media_file_utils.dart';
 import '../../../../shared/widgets/shimmer_placeholder.dart';
 import '../../data/models/media_item.dart';
 import '../../data/services/thumbnail_load_limiter.dart';
@@ -133,7 +134,9 @@ class _AssetTileState extends State<AssetTile>
             children: [
               _buildThumbnail(context),
               if (widget.asset.type == AssetType.video)
-                _buildVideoIndicator(context),
+                _buildVideoIndicator(context)
+              else if (isGifFileName(widget.asset.title))
+                _buildGifIndicator(context),
               if (widget.isSelectedForBackup) _buildStatusIndicator(context)!,
               if (widget.isFavorite) _buildFavoriteIndicator(context),
               if (widget.isSelected) ...[
@@ -214,6 +217,30 @@ class _AssetTileState extends State<AssetTile>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Corner badge for animated GIFs — mirrors the video duration badge so a
+  /// static first-frame tile is never mistaken for a plain photo.
+  Widget _buildGifIndicator(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
+        ),
+        child: const Text(
+          'GIF',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

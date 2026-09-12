@@ -160,52 +160,53 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
 
     return VideoGestures(
       controller: _controller,
-      onTogglePlay: _togglePlay,
-      child: GestureDetector(
-        onTap: _toggleControls,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Video
-            Center(
-              child: AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
-              ),
+      // Single tap toggles the control bars. Play/pause is NOT wired to tap:
+      // the gesture layer used to fire it from a tap-down timer, double-
+      // firing whenever a deeper recognizer (center play button, this
+      // toggle) also won the gesture.
+      onTap: _toggleControls,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Video
+          Center(
+            child: AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
             ),
-            // Play/pause overlay when paused
-            if (!_isPlaying)
-              GestureDetector(
-                onTap: _togglePlay,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Symbols.play_arrow,
-                    color: Colors.white,
-                    size: 48,
-                  ),
+          ),
+          // Play/pause overlay when paused
+          if (!_isPlaying)
+            GestureDetector(
+              onTap: _togglePlay,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Symbols.play_arrow,
+                  color: Colors.white,
+                  size: 48,
                 ),
               ),
-            // Controls overlay (top bar + scrubber)
-            VideoPlayerControls(
-              controller: _controller,
-              visible: _controlsVisible,
-              isFullscreen: _isFullscreen,
-              onFullscreenToggle: _toggleFullscreen,
-              onBack: () {
-                if (_isFullscreen) {
-                  _toggleFullscreen();
-                } else {
-                  Navigator.of(context).pop();
-                }
-              },
             ),
-          ],
-        ),
+          // Controls overlay (top bar + scrubber)
+          VideoPlayerControls(
+            controller: _controller,
+            visible: _controlsVisible,
+            isFullscreen: _isFullscreen,
+            onFullscreenToggle: _toggleFullscreen,
+            onBack: () {
+              if (_isFullscreen) {
+                _toggleFullscreen();
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }

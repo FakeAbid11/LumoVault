@@ -190,7 +190,10 @@ class _MediaTileState extends State<MediaTile> {
               fit: StackFit.expand,
               children: [
                 _buildThumbnail(context),
-                if (widget.mediaItem.isVideo) _buildVideoIndicator(context),
+                if (widget.mediaItem.isVideo)
+                  _buildVideoIndicator(context)
+                else if (widget.mediaItem.mimeType == 'image/gif')
+                  _buildGifIndicator(context),
                 if (widget.showStatus) _buildStatusIndicator(context),
                 if (widget.isSelected) ...[
                   _buildDimOverlay(context),
@@ -264,6 +267,30 @@ class _MediaTileState extends State<MediaTile> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Corner badge for animated GIFs — mirrors the video duration badge so a
+  /// static first-frame tile is never mistaken for a plain photo.
+  Widget _buildGifIndicator(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
+        ),
+        child: const Text(
+          'GIF',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

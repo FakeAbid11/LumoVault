@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/media_file_utils.dart';
 import '../../../backup/engine/backup_engine.dart';
 import '../../../../shared/widgets/swipe_dismiss_wrapper.dart';
 import '../../data/models/media_item.dart';
@@ -83,6 +84,11 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
 
   AssetEntity get _currentAsset => widget.assets[_currentIndex];
 
+  /// Videos carry their own complete player controls — the viewer's chrome
+  /// (app bar + action row) stacked on top of them double-covered the
+  /// buttons, so chrome renders for photos only.
+  bool get _currentAssetIsVideo => _currentAsset.type == AssetType.video;
+
   @override
   Widget build(BuildContext context) {
     final repository = ref.watch(galleryRepositoryProvider);
@@ -147,151 +153,158 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                 ),
               ),
 
-              // Animated AppBar
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: AnimatedOpacity(
-                  opacity: _isChromeVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: AnimatedSlide(
-                    offset: _isChromeVisible
-                        ? Offset.zero
-                        : const Offset(0, -0.2),
+              // Animated AppBar — hidden for videos: the player carries its own
+              // complete control set, and stacking both double-covered the
+              // buttons (user-reported overlap).
+              if (!_currentAssetIsVideo)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: _isChromeVisible ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 250),
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.black54, Colors.transparent],
-                        ),
-                      ),
-                      child: AppBar(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        title: Text(
-                          '${_currentIndex + 1} / ${widget.assets.length}',
-                          style: const TextStyle(
-                            // White on the scrim — onSurface is near-black in
-                            // light theme and vanished on the black backdrop.
-                            color: Colors.white70,
-                            fontSize: 14,
+                    child: AnimatedSlide(
+                      offset: _isChromeVisible
+                          ? Offset.zero
+                          : const Offset(0, -0.2),
+                      duration: const Duration(milliseconds: 250),
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.black54, Colors.transparent],
                           ),
                         ),
-                        actions: [
-                          IconButton(
-                            icon: const Icon(Symbols.image_search),
-                            tooltip: 'Find similar',
-                            onPressed: () => context.push(
-                              '/gallery/search'
-                              '?similar=${widget.assets[_currentIndex].id}',
+                        child: AppBar(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          title: Text(
+                            '${_currentIndex + 1} / ${widget.assets.length}',
+                            style: const TextStyle(
+                              // White on the scrim — onSurface is near-black in
+                              // light theme and vanished on the black backdrop.
+                              color: Colors.white70,
+                              fontSize: 14,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Symbols.info),
-                            tooltip: 'Info & EXIF',
-                            onPressed: _showExifDetails,
-                          ),
-                        ],
+                          actions: [
+                            IconButton(
+                              icon: const Icon(Symbols.image_search),
+                              tooltip: 'Find similar',
+                              onPressed: () => context.push(
+                                '/gallery/search'
+                                '?similar=${widget.assets[_currentIndex].id}',
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Symbols.info),
+                              tooltip: 'Info & EXIF',
+                              onPressed: _showExifDetails,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-              // Animated bottom bar
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: AnimatedOpacity(
-                  opacity: _isChromeVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: AnimatedSlide(
-                    offset: _isChromeVisible
-                        ? Offset.zero
-                        : const Offset(0, 0.2),
+              // Animated bottom bar — hidden for videos (duplicates the
+              // player's own scrubber row).
+              if (!_currentAssetIsVideo)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedOpacity(
+                    opacity: _isChromeVisible ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 250),
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black54],
-                        ),
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 24,
+                    child: AnimatedSlide(
+                      offset: _isChromeVisible
+                          ? Offset.zero
+                          : const Offset(0, 0.2),
+                      duration: const Duration(milliseconds: 250),
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black54],
                           ),
-                          child: Row(
-                            children: [
-                              if (!isBackedUp)
-                                Expanded(
-                                  child: _BackupAction(
-                                    isUploading: isUploading,
-                                    isQueued: isQueued,
-                                    progress: task?.progress ?? 0,
-                                    onPressed: isUploading
-                                        ? null
-                                        : () => _backUpCurrentAsset(),
+                        ),
+                        child: SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 24,
+                            ),
+                            child: Row(
+                              children: [
+                                if (!isBackedUp)
+                                  Expanded(
+                                    child: _BackupAction(
+                                      isUploading: isUploading,
+                                      isQueued: isQueued,
+                                      progress: task?.progress ?? 0,
+                                      onPressed: isUploading
+                                          ? null
+                                          : () => _backUpCurrentAsset(),
+                                    ),
                                   ),
-                                ),
-                              Expanded(
-                                child: _BottomAction(
-                                  icon: isFavorite
-                                      ? Symbols.favorite
-                                      : Symbols.favorite_border,
-                                  label: 'Favorite',
-                                  color: isFavorite
-                                      ? Theme.of(context).colorScheme.error
-                                      : Colors.white,
-                                  onPressed: () => _toggleFavorite(),
-                                ),
-                              ),
-                              Expanded(
-                                child: _BottomAction(
-                                  icon: Symbols.share,
-                                  label: 'Share',
-                                  onPressed: () => _shareCurrentAsset(),
-                                ),
-                              ),
-                              Expanded(
-                                child: _BottomAction(
-                                  icon: Symbols.photo_library,
-                                  label: 'Album',
-                                  onPressed: () => _addToAlbum(),
-                                ),
-                              ),
-                              Expanded(
-                                child: _BottomAction(
-                                  icon: Symbols.label,
-                                  label: 'Tags',
-                                  onPressed: () => _openTagEditor(),
-                                ),
-                              ),
-                              if (widget.allowDeviceDelete)
                                 Expanded(
                                   child: _BottomAction(
-                                    icon: Symbols.delete,
-                                    label: 'Trash',
-                                    color: Theme.of(context).colorScheme.error,
-                                    onPressed: () => _trashFromDevice(),
+                                    icon: isFavorite
+                                        ? Symbols.favorite
+                                        : Symbols.favorite_border,
+                                    label: 'Favorite',
+                                    color: isFavorite
+                                        ? Theme.of(context).colorScheme.error
+                                        : Colors.white,
+                                    onPressed: () => _toggleFavorite(),
                                   ),
                                 ),
-                            ],
+                                Expanded(
+                                  child: _BottomAction(
+                                    icon: Symbols.share,
+                                    label: 'Share',
+                                    onPressed: () => _shareCurrentAsset(),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _BottomAction(
+                                    icon: Symbols.photo_library,
+                                    label: 'Album',
+                                    onPressed: () => _addToAlbum(),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _BottomAction(
+                                    icon: Symbols.label,
+                                    label: 'Tags',
+                                    onPressed: () => _openTagEditor(),
+                                  ),
+                                ),
+                                if (widget.allowDeviceDelete)
+                                  Expanded(
+                                    child: _BottomAction(
+                                      icon: Symbols.delete,
+                                      label: 'Trash',
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                      onPressed: () => _trashFromDevice(),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -314,8 +327,21 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     await Share.shareXFiles([XFile(file.path)]);
   }
 
-  void _addToAlbum() {
+  Future<void> _addToAlbum() async {
     final asset = _currentAsset;
+    // Ensure the DB row exists first: album membership needs it, and a
+    // never-scanned photo would otherwise become a phantom entry (counted
+    // in the album but never rendered in its grid).
+    final item = await ref
+        .read(galleryRepositoryProvider)
+        .ensureMediaItemExists(asset);
+    if (!mounted) return;
+    if (item == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Couldn't read this file")));
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -600,6 +626,8 @@ class _AssetPreviewState extends State<_AssetPreview>
   late final Future<Uint8List?> _thumbnailFuture;
   late final Future<File?> _fileFuture;
   late final bool _isVideo;
+  late final bool _isGif;
+  File? _gifFile;
 
   final TransformationController _transformationController =
       TransformationController();
@@ -611,18 +639,35 @@ class _AssetPreviewState extends State<_AssetPreview>
   void initState() {
     super.initState();
     _isVideo = widget.asset.type == AssetType.video;
+    _isGif = !_isVideo && isGifFileName(widget.asset.title);
     if (_isVideo) {
       _fileFuture = widget.asset.file;
     } else {
       _thumbnailFuture = widget.asset.thumbnailDataWithSize(
         const ThumbnailSize(1600, 1600),
       );
+      if (_isGif) {
+        // GIFs animate only from full original bytes — photo_manager
+        // thumbnails are single-frame decodes.
+        _loadGifFile();
+      }
     }
     _zoomAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
     );
     _transformationController.addListener(_onTransformationChanged);
+  }
+
+  Future<void> _loadGifFile() async {
+    try {
+      final file = await widget.asset.originFile.timeout(
+        const Duration(seconds: 30),
+      );
+      if (file != null && mounted) setState(() => _gifFile = file);
+    } catch (e) {
+      debugPrint('[MediaViewer] GIF original load failed: $e');
+    }
   }
 
   @override
@@ -677,7 +722,66 @@ class _AssetPreviewState extends State<_AssetPreview>
   @override
   Widget build(BuildContext context) {
     if (_isVideo) return _buildVideo(context);
+    if (_isGif) return _buildGifImage(context);
     return _buildImage(context);
+  }
+
+  /// GIFs need ORIGINAL file bytes — photo_manager thumbnails are
+  /// single-frame decodes, and feeding those to Image.memory is why GIFs
+  /// displayed as still photos. Flutter animates multi-frame GIFs from full
+  /// bytes. The static thumbnail shows while the original loads, and stays
+  /// as the fallback if loading fails.
+  Widget _buildGifImage(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _thumbnailFuture,
+      builder: (context, thumbSnapshot) {
+        Widget content;
+        final gifFile = _gifFile;
+        if (gifFile != null) {
+          content = Image.file(gifFile, fit: BoxFit.contain);
+        } else if (thumbSnapshot.connectionState != ConnectionState.done) {
+          content = const Center(
+            child: CircularProgressIndicator(color: Colors.white54),
+          );
+        } else if (thumbSnapshot.data != null) {
+          // Original still loading — show the static frame meanwhile.
+          content = Image.memory(
+            thumbSnapshot.data!,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+          );
+        } else {
+          content = const Center(
+            child: Icon(Symbols.broken_image, color: Colors.white38, size: 64),
+          );
+        }
+
+        return GestureDetector(
+          onDoubleTapDown: _handleDoubleTap,
+          onDoubleTap: () {},
+          child: AnimatedBuilder(
+            animation: _zoomAnimationController,
+            builder: (context, child) {
+              if (_zoomAnimationController.isAnimating &&
+                  _zoomAnimation != null) {
+                _transformationController.value = _zoomAnimation!.value;
+              }
+              return InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 1.0,
+                maxScale: 4.5,
+                panEnabled: true,
+                scaleEnabled: true,
+                clipBehavior: Clip.none,
+                child: Center(
+                  child: Hero(tag: 'asset_${widget.asset.id}', child: content),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildVideo(BuildContext context) {

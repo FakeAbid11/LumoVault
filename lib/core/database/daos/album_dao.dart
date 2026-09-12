@@ -62,12 +62,17 @@ class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
   }
 
   Future<void> addToAlbum(int albumId, String mediaId) async {
-    await into(albumItems).insertOnConflictUpdate(
+    // insertOrReplace, NOT insertOnConflictUpdate: AlbumItems has no primary
+    // key (only the composite unique albumId+mediaId), and drift's
+    // conflict-update insert throws "Table has no primary key" without an
+    // explicit target — which made every "Add to album" fail silently.
+    await into(albumItems).insert(
       AlbumItemsCompanion.insert(
         albumId: albumId,
         mediaId: mediaId,
         addedAt: DateTime.now(),
       ),
+      mode: InsertMode.insertOrReplace,
     );
   }
 
@@ -117,14 +122,18 @@ class AlbumDao extends DatabaseAccessor<AppDatabase> with _$AlbumDaoMixin {
   }
 
   Future<Map<int, int>> allAlbumCounts() async {
-    final query = selectOnly(
-      albumItems,
-    ).join([innerJoin(albums, albums.id.equalsExp(albumItems.albumId))]);
+    // Grouped count. The previous version used selectOnly(...).join(...)
+    // WITHOUT addColumns, generating `SELECT FROM album_items ...` — invalid
+    // SQL that threw on every call, silently falling back to zero counts on
+    // the Albums tab.
+    final countExp = albumItems.mediaId.count();
+    final query = selectOnly(albumItems)
+      ..addColumns([albumItems.albumId, countExp])
+      ..groupBy([albumItems.albumId]);
     final rows = await query.get();
     final counts = <int, int>{};
     for (final row in rows) {
-      final aId = row.readTable(albumItems).albumId;
-      counts[aId] = (counts[aId] ?? 0) + 1;
+      counts[row.read(albumItems.albumId)!] = row.read(countExp) ?? 0;
     }
     return counts;
   }

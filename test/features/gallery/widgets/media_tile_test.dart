@@ -25,6 +25,7 @@ void main() {
     String filePath = '/storage/emulated/0/DCIM/photo.jpg',
     MediaStatus status = MediaStatus.pending,
     bool isVideo = false,
+    String mimeType = 'image/jpeg',
   }) {
     return MediaItem(
       localId: localId,
@@ -32,7 +33,7 @@ void main() {
       telegramMessageId: telegramMessageId,
       filePath: filePath,
       fileName: isVideo ? 'video.mp4' : 'photo.jpg',
-      mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+      mimeType: isVideo ? 'video/mp4' : mimeType,
       fileSize: 1024 * 100,
       width: 800,
       height: 600,
@@ -88,6 +89,21 @@ void main() {
 
       // Should show the video placeholder icon
       expect(find.byIcon(Symbols.videocam), findsOneWidget);
+    });
+
+    testWidgets('shows GIF badge for gif items', (tester) async {
+      final item = makeItem(mimeType: 'image/gif');
+
+      await tester.pumpWidget(
+        wrapInApp(
+          MediaTile(mediaItem: item, thumbnailLoader: noThumbnailLoader),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('GIF'), findsOneWidget);
     });
 
     testWidgets('shows status indicator when showStatus is true', (

@@ -12,13 +12,20 @@ class VideoGestures extends StatefulWidget {
     required this.controller,
     required this.child,
     this.onDoubleTapSeek,
-    this.onTogglePlay,
+    this.onTap,
   });
 
   final VideoPlayerController controller;
   final Widget child;
   final ValueChanged<Duration>? onDoubleTapSeek;
-  final VoidCallback? onTogglePlay;
+
+  /// Single tap on the video surface (e.g. toggle the control bars).
+  ///
+  /// Play/pause is NOT wired here on purpose: a tap-down timer used to fire
+  /// it 300ms after every pointer-down, double-firing when a deeper
+  /// recognizer (the center play button, the controls toggle) also won the
+  /// gesture — buttons appeared to fight each other.
+  final VoidCallback? onTap;
 
   @override
   State<VideoGestures> createState() => _VideoGesturesState();
@@ -42,10 +49,6 @@ class _VideoGesturesState extends State<VideoGestures> {
   bool _isSliding = false;
   Timer? _slideIndicatorTimer;
 
-  // Play/pause tap timer (delay to distinguish from double-tap)
-  Timer? _tapTimer;
-  bool _playPauseHandled = false;
-
   @override
   void initState() {
     super.initState();
@@ -55,29 +58,21 @@ class _VideoGesturesState extends State<VideoGestures> {
   void dispose() {
     _seekIndicatorTimer?.cancel();
     _slideIndicatorTimer?.cancel();
-    _tapTimer?.cancel();
     super.dispose();
   }
 
   void _onTapDown(TapDownDetails details) {
-    _playPauseHandled = false;
     final now = DateTime.now();
 
     if (_lastTapTime != null &&
         now.difference(_lastTapTime!) < const Duration(milliseconds: 300)) {
       // Double tap detected
-      _tapTimer?.cancel();
       _handleDoubleTap(details.localPosition);
       _lastTapTime = null;
       return;
     }
 
     _lastTapTime = now;
-    _tapTimer = Timer(const Duration(milliseconds: 300), () {
-      if (!_playPauseHandled && mounted) {
-        widget.onTogglePlay?.call();
-      }
-    });
   }
 
   void _handleDoubleTap(Offset position) {
@@ -178,6 +173,7 @@ class _VideoGesturesState extends State<VideoGestures> {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      onTap: widget.onTap,
       onTapDown: _onTapDown,
       onLongPressStart: _onLongPressStart,
       onLongPressEnd: _onLongPressEnd,

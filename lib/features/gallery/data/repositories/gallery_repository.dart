@@ -736,23 +736,36 @@ class GalleryRepository {
   /// alternative, a placeholder record with no hash, would either never
   /// get properly filled in by a later scan or have this exclusion choice
   /// silently overwritten when it finally is).
+  /// Ensures a [MediaItem] row exists for [asset], building it on demand via
+  /// the incremental scanner when it has never been scanned. Returns the
+  /// row, or null when the asset can't be read (gone / build failed).
+  ///
+  /// Used before operations that need a real row (e.g. album membership) —
+  /// `album_items` has no enforced FK, so inserting membership for a
+  /// row-less id silently inflated album counts while the photo never
+  /// rendered in the album grid.
+  Future<MediaItem?> ensureMediaItemExists(AssetEntity asset) async {
+    final existing = getItemById(asset.id);
+    if (existing != null) return existing;
+    final built = await _incrementalScanner.buildSingleItem(asset);
+    if (built == null) return null;
+    _mediaItems.add(built);
+    _indexByLocalId[built.localId] = _mediaItems.length - 1;
+    await _persistItem(built);
+    return built;
+  }
+
   Future<void> setBackupExcluded({
     required String localId,
     required bool excluded,
     required AssetEntity asset,
   }) async {
+    var updated = await ensureMediaItemExists(asset);
+    if (updated == null) return;
+    updated = updated.copyWith(isExcluded: excluded);
     final index = _indexOfLocalId(localId);
-
-    late final MediaItem updated;
     if (index != -1) {
-      updated = _mediaItems[index].copyWith(isExcluded: excluded);
       _mediaItems[index] = updated;
-    } else {
-      final built = await _incrementalScanner.buildSingleItem(asset);
-      if (built == null) return;
-      updated = built.copyWith(isExcluded: excluded);
-      _mediaItems.add(updated);
-      _indexByLocalId[updated.localId] = _mediaItems.length - 1;
     }
 
     await _persistItem(updated);

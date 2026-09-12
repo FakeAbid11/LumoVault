@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/storage/thumbnail_warmup.dart';
+import '../../../../shared/utils/media_file_utils.dart';
 import '../models/media_item.dart';
 import 'asset_location.dart';
 
@@ -355,7 +356,12 @@ class IncrementalScanner {
   }
 
   /// Infer MIME type from asset type.
+  ///
+  /// GIFs are AssetType.image like any photo, but hardcoding image/jpeg
+  /// mislabels them — the file extension is the signal (restored cloud GIFs
+  /// already get image/gif inferred from their names).
   String _getMimeType(AssetEntity asset) {
+    if (isGifFileName(asset.title)) return 'image/gif';
     return switch (asset.type) {
       AssetType.image => 'image/jpeg',
       AssetType.video => 'video/mp4',

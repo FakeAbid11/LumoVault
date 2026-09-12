@@ -19,6 +19,7 @@ import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/transfer_error.dart';
 import '../../data/repositories/telegram_download_service.dart';
+import '../../../albums/presentation/widgets/add_to_album_sheet.dart';
 import '../widgets/exif_details_sheet.dart';
 import '../widgets/inline_video_player.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -166,7 +167,9 @@ class _TelegramMediaViewerScreenState
           backgroundColor: Colors.black,
           // Let the photo bleed behind the gradient-scrimmed app bar.
           extendBodyBehindAppBar: true,
-          appBar: _isVideoFullscreen
+          // App bar hidden for videos: the player carries its own controls and
+          // this bar painted on top of them (extendBodyBehindAppBar).
+          appBar: _isVideoFullscreen || currentItem.isVideo
               ? null
               : AppBar(
                   backgroundColor: Colors.transparent,
@@ -185,6 +188,18 @@ class _TelegramMediaViewerScreenState
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   actions: [
+                    IconButton(
+                      icon: const Icon(Symbols.add_photo_alternate),
+                      tooltip: 'Album',
+                      onPressed: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => AddToAlbumSheet(
+                          mediaId: widget.items[_currentIndex].localId,
+                        ),
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Symbols.image_search),
                       tooltip: 'Find similar',

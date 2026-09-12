@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/album_providers.dart';
+import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
+import '../../../gallery/presentation/widgets/media_tile.dart';
 import '../../../settings/data/models/app_settings.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
@@ -140,41 +143,87 @@ class AlbumDetailScreen extends ConsumerWidget {
     if (items.isEmpty) return _buildEmptyState();
 
     final byId = {for (final a in allAssets) a.id: a};
+    // Split into locally-resolvable members (AssetTile) and cloud-only
+    // members (MediaTile + on-demand thumbnail) so nothing the user added
+    // silently disappears from the grid.
     final resolved = <dynamic>[];
     final assets = <AssetEntity>[];
+    final cloudOnly = <dynamic>[];
     for (final item in items) {
       final asset = byId[item.localId];
-      if (asset == null) continue;
+      if (asset == null) {
+        cloudOnly.add(item);
+        continue;
+      }
       resolved.add(item);
       assets.add(asset);
     }
 
-    if (resolved.isEmpty) return _buildEmptyState();
+    if (resolved.isEmpty && cloudOnly.isEmpty) return _buildEmptyState();
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(2),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: galleryCrossAxisCount(
-          ref.watch(settingsGridSizeProvider),
-          ref.watch(settingsCompactModeProvider),
-        ),
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: resolved.length,
-      itemBuilder: (context, index) {
-        final asset = assets[index];
-        return AssetTile(
-          asset: asset,
-          onTap: () => context.push(
-            '/gallery/media/${asset.id}',
-            extra: (assets: assets, initialIndex: index),
+    return Column(
+      children: [
+        if (allowRemove) ...[
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Long-press a photo to remove it from this album.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
-          onLongPress: allowRemove
-              ? () => _removeFromAlbum(context, ref, asset.id)
-              : null,
-        );
-      },
+        ],
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: galleryCrossAxisCount(
+                ref.watch(settingsGridSizeProvider),
+                ref.watch(settingsCompactModeProvider),
+              ),
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: resolved.length + cloudOnly.length,
+            itemBuilder: (context, index) {
+              if (index >= resolved.length) {
+                // Cloud-only member: no local asset, so render via MediaTile
+                // (on-demand Telegram thumbnail) and open in the Telegram
+                // viewer.
+                final cloudIndex = index - resolved.length;
+                final item = cloudOnly[cloudIndex] as MediaItem;
+                return MediaTile(
+                  mediaItem: item,
+                  telegramThumbnailFetcher: ref
+                      .watch(telegramThumbnailFetcherProvider)
+                      .fetch,
+                  onTap: () => context.push(
+                    '/gallery/telegram-media/${item.localId}',
+                    extra: (
+                      items: cloudOnly.cast<MediaItem>().toList(),
+                      initialIndex: cloudIndex,
+                    ),
+                  ),
+                );
+              }
+              final asset = assets[index];
+              return AssetTile(
+                asset: asset,
+                onTap: () => context.push(
+                  '/gallery/media/${asset.id}',
+                  extra: (assets: assets, initialIndex: index),
+                ),
+                onLongPress: allowRemove
+                    ? () => _removeFromAlbum(context, ref, asset.id)
+                    : null,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

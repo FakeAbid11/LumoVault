@@ -227,6 +227,17 @@ class PhotoManagerScannerService implements MediaScannerService {
         }
       }
 
+      // Exact RELATIVE_PATH for move/copy operations (bucket display name is
+      // not a valid MediaStore path target).
+      String? relativePath;
+      try {
+        relativePath = await album.relativePathAsync;
+      } catch (e) {
+        debugPrint(
+          '[MediaScannerService] relativePath lookup failed for $albumName: $e',
+        );
+      }
+
       folders.add(
         DeviceFolder(
           id: album.id,
@@ -236,6 +247,7 @@ class PhotoManagerScannerService implements MediaScannerService {
           totalItems: assetCount,
           totalSize: 0,
           coverId: coverId,
+          relativePath: relativePath,
           lastScannedAt: DateTime.now(),
           createdAt: DateTime.now(),
         ),

@@ -9,6 +9,7 @@ import '../../../../core/di/album_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../features/albums/data/models/album.dart';
 import '../../../gallery/data/models/device_folder.dart';
+import '../../../gallery/data/services/device_folder_editor.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -91,7 +92,9 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
               '/albums/folder/${folder.id}'
               '?name=${Uri.encodeComponent(folder.name)}',
             ),
-            onLongPress: null,
+            // Device folders mirror the phone's filesystem — per-folder
+            // management is limited to trashing all its photos.
+            onMore: () => _showDeviceFolderMenu(context, folder),
           );
         }
         final album = albums[index - deviceFolders.length];
@@ -102,9 +105,105 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           coverId: album.coverId,
           isDeviceFolder: false,
           onTap: () => context.push('/albums/${album.id}'),
+          // Long-press kept for muscle memory; the ⋯ button makes
+          // rename/delete discoverable.
           onLongPress: () => _showAlbumMenu(context, album),
+          onMore: () => _showAlbumMenu(context, album),
         );
       },
+    );
+  }
+
+  /// Device-folder management: "Delete folder" trashes every photo in it
+  /// (double-confirmed); the folder then disappears on the next listing.
+  Future<void> _showDeviceFolderMenu(
+    BuildContext context,
+    DeviceFolder folder,
+  ) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Symbols.folder),
+              title: Text(folder.name),
+              subtitle: Text('${folder.totalItems} items'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.delete, color: Colors.red),
+              title: const Text(
+                'Delete folder',
+                style: TextStyle(color: Colors.red),
+              ),
+              subtitle: const Text(
+                'Moves ALL photos in this folder to the trash. '
+                'Cannot be undone here.',
+              ),
+              onTap: () => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+    // Strong second confirmation — this is a mass delete.
+    final reallyDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete everything?'),
+        content: Text(
+          'All ${folder.totalItems} photos in "${folder.name}" will be moved '
+          'to the trash. This can\'t be undone here.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (reallyDelete != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Trashing ${folder.totalItems} photos from "${folder.name}"…',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    final assets = await ref.read(
+      deviceFolderAssetsProvider(folder.id!).future,
+    );
+    final trashed = await ref
+        .read(deviceFolderEditorProvider)
+        .trashAssets(assets.whereType<AssetEntity>().toList());
+
+    ref.invalidate(deviceFoldersProvider);
+    ref.invalidate(deviceFolderAssetsProvider(folder.id!));
+    ref.invalidate(deviceAssetsProvider);
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Trashed ${trashed.length} of ${folder.totalItems} photos',
+        ),
+      ),
     );
   }
 
@@ -261,6 +360,7 @@ class _AlbumCard extends StatelessWidget {
     required this.isDeviceFolder,
     required this.onTap,
     this.onLongPress,
+    this.onMore,
   });
 
   final String name;
@@ -269,6 +369,11 @@ class _AlbumCard extends StatelessWidget {
   final bool isDeviceFolder;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+
+  /// Opens the management menu (rename/delete for custom albums, delete
+  /// folder for device folders). Rendered as a ⋯ button on the cover when
+  /// set — discoverable, unlike the long-press.
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -318,6 +423,29 @@ class _AlbumCard extends StatelessWidget {
                           Symbols.folder,
                           size: 16,
                           color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  // Management menu — the discoverable way in (the
+                  // long-press remains as a shortcut).
+                  if (onMore != null)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Material(
+                        color: colorScheme.surface.withValues(alpha: 0.85),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: onMore,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              Symbols.more_vert,
+                              size: 18,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
                         ),
                       ),
                     ),

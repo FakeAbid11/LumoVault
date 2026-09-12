@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/album_providers.dart';
+import '../../../gallery/data/services/device_folder_editor.dart';
 import '../../../../core/di/channel_scan_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
+import '../../../gallery/data/models/device_folder.dart';
 import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/presentation/widgets/asset_tile.dart';
 import '../../../gallery/presentation/widgets/media_tile.dart';
@@ -70,10 +72,19 @@ class AlbumDetailScreen extends ConsumerWidget {
                   final asset = assets[index];
                   return AssetTile(
                     asset: asset,
+                    // allowDeviceDelete: true in the viewer route — photos in
+                    // device folders are fully manageable (trash/move/copy
+                    // via the long-press menu).
                     onTap: () => context.push(
                       '/gallery/media/${asset.id}',
-                      extra: (assets: assets, initialIndex: index),
+                      extra: (
+                        assets: assets,
+                        initialIndex: index,
+                        allowDeviceDelete: true,
+                      ),
                     ),
+                    onLongPress: () =>
+                        _showDeviceAssetActions(context, ref, asset),
                   );
                 },
               ),
@@ -82,6 +93,118 @@ class AlbumDetailScreen extends ConsumerWidget {
           error: e.toString(),
           onRetry: () =>
               ref.invalidate(deviceFolderAssetsProvider(folderPathId!)),
+        ),
+      ),
+    );
+  }
+
+  /// Per-photo management for device folders: trash, move to another folder,
+  /// copy into this one. Operations run through [DeviceFolderEditor] and
+  /// refresh the grid + counts via provider invalidation.
+  Future<void> _showDeviceAssetActions(
+    BuildContext context,
+    WidgetRef ref,
+    AssetEntity asset,
+  ) async {
+    final pathId = folderPathId!;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Symbols.delete),
+              title: const Text('Move to trash'),
+              onTap: () => Navigator.pop(context, 'trash'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.drive_file_move),
+              title: const Text('Move to folder…'),
+              onTap: () => Navigator.pop(context, 'move'),
+            ),
+            ListTile(
+              leading: const Icon(Symbols.content_copy),
+              title: const Text('Copy into this folder…'),
+              onTap: () => Navigator.pop(context, 'copy'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+
+    final editor = ref.read(deviceFolderEditorProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    switch (action) {
+      case 'trash':
+        final trashed = await editor.trashAssets([asset]);
+        if (trashed.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Canceled — nothing deleted')),
+          );
+          return;
+        }
+        ref.invalidate(deviceFolderAssetsProvider(pathId));
+        ref.invalidate(deviceAssetsProvider);
+        messenger.showSnackBar(const SnackBar(content: Text('Moved to trash')));
+      case 'move':
+        final destination = await _pickDestinationFolder(context, ref, pathId);
+        if (destination == null || !context.mounted) return;
+        final moved = await editor.moveAssets([
+          asset,
+        ], targetPathId: destination.id!);
+        ref.invalidate(deviceFolderAssetsProvider(pathId));
+        ref.invalidate(deviceFolderAssetsProvider(destination.id!));
+        ref.invalidate(deviceFoldersProvider);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              moved
+                  ? 'Moved to ${destination.name}'
+                  : 'Could not move — try again or use your gallery app',
+            ),
+          ),
+        );
+      case 'copy':
+        final copy = await editor.copyAsset(asset, pathId);
+        ref.invalidate(deviceFolderAssetsProvider(pathId));
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              copy == null ? 'Could not copy' : 'Copied into this folder',
+            ),
+          ),
+        );
+    }
+  }
+
+  /// Pick a destination device folder for a move/copy, excluding the current
+  /// one. Returns null when canceled.
+  Future<DeviceFolder?> _pickDestinationFolder(
+    BuildContext context,
+    WidgetRef ref,
+    String currentPathId,
+  ) async {
+    final folders = await ref.read(deviceFoldersProvider.future);
+    if (!context.mounted) return null;
+    return showModalBottomSheet<DeviceFolder>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final folder in folders)
+              if (folder.id != currentPathId)
+                ListTile(
+                  leading: const Icon(Symbols.folder),
+                  title: Text(folder.name),
+                  subtitle: Text('${folder.totalItems} items'),
+                  onTap: () => Navigator.pop(context, folder),
+                ),
+          ],
         ),
       ),
     );

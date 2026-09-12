@@ -7,6 +7,7 @@ class DeviceFolder {
     this.totalItems = 0,
     this.totalSize = 0,
     this.coverId,
+    this.relativePath,
     required this.lastScannedAt,
     required this.createdAt,
   });
@@ -25,6 +26,11 @@ class DeviceFolder {
   /// Asset id of the folder's first item, used as the card cover without
   /// needing a scan. Null when the folder is empty or the lookup failed.
   final String? coverId;
+
+  /// The folder's exact MediaStore RELATIVE_PATH (e.g. `DCIM/Camera/`) —
+  /// required as the target for move/copy operations; the bucket display
+  /// name is not a valid path.
+  final String? relativePath;
   final DateTime lastScannedAt;
   final DateTime createdAt;
 
@@ -36,6 +42,7 @@ class DeviceFolder {
     int? totalItems,
     int? totalSize,
     String? coverId,
+    String? relativePath,
     DateTime? lastScannedAt,
     DateTime? createdAt,
   }) {
@@ -47,6 +54,7 @@ class DeviceFolder {
       totalItems: totalItems ?? this.totalItems,
       totalSize: totalSize ?? this.totalSize,
       coverId: coverId ?? this.coverId,
+      relativePath: relativePath ?? this.relativePath,
       lastScannedAt: lastScannedAt ?? this.lastScannedAt,
       createdAt: createdAt ?? this.createdAt,
     );

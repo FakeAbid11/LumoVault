@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:video_player/video_player.dart';
+
+import 'video_thumbnail_scrubber.dart';
 
 class VideoPlayerControls extends StatefulWidget {
   const VideoPlayerControls({
@@ -11,6 +15,7 @@ class VideoPlayerControls extends StatefulWidget {
     this.onFullscreenToggle,
     this.onBack,
     this.isFullscreen = false,
+    this.file,
   });
 
   final VideoPlayerController controller;
@@ -18,6 +23,11 @@ class VideoPlayerControls extends StatefulWidget {
   final VoidCallback? onFullscreenToggle;
   final VoidCallback? onBack;
   final bool isFullscreen;
+
+  /// When provided, renders a thumbnail scrubber instead of the basic
+  /// progress bar. The [File] is needed to spawn a second video decoder
+  /// for thumbnail frame extraction.
+  final File? file;
 
   @override
   State<VideoPlayerControls> createState() => _VideoPlayerControlsState();
@@ -106,7 +116,12 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls>
             ),
             child: SafeArea(
               top: false,
-              child: _ScrubberRow(controller: controller),
+              child: widget.file != null
+                  ? VideoThumbnailScrubber(
+                      controller: controller,
+                      file: widget.file!,
+                    )
+                  : _ScrubberRow(controller: controller),
             ),
           ),
         ],

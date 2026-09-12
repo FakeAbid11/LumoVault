@@ -198,6 +198,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
             visible: _controlsVisible,
             isFullscreen: _isFullscreen,
             onFullscreenToggle: _toggleFullscreen,
+            file: widget.file,
             onBack: () {
               if (_isFullscreen) {
                 _toggleFullscreen();

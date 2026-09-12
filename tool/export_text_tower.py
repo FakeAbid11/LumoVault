@@ -48,15 +48,25 @@ def load_core_model(checkpoint: str | None):
     import mobileclip  # noqa: deferred — only needed for the export.
 
     if checkpoint:
-        model, _, _ = mobileclip.create_model_and_transforms("MobileCLIP-S0")
+        model, _, _ = mobileclip.create_model_and_transforms("mobileclip_s0")
         state = torch.load(checkpoint, map_location="cpu")
         # The release checkpoint stores the full core model under 'state_dict'
         # (or the raw state itself, depending on the release).
         state_dict = state.get("state_dict", state) if isinstance(state, dict) else state
         model.load_state_dict(state_dict, strict=False)
     else:
+        # Download checkpoint from Apple's release URL.
+        import urllib.request
+
+        checkpoint_path = REPO_ROOT / "tool" / "mobileclip_s0.pt"
+        if not checkpoint_path.exists():
+            url = "https://docs-assets.developer.apple.com/ml-research/datasets/mobileclip/mobileclip_s0.pt"
+            print(f"Downloading MobileCLIP-S0 checkpoint from {url} ...")
+            urllib.request.urlretrieve(url, checkpoint_path)
+            print(f"Downloaded to {checkpoint_path}")
+
         model, _, _ = mobileclip.create_model_and_transforms(
-            "MobileCLIP-S0", pretrained="datacompdr"
+            "mobileclip_s0", pretrained=str(checkpoint_path)
         )
     model.eval()
     return model

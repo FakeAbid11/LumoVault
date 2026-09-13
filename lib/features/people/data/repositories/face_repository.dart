@@ -24,7 +24,7 @@ class FaceRepository {
   /// Used by the gallery layer to invalidate its person names search cache.
   VoidCallback? onAssignmentsChanged;
 
-  static const double minConfidence = 0.7;
+  static const double minConfidence = 0.5;
 
   /// Minimum face size, as a fraction of each image dimension.
   ///

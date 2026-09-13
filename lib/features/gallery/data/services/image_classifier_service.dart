@@ -40,7 +40,7 @@ class ImageClassifierService implements AiLabeler {
   static const int _inputSize = 224;
 
   /// Minimum confidence to include a label.
-  static const double _threshold = 0.15;
+  static const double _threshold = 0.10;
 
   /// Maximum labels to return per image.
   static const int _maxLabels = 5;

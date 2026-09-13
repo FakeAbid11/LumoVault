@@ -61,7 +61,7 @@ void main() {
     test('rejects a low-confidence detection', () {
       expect(
         repository.isHighQualityFace(
-          face(left: 0, top: 0, width: 400, height: 400, confidence: 0.69),
+          face(left: 0, top: 0, width: 400, height: 400, confidence: 0.49),
           w,
           h,
         ),

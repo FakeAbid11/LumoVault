@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/backup_providers.dart';
+import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
 
@@ -124,6 +125,10 @@ class _BackupForegroundSyncState extends ConsumerState<BackupForegroundSync>
         unawaited(_drainOnAuth());
       }
     });
+    // Trigger background CLIP embedding generation for images that don't have
+    // one yet. This supplements the periodic WorkManager task so embeddings
+    // are ready sooner after the app foregrounds.
+    ref.watch(generateEmbeddingsProvider);
     return widget.child;
   }
 }

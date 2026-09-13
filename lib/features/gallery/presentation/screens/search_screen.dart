@@ -84,7 +84,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     onChanged: (value) => setState(() => _query = value.trim()),
                     decoration: InputDecoration(
                       hintText: semanticMode
-                          ? 'Describe what you\'re looking for…'
+                          ? 'Try "desi cat", "sunset beach", "birthday cake"…'
                           : 'Search by name, tag, AI label, or location...',
                       prefixIcon: const Icon(Symbols.search),
                       suffixIcon: _query.isEmpty
@@ -310,8 +310,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             const SizedBox(height: 8),
             Text(
               'Similar photos are matched by on-device AI.\n'
-              'Keep the Search tab open for a moment so it\ncan generate '
-              'embeddings, then try again.',
+              'Embeddings are generated in the background —\n'
+              'try again in a few minutes.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -399,8 +399,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             const SizedBox(height: 8),
             Text(
               'Semantic search ranks your photos by meaning.\n'
-              'Photo embeddings are generated while this tab\nis open — give '
-              'it a moment and try again.',
+              'Embeddings are generated in the background —\n'
+              'try again in a few minutes.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -431,7 +431,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Find photos and videos by file name,\nalbum, tags, AI labels, or location.',
+              'Find photos by what you remember —\n'
+              'describe the scene, the people, or the feeling.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

@@ -698,4 +698,7 @@ final autoScanSyncProvider = Provider<void>((ref) {
   } else {
     service.cancelTask(kFaceScanTask);
   }
+
+  // Always register CLIP embedding generation — enables semantic search.
+  service.registerClipEmbedding();
 });

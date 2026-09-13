@@ -540,7 +540,7 @@ final textEmbedderProvider = Provider<AiTextEmbedder>((ref) {
 /// Whether the Search screen ranks by CLIP text-embedding similarity
 /// (true) or by keyword matching (false). Real, backed behavior — this
 /// toggle changes which search path runs.
-final semanticModeProvider = StateProvider<bool>((ref) => false);
+final semanticModeProvider = StateProvider<bool>((ref) => true);
 
 /// Text→image semantic search: embeds [query] with the CLIP text tower and
 /// ranks the stored image embeddings by cosine similarity. Throws when the

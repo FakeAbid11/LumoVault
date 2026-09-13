@@ -111,6 +111,12 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               ),
             ),
           ),
+        if (!scanProgress.isScanning)
+          IconButton(
+            icon: const Icon(Symbols.refresh),
+            tooltip: 'Rescan all photos',
+            onPressed: () => _showRescanDialog(context, ref),
+          ),
         const SettingsGearButton(),
       ],
     );
@@ -346,6 +352,36 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         ),
       ),
     );
+  }
+
+  // ── Rescan ─────────────────────────────────────────────────────────────────
+
+  Future<void> _showRescanDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rescan all photos?'),
+        content: const Text(
+          'This will re-scan every photo for faces, including ones previously '
+          'skipped. Useful if faces in screenshots or low-quality images were '
+          'missed. This may take a while.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Rescan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref.read(faceScanControllerProvider).rescanAll();
+    }
   }
 
   // ── Merge ──────────────────────────────────────────────────────────────────

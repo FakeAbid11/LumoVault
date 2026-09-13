@@ -183,6 +183,18 @@ class FaceScanController {
     }
   }
 
+  /// Clear the scan log and re-scan every photo from scratch.
+  ///
+  /// Useful for picking up faces that were previously missed (e.g. video call
+  /// screenshots where the detector confidence was borderline).
+  Future<void> rescanAll() async {
+    if (_isScanning) return;
+
+    final repository = _ref.read(faceRepositoryProvider);
+    await repository.faceDao.clearScanLog();
+    await start();
+  }
+
   void _setProgress(FaceScanProgress progress) {
     _ref.read(faceScanProgressProvider.notifier).state = progress;
   }

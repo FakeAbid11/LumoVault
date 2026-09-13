@@ -13,6 +13,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/notifications/notification_service.dart';
 import '../../../core/storage/isolate_run_lock.dart';
 import '../../../core/storage/thumbnail_cache.dart';
+import '../../gallery/data/services/clip_embedding_service.dart';
 import '../../gallery/data/services/image_classifier_service.dart';
 import '../../metadata/data/repositories/metadata_validator.dart';
 import '../../metadata/presentation/providers/metadata_providers.dart';
@@ -30,6 +31,7 @@ const String kMetadataRepairTask = 'com.lumovault.metadata_repair';
 const String kThumbnailRebuildTask = 'com.lumovault.thumbnail_rebuild';
 const String kFaceScanTask = 'com.lumovault.face_scanner';
 const String kAiScanTask = 'com.lumovault.ai_scanner';
+const String kClipEmbeddingTask = 'com.lumovault.clip_embedding';
 
 /// Name of the cross-isolate lock guarding the backup path.
 const String kBackupRunLockName = 'backup_run';
@@ -286,6 +288,22 @@ class BackgroundBackupService implements BackupTaskScheduler {
     debugPrint('[BackgroundBackupService] Registered AI scan');
   }
 
+  /// Register periodic CLIP embedding generation for new photos.
+  ///
+  /// Runs every 60 minutes. Only embeds images not yet processed —
+  /// already-embedded photos are skipped via clipEmbedding in the gallery.
+  Future<void> registerClipEmbedding() async {
+    await _workmanager.registerPeriodicTask(
+      kClipEmbeddingTask,
+      kClipEmbeddingTask,
+      frequency: const Duration(minutes: 60),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      backoffPolicy: BackoffPolicy.exponential,
+      initialDelay: const Duration(minutes: 15),
+    );
+    debugPrint('[BackgroundBackupService] Registered CLIP embedding generation');
+  }
+
   /// Schedule a one-off background face scan.
   ///
   /// Called by [FaceScanBackgroundHandoff] when the app is paused mid-scan.
@@ -365,6 +383,8 @@ class BackgroundTaskRunner {
         return _guard(task, _handleFaceScan);
       case kAiScanTask:
         return _guard(task, _handleAiScan);
+      case kClipEmbeddingTask:
+        return _guard(task, _handleClipEmbedding);
       default:
         debugPrint('[BackgroundBackup] Unknown task: $task');
         // An unknown name is a code bug, not a transient failure — retrying
@@ -540,6 +560,62 @@ class BackgroundTaskRunner {
         debugPrint('[BackgroundBackup] AI scan failed: $e');
         debugPrint('$stackTrace');
         return true; // Don't retry — AI scan is best-effort.
+      }
+    });
+  }
+
+  /// Generate CLIP image embeddings for photos that don't have one yet.
+  ///
+  /// Enables semantic search (natural language queries like "desi cat" or
+  /// "sunset beach"). Runs silently in the background; no notifications
+  /// or foreground service needed.
+  Future<bool> _handleClipEmbedding() async {
+    return _withContainer((container) async {
+      try {
+        final clip = ClipEmbeddingService.instance;
+        await clip.init();
+        if (!clip.isReady) {
+          debugPrint('[BackgroundBackup] CLIP embedding: model not ready');
+          return true;
+        }
+
+        final gallery = container.read(galleryRepositoryProvider);
+        await gallery.hydrate();
+        final items = gallery.itemsNeedingEmbedding;
+        if (items.isEmpty) {
+          debugPrint('[BackgroundBackup] CLIP embedding: nothing new to embed');
+          return true;
+        }
+
+        debugPrint(
+          '[BackgroundBackup] CLIP embedding: ${items.length} new photos',
+        );
+        const batchSize = 5;
+        for (var i = 0; i < items.length; i += batchSize) {
+          final batch = items.sublist(i, (i + batchSize).clamp(0, items.length));
+          for (final item in batch) {
+            try {
+              final asset = await AssetEntity.fromId(item.localId);
+              if (asset == null) continue;
+              final thumbBytes = await asset.thumbnailDataWithSize(
+                const ThumbnailSize(336, 336),
+              );
+              if (thumbBytes == null || thumbBytes.isEmpty) continue;
+              final embedding = await clip.embedImage(thumbBytes);
+              if (embedding != null) {
+                await gallery.updateClipEmbedding(item.localId, embedding);
+              }
+            } catch (e) {
+              debugPrint('[BackgroundBackup] CLIP embed failed: $e');
+            }
+          }
+        }
+        debugPrint('[BackgroundBackup] CLIP embedding complete');
+        return true;
+      } catch (e, stackTrace) {
+        debugPrint('[BackgroundBackup] CLIP embedding failed: $e');
+        debugPrint('$stackTrace');
+        return true; // Don't retry — embedding is best-effort.
       }
     });
   }

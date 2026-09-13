@@ -13,6 +13,7 @@ class AiScanState {
     this.total = 0,
     this.startedAt,
     this.error,
+    this.lastLabels = const [],
   });
 
   final bool running;
@@ -23,6 +24,9 @@ class AiScanState {
   /// Why the last scan ended without finishing (model failed to load, no
   /// photos, nothing left to label). Surfaced on the Search screen's card.
   final String? error;
+
+  /// The most recent labels detected, newest first (capped at 5).
+  final List<String> lastLabels;
 
   /// Labeled items per minute so the UI can show an ETA.
   double get itemsPerMinute {
@@ -46,6 +50,7 @@ class AiScanState {
     int? total,
     DateTime? startedAt,
     String? error,
+    List<String>? lastLabels,
   }) {
     return AiScanState(
       running: running ?? this.running,
@@ -53,6 +58,7 @@ class AiScanState {
       total: total ?? this.total,
       startedAt: startedAt ?? this.startedAt,
       error: error,
+      lastLabels: lastLabels ?? this.lastLabels,
     );
   }
 }
@@ -127,14 +133,23 @@ class AiScanController extends Notifier<AiScanState> {
       final asset = unlabeled[i];
       try {
         final labels = await classifier.classify(asset);
+        debugPrint('[AiScan] ${asset.title ?? asset.id}: $labels');
         if (labels.isNotEmpty) {
           await repository.labelAnyMediaItem(asset.id, labels);
+          state = state.copyWith(
+            completed: i + 1,
+            lastLabels: [
+              ...labels,
+              ...state.lastLabels,
+            ].take(5).toList(),
+          );
+        } else {
+          state = state.copyWith(completed: i + 1);
         }
       } catch (e) {
         debugPrint('[AiScan] Failed to classify ${asset.id}: $e');
+        state = state.copyWith(completed: i + 1);
       }
-
-      state = state.copyWith(completed: i + 1);
     }
 
     state = state.copyWith(running: false);

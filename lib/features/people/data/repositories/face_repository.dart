@@ -228,7 +228,9 @@ class FaceRepository {
       final faceCount = await scanMediaItem(toScan[i]);
       results[toScan[i].id] = faceCount;
       onProgress?.call(i + 1, toScan.length);
-      await Future.delayed(Duration.zero);
+      // Yield to the event loop and give the CPU thermal throttle a brief
+      // window between consecutive ONNX inference pairs.
+      await Future.delayed(const Duration(milliseconds: 50));
       // Every scanBatchSize photos, let the caller cluster + refresh the UI.
       // Awaited so clustering never overlaps itself or the next batch.
       if (onBatchComplete != null && (i + 1) % scanBatchSize == 0) {

@@ -58,6 +58,10 @@ class ImageClassifierService implements AiLabeler {
       _ort = OnnxRuntime();
       _session = await _ort.createSessionFromAsset(
         'assets/models/mobileone_s2.onnx',
+        options: OrtSessionOptions(
+          intraOpNumThreads: 2,
+          interOpNumThreads: 2,
+        ),
       );
       _initialized = true;
       _initError = null;

@@ -18,6 +18,7 @@ import '../../gallery/data/services/image_classifier_service.dart';
 import '../../metadata/data/repositories/metadata_validator.dart';
 import '../../metadata/presentation/providers/metadata_providers.dart';
 import '../../people/data/repositories/face_repository.dart';
+import '../../people/data/repositories/face_scan_lock.dart';
 import '../../people/presentation/providers/people_providers.dart';
 import '../../settings/presentation/providers/settings_providers.dart';
 import '../data/models/backup_settings.dart';
@@ -467,47 +468,60 @@ class BackgroundTaskRunner {
   /// Only processes photos not yet in the face_scans table — the incremental
   /// scan naturally skips already-scanned ones. Runs silently in the
   /// background; no notifications or foreground service needed.
+  ///
+  /// Acquires [kFaceScanLockName] so background and foreground face scans
+  /// never run simultaneously (which would double ONNX session count and
+  /// cause severe CPU heating).
   Future<bool> _handleFaceScan() async {
-    return _withContainer((container) async {
-      try {
-        final faceDao = container.read(appDatabaseProvider).faceDao;
-        final faceDetectionService = container.read(
-          faceDetectionServiceProvider,
-        );
-        final faceClusteringService = container.read(
-          faceClusteringServiceProvider,
-        );
-        final repository = FaceRepository(
-          faceDao: faceDao,
-          faceDetectionService: faceDetectionService,
-          faceClusteringService: faceClusteringService,
-        );
+    final lock = IsolateRunLock(name: kFaceScanLockName);
+    if (!await lock.tryAcquire()) {
+      debugPrint('[BackgroundBackup] Face scan: another scan is running, skipping');
+      return true;
+    }
+    try {
+      return await _withContainer((container) async {
+        try {
+          final faceDao = container.read(appDatabaseProvider).faceDao;
+          final faceDetectionService = container.read(
+            faceDetectionServiceProvider,
+          );
+          final faceClusteringService = container.read(
+            faceClusteringServiceProvider,
+          );
+          final repository = FaceRepository(
+            faceDao: faceDao,
+            faceDetectionService: faceDetectionService,
+            faceClusteringService: faceClusteringService,
+          );
 
-        // Wait for face detection models to initialize.
-        await faceDetectionService.ensureInitialized();
+          // Wait for face detection models to initialize.
+          await faceDetectionService.ensureInitialized();
 
-        final scannerService = container.read(mediaScannerServiceProvider);
-        final assets = await scannerService.listAllAssets();
-        if (assets.isEmpty) return true;
+          final scannerService = container.read(mediaScannerServiceProvider);
+          final assets = await scannerService.listAllAssets();
+          if (assets.isEmpty) return true;
 
-        final scannedIds = await faceDao.scannedMediaItemIds();
-        final toScan = assets.where((a) => !scannedIds.contains(a.id)).toList();
-        if (toScan.isEmpty) {
-          debugPrint('[BackgroundBackup] Face scan: nothing new to scan');
+          final scannedIds = await faceDao.scannedMediaItemIds();
+          final toScan = assets.where((a) => !scannedIds.contains(a.id)).toList();
+          if (toScan.isEmpty) {
+            debugPrint('[BackgroundBackup] Face scan: nothing new to scan');
+            return true;
+          }
+
+          debugPrint('[BackgroundBackup] Face scan: ${toScan.length} new photos');
+          await repository.scanMediaItems(toScan);
+          await repository.clusterFaces();
+          debugPrint('[BackgroundBackup] Face scan complete');
           return true;
+        } catch (e, stackTrace) {
+          debugPrint('[BackgroundBackup] Face scan failed: $e');
+          debugPrint('$stackTrace');
+          return true; // Don't retry — face scan is best-effort.
         }
-
-        debugPrint('[BackgroundBackup] Face scan: ${toScan.length} new photos');
-        await repository.scanMediaItems(toScan);
-        await repository.clusterFaces();
-        debugPrint('[BackgroundBackup] Face scan complete');
-        return true;
-      } catch (e, stackTrace) {
-        debugPrint('[BackgroundBackup] Face scan failed: $e');
-        debugPrint('$stackTrace');
-        return true; // Don't retry — face scan is best-effort.
-      }
-    });
+      });
+    } finally {
+      await lock.release();
+    }
   }
 
   /// Classify new device photos with AI labels in the background.

@@ -672,9 +672,14 @@ class FaceDetectionService {
       // fall back to the default 500M model so capable-but-unbundled
       // devices keep working and self-upgrade once the asset lands.
       _ort = OnnxRuntime();
+      final threadOptions = OrtSessionOptions(
+        intraOpNumThreads: 2,
+        interOpNumThreads: 2,
+      );
       try {
         _detectorSession = await _ort.createSessionFromAsset(
           config.detectorAsset,
+          options: threadOptions,
         );
       } catch (e) {
         debugPrint(
@@ -683,10 +688,12 @@ class FaceDetectionService {
         );
         _detectorSession = await _ort.createSessionFromAsset(
           FaceDetectionConfig.defaultDetectorAsset,
+          options: threadOptions,
         );
       }
       _embedderSession = await _ort.createSessionFromAsset(
         'assets/models/w600k_mbf.onnx',
+        options: threadOptions,
       );
 
       // Spawn persistent worker isolate

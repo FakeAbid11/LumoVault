@@ -70,6 +70,10 @@ class ClipEmbeddingService implements AiTextEmbedder {
       _ort = OnnxRuntime();
       _session = await _ort.createSessionFromAsset(
         'assets/models/mobileclip_s1.onnx',
+        options: OrtSessionOptions(
+          intraOpNumThreads: 2,
+          interOpNumThreads: 2,
+        ),
       );
       _initialized = true;
       _initError = null;
@@ -220,7 +224,13 @@ class ClipEmbeddingService implements AiTextEmbedder {
   Future<void> _initTextNow() async {
     try {
       _textOrt = OnnxRuntime();
-      _textSession = await _textOrt.createSessionFromAsset(_textModelAsset);
+      _textSession = await _textOrt.createSessionFromAsset(
+        _textModelAsset,
+        options: OrtSessionOptions(
+          intraOpNumThreads: 2,
+          interOpNumThreads: 2,
+        ),
+      );
       try {
         _tokenizer = await ClipTokenizer.fromAssets();
       } catch (e) {

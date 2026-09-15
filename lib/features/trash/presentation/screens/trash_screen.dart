@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/di/album_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../shared/widgets/empty_state.dart';
 import '../../../gallery/data/models/media_item.dart';
@@ -176,6 +177,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     setState(_selected.clear);
     await repository.deletePermanentlyBatch(ids);
     ref.invalidate(trashedItemsProvider);
+    ref.invalidate(duplicateGroupsProvider);
+    ref.invalidate(albumCountsProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${ids.length} permanently deleted')),
@@ -188,6 +191,8 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
       items.map((i) => i.localId).toList(),
     );
     ref.invalidate(trashedItemsProvider);
+    ref.invalidate(duplicateGroupsProvider);
+    ref.invalidate(albumCountsProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

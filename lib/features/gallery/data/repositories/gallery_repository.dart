@@ -1184,20 +1184,27 @@ class GalleryRepository {
 
   /// Groups of items sharing the same file content (SHA-256 hash).
   ///
-  /// Returns only groups with 2+ items, sorted by group size descending.
-  /// Empty hashes and trashed items are excluded.
-  Map<String, List<MediaItem>> getDuplicateGroups() {
+  /// Returns only groups with 2+ items, sorted by group size descending
+  /// (ties broken by hash for a stable order). Empty hashes and
+  /// hidden/trashed items are excluded.
+  ///
+  /// Returns a flat [List] on purpose: a SplayTreeMap sorted by a
+  /// group-size *comparator* treats equal-size keys as the same key, so
+  /// every 2-member group (i.e. nearly all of them) used to overwrite the
+  /// others and vanish from the screen.
+  List<List<MediaItem>> getDuplicateGroups() {
     final groups = <String, List<MediaItem>>{};
     for (final item in _mediaItems) {
-      if (item.fileHash.isEmpty || item.isTrashed) continue;
+      if (item.fileHash.isEmpty || item.isTrashed || item.isHidden) continue;
       groups.putIfAbsent(item.fileHash, () => []).add(item);
     }
-    groups.removeWhere((_, items) => items.length < 2);
-    final sorted = SplayTreeMap<String, List<MediaItem>>(
-      (a, b) => groups[b]!.length.compareTo(groups[a]!.length),
-    );
-    sorted.addAll(groups);
-    return sorted;
+    final result = groups.values.where((items) => items.length >= 2).toList();
+    result.sort((a, b) {
+      final bySize = b.length.compareTo(a.length);
+      if (bySize != 0) return bySize;
+      return a.first.fileHash.compareTo(b.first.fileHash);
+    });
+    return result;
   }
 
   /// Merge Telegram-backed-up items into the in-memory read model.

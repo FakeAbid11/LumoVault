@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import '../../../../core/di/album_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../gallery/data/models/media_item.dart';
@@ -25,15 +26,14 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
   Widget build(BuildContext context) {
     final groups = ref.watch(duplicateGroupsProvider);
     final totalGroups = groups.length;
-    final totalDuplicates = groups.values.fold<int>(
+    final totalDuplicates = groups.fold<int>(
       0,
       (sum, items) => sum + items.length - 1,
     );
-    final reclaimableBytes = groups.values.fold<int>(0, (sum, items) {
-      if (items.length < 2) return sum;
-      final sizePerItem = items.first.fileSize;
-      return sum + sizePerItem * (items.length - 1);
-    });
+    final reclaimableBytes = groups.fold<int>(
+      0,
+      (sum, items) => sum + items.first.fileSize * (items.length - 1),
+    );
 
     return PopScope(
       canPop: !_isMultiSelect,
@@ -88,10 +88,9 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
                       padding: const EdgeInsets.only(bottom: 32),
                       itemCount: groups.length,
                       itemBuilder: (context, index) {
-                        final hash = groups.keys.elementAt(index);
-                        final items = groups[hash]!;
+                        final items = groups[index];
                         return _DuplicateGroup(
-                          hash: hash,
+                          hash: items.first.fileHash,
                           items: items,
                           selected: _selected,
                           onToggle: (localId) {
@@ -147,6 +146,10 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
     setState(_selected.clear);
     await repository.deletePermanentlyBatch(ids);
     ref.invalidate(duplicateGroupsProvider);
+    // Permanent delete detaches album rows on the spot, but the DB-backed
+    // album counts only re-read on a scan — without this the Albums tab
+    // keeps showing deleted photos as members.
+    ref.invalidate(albumCountsProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${ids.length} permanently deleted')),
@@ -159,6 +162,7 @@ class _DuplicatesScreenState extends ConsumerState<DuplicatesScreen> {
       items.map((i) => i.localId).toList(),
     );
     ref.invalidate(duplicateGroupsProvider);
+    ref.invalidate(albumCountsProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${items.length} permanently deleted')),

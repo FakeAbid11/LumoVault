@@ -330,7 +330,6 @@ RestoreRepository _buildRepo(
     client: client,
     storageChannelService: StorageChannelService(client: client),
     downloadService: download,
-    storageBasePath: '/tmp/restore',
   );
 }
 

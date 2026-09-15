@@ -180,7 +180,7 @@ class RestoreEngine {
 
       for (final message in messages) {
         if (_isCancelled) {
-          _fail(RestoreError.cancelled());
+          _cancel();
           return false;
         }
         while (_isPaused) {
@@ -314,7 +314,20 @@ class RestoreEngine {
   /// Cancel the restore process.
   void cancelRestore() {
     _isCancelled = true;
-    _fail(RestoreError.cancelled());
+    _cancel();
+  }
+
+  /// Report the user-initiated cancellation.
+  ///
+  /// This used to route through [_fail], so a cancel showed as "Restore
+  /// failed" and [RestorePhase.cancelled] was dead code no engine path ever
+  /// set — while a test had grown up asserting the wrong shape.
+  void _cancel() {
+    _progress = _progress.copyWith(
+      phase: RestorePhase.cancelled,
+      error: RestoreError.cancelled(),
+    );
+    _progressController.add(_progress);
   }
 
   /// Rebuild the local database from downloaded metadata.
@@ -490,6 +503,14 @@ class RestoreEngine {
           await ThumbnailCache.instance.put(localId, bytes);
         } catch (e) {
           debugPrint('[RestoreEngine] Thumbnail cache write failed: $e');
+        }
+        // Same cleanup the channel scan does after caching: without it every
+        // restore leaves a full temp copy of the library behind in the cache
+        // dir (the bytes live on in ThumbnailCache under the localId key).
+        try {
+          await File(result.filePath).delete();
+        } catch (_) {
+          // Non-critical: temp file cleanup failure.
         }
       } catch (e) {
         debugPrint('[RestoreEngine] Thumbnail download failed: $e');

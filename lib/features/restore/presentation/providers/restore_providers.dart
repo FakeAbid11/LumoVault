@@ -53,7 +53,6 @@ final restoreEngineProvider = Provider<RestoreEngine>((ref) {
       client: tdLibClient,
       storageChannelService: storageChannelService,
       downloadService: downloadService,
-      storageBasePath: '/data/user/0/com.lumovault.app/files',
     ),
     galleryRepository: galleryRepository,
     metadataRepository: metadataRepository,

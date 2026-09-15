@@ -287,7 +287,13 @@ class RestoreProgressScreen extends ConsumerWidget {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => context.go('/local'),
+          onPressed: () {
+            // Clear the completed state before leaving — the provider is
+            // keep-alive, so a leftover isComplete would otherwise keep
+            // forcing this screen on next visit instead of a fresh restore.
+            ref.read(restoreProgressProvider.notifier).reset();
+            context.go('/local');
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.onPrimary,
             foregroundColor: Theme.of(context).colorScheme.primary,

@@ -27,6 +27,11 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
   @override
   void initState() {
     super.initState();
+    // The progress provider is keep-alive and outlives this route; without
+    // clearing it here, a previously COMPLETED restore would make this entry
+    // screen re-render the stale 100% progress screen forever (and there was
+    // no way to start a second restore).
+    ref.read(restoreProgressProvider.notifier).reset();
     _checkForBackup();
   }
 
@@ -43,9 +48,10 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
         _error = result.error;
       });
 
-      if (result.hasBackup) {
-        _startRestore();
-      }
+      // Detection alone used to call _startRestore() straight away: the
+      // "Would you like to restore it?" copy below had no buttons, and
+      // merely opening the screen began downloading the whole library.
+      // Restore now waits for an explicit Accept below.
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -196,14 +202,30 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
                       ),
                     ),
                   ] else if (_hasBackup) ...[
-                    const LumoLoading(size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Preparing restore...',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
+                    ElevatedButton(
+                      onPressed: _startRestore,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(
                           context,
-                        ).colorScheme.onPrimary.withValues(alpha: 0.8),
+                        ).colorScheme.onPrimary,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                      ),
+                      child: const Text('Restore'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => context.go('/local'),
+                      child: Text(
+                        'No, thanks',
+                        style: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary.withValues(alpha: 0.9),
+                        ),
                       ),
                     ),
                   ],

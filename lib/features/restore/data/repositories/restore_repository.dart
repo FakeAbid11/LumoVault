@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -10,6 +9,7 @@ import '../../../gallery/data/models/caption_metadata.dart';
 import '../../../gallery/data/models/media_item.dart';
 import '../../../gallery/data/repositories/telegram_download_service.dart';
 import '../../../metadata/data/models/manifest.dart';
+import '../../../metadata/data/repositories/telegram_metadata_uploader.dart';
 
 /// Manages downloading manifest, partitions, thumbnails, and originals
 /// from the Telegram storage channel during restore.
@@ -18,13 +18,11 @@ class RestoreRepository {
     required this._client,
     required this._storageChannelService,
     required this._downloadService,
-    required this._storageBasePath,
   });
 
   final TdLibClient _client;
   final StorageChannelService _storageChannelService;
   final DownloadService _downloadService;
-  final String _storageBasePath;
 
   /// Detect if an existing storage channel has backup data.
   ///
@@ -121,6 +119,17 @@ class RestoreRepository {
           final fileId =
               (document?['document'] as Map<String, dynamic>?)?['id'] as int?;
           final fileName = document?['file_name'] as String? ?? 'unknown';
+
+          // Same skip the channel scan applies: the app's own manifest and
+          // partition JSON documents are uploaded caption-less, and without
+          // this the thumbnail phase re-downloaded every one of them in full
+          // and stuffed the JSON bytes into the image ThumbnailCache.
+          if (fileName.startsWith(
+            TelegramMetadataUploader.channelFileNamePrefix,
+          )) {
+            fromMessageId = msgId;
+            continue;
+          }
 
           messages.add(
             ChannelMessage(
@@ -240,30 +249,6 @@ class RestoreRepository {
     } finally {
       await subscription.cancel();
     }
-  }
-
-  /// Save a downloaded file to the restore directory.
-  ///
-  /// Returns the saved file path.
-  Future<String> saveRestoredFile({
-    required String sourcePath,
-    required String fileName,
-    required String subDir,
-  }) async {
-    final dir = Directory(p.join(_storageBasePath, 'restored', subDir));
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
-    final destPath = p.join(dir.path, fileName);
-    final sourceFile = File(sourcePath);
-
-    if (await sourceFile.exists()) {
-      await sourceFile.copy(destPath);
-      return destPath;
-    }
-
-    return sourcePath;
   }
 
   /// Generate a MediaItem from a ChannelMessage's metadata.

@@ -142,9 +142,9 @@ void main() {
       expect(engine.currentProgress.isPaused, isFalse);
     });
 
-    test('cancelRestore sets failed phase with cancelled error', () {
+    test('cancelRestore sets cancelled phase with cancelled error', () {
       engine.cancelRestore();
-      expect(engine.currentProgress.isFailed, isTrue);
+      expect(engine.currentProgress.isCancelled, isTrue);
       expect(
         engine.currentProgress.error?.category,
         RestoreErrorCategory.cancelled,
@@ -171,7 +171,7 @@ void main() {
 
       await subscription.cancel();
       expect(updates, isNotEmpty);
-      expect(updates.last.phase, RestorePhase.failed);
+      expect(updates.last.phase, RestorePhase.cancelled);
     });
 
     test('startRestore returns false when no backup found', () async {
@@ -615,13 +615,6 @@ class MockRestoreRepository implements RestoreRepository {
     }
     return file;
   }
-
-  @override
-  Future<String> saveRestoredFile({
-    required String sourcePath,
-    required String fileName,
-    required String subDir,
-  }) async => sourcePath;
 
   @override
   MediaItem? buildMediaItemFromMessage({

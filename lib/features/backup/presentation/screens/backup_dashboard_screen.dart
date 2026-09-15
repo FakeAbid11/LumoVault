@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/backup_providers.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
 import '../../engine/backup_engine.dart';
 import '../widgets/backup_progress_card.dart';
 import '../widgets/upload_queue_list.dart';
@@ -23,6 +24,10 @@ class BackupDashboardScreen extends ConsumerWidget {
     final engineState = ref.watch(backupEngineProvider);
     final stats = ref.watch(backupStatsProvider);
     final tasks = ref.watch(uploadQueueTasksProvider);
+    final autoBackupEnabled = ref
+        .watch(backupSettingsProvider)
+        .isAutoBackupEnabled;
+    final includedFolders = ref.watch(appSettingsProvider).includedFolders;
 
     return Scaffold(
       appBar: AppBar(
@@ -62,6 +67,37 @@ class BackupDashboardScreen extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // Onboarding let zero folders pass silently, and the
+                  // scheduler then no-ops with no visible reason: say so
+                  // right where the user expects backups to show up.
+                  if (autoBackupEnabled && includedFolders.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Card(
+                        color: Theme.of(context).colorScheme.tertiaryContainer,
+                        child: ListTile(
+                          leading: Icon(
+                            Symbols.warning,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onTertiaryContainer,
+                          ),
+                          title: const Text('Auto-backup has nothing to do'),
+                          subtitle: const Text(
+                            'No folders are selected, so nothing uploads '
+                            'automatically. Pick folders in Backup Settings.',
+                          ),
+                          trailing: Icon(
+                            Symbols.chevron_right,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onTertiaryContainer,
+                          ),
+                          onTap: () =>
+                              context.push('/settings/backup/settings'),
+                        ),
+                      ),
+                    ),
                   BackupProgressCard(
                     stats: stats,
                     engineState: engineState,

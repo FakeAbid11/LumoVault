@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/account_providers.dart';
+import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
+import '../../../../core/utils/format_utils.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 /// Account screen — shows the signed-in Telegram account, or a sign-in
@@ -39,6 +41,8 @@ class _SignedIn extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Keep the storage tile honest as the library changes.
+    ref.watch(galleryDataVersionProvider);
     final initials = account.displayName.isNotEmpty
         ? account.displayName[0].toUpperCase()
         : '?';
@@ -80,15 +84,24 @@ class _SignedIn extends ConsumerWidget {
         const Divider(),
         ListTile(
           title: const Text('Phone Number'),
+          // TDLib's getMe.phone_number already carries the international
+          // prefix; unconditional '+' rendering it as '++91…'.
           subtitle: Text(
             account.phoneNumber.isNotEmpty
-                ? '+${account.phoneNumber}'
+                ? account.phoneNumber.startsWith('+')
+                      ? account.phoneNumber
+                      : '+${account.phoneNumber}'
                 : 'Unknown',
           ),
         ),
         ListTile(
           title: const Text('Storage'),
-          subtitle: const Text('0 B used'),
+          // Real device-library size — the tile used to hardcode '0 B used'
+          // while a stats screen one tap away computed the truth.
+          subtitle: Text(
+            '${formatBytes(ref.watch(galleryRepositoryProvider).totalSize)} '
+            'on this device',
+          ),
           trailing: const Icon(Symbols.chevron_right),
           onTap: () => context.push('/settings/backup/stats'),
         ),

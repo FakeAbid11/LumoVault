@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/database_constants.dart';
 import '../../../metadata/data/repositories/metadata_repository.dart'
     show MetadataSyncStatus;
 import '../../../metadata/presentation/providers/metadata_providers.dart';
@@ -31,7 +32,11 @@ class DeveloperSettingsScreen extends ConsumerWidget {
           _infoTile(context, 'App Version', appVersion),
           _infoTile(context, 'Dart SDK', Platform.version.split(' ').first),
           _infoTile(context, 'Database Engine', 'Drift (SQLite)'),
-          _infoTile(context, 'Schema Version', 'v4'),
+          _infoTile(
+            context,
+            'Schema Version',
+            'v${DatabaseConstants.schemaVersion}',
+          ),
           _infoTile(context, 'Platform', Platform.operatingSystem),
 
           const Divider(),
@@ -92,7 +97,7 @@ class DeveloperSettingsScreen extends ConsumerWidget {
           children: [
             Text('Engine: Drift (SQLite)'),
             SizedBox(height: 8),
-            Text('Schema version: v4'),
+            Text('Schema version: v${DatabaseConstants.schemaVersion}'),
             SizedBox(height: 8),
             Text('Status: Active'),
           ],

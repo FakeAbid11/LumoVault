@@ -171,7 +171,9 @@ class AppShell extends StatelessWidget {
             selectedIndex: _currentIndex,
             onDestinationSelected: (index) {
               _onTap(index);
-              Navigator.of(context).pop();
+              // No Navigator.pop(): on wide layouts the drawer is an inline
+              // part of the Row, not a route — popping tore down the current
+              // GoRouter page instead of dismissing a drawer.
             },
             children: [
               Padding(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/di/album_providers.dart';
@@ -145,6 +146,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                     });
                     return;
                   }
+                  _openPreview(item);
                 },
                 onLongPress: () {
                   setState(() => _selected.add(item.localId));
@@ -157,12 +159,51 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
   }
 
+  /// Full-screen preview before permanent delete. Outside multi-select the
+  /// tap used to be a no-op — users had to delete forever without ever
+  /// seeing the photo clearly at tile size.
+  void _openPreview(MediaItem item) {
+    if (item.isTelegram) {
+      context.push(
+        '/gallery/telegram-media/${item.localId}',
+        extra: (items: [item], initialIndex: 0),
+      );
+      return;
+    }
+    AssetEntity.fromId(item.localId)
+        .then((asset) {
+          if (!mounted || asset == null) return;
+          context.push(
+            '/gallery/media/${asset.id}',
+            extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: false),
+          );
+        })
+        .catchError((Object e) {
+          debugPrint('[TrashScreen] Preview failed for ${item.localId}: $e');
+        });
+  }
+
   Future<void> _restoreSelected() async {
     final repository = ref.read(galleryRepositoryProvider);
     final ids = List<String>.from(_selected);
     setState(_selected.clear);
     for (final id in ids) {
       await repository.restoreFromTrash(id);
+    }
+    // Bring the files out of Android's SYSTEM trash too: trashing used
+    // moveToTrash(), and without this a 'restored' photo was still pending
+    // the OS's 30-day purge while the app showed it as active. One batched
+    // call = one system prompt. Best-effort — pre-API-30 devices and a
+    // declined prompt still keep the app-side restore valid.
+    try {
+      final assets = (await Future.wait(
+        ids.map(AssetEntity.fromId),
+      )).nonNulls.toList();
+      if (assets.isNotEmpty) {
+        await PhotoManager.editor.android.restoreFromTrash(assets);
+      }
+    } catch (e) {
+      debugPrint('[TrashScreen] System-trash restore failed: $e');
     }
     ref.invalidate(trashedItemsProvider);
     if (!mounted) return;

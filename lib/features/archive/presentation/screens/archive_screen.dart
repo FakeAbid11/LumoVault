@@ -64,16 +64,31 @@ class ArchiveScreen extends ConsumerWidget {
     final byId = {for (final a in allAssets) a.id: a};
     final resolved = <MediaItem>[];
     final assets = <AssetEntity>[];
+    var unavailable = 0;
     for (final item in items) {
       final asset = byId[item.localId];
-      if (asset == null) continue;
+      // Counted, not silently dropped — the same condition already counts
+      // and surfaces a banner on Favorites; an archive of deleted photos
+      // used to look like an empty archive.
+      if (asset == null) {
+        unavailable++;
+        continue;
+      }
       resolved.add(item);
       assets.add(asset);
     }
 
-    if (resolved.isEmpty) return _buildEmptyState(context);
+    if (resolved.isEmpty) {
+      return EmptyState(
+        icon: Symbols.archive,
+        title: 'Nothing left on this device',
+        message:
+            '$unavailable archived ${unavailable == 1 ? 'photo is' : 'photos are'} '
+            'no longer on this device.',
+      );
+    }
 
-    return GridView.builder(
+    final grid = GridView.builder(
       padding: const EdgeInsets.all(2),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: galleryCrossAxisCount(
@@ -96,6 +111,26 @@ class ArchiveScreen extends ConsumerWidget {
           onLongPress: () => _unarchive(context, ref, item.localId),
         );
       },
+    );
+
+    if (unavailable == 0) return grid;
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            '$unavailable archived '
+            '${unavailable == 1 ? 'photo is' : 'photos are'} not on this '
+            'device.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(child: grid),
+      ],
     );
   }
 

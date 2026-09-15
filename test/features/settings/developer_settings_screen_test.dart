@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:lumovault/core/constants/database_constants.dart';
 import 'package:lumovault/features/metadata/data/repositories/conflict_resolver.dart';
 import 'package:lumovault/features/metadata/data/repositories/manifest_service.dart';
 import 'package:lumovault/features/metadata/data/repositories/metadata_repository.dart'
@@ -146,7 +147,7 @@ void main() {
     expect(find.text('Database Engine'), findsOneWidget);
     expect(find.text('Drift (SQLite)'), findsOneWidget);
     expect(find.text('Schema Version'), findsOneWidget);
-    expect(find.text('v4'), findsOneWidget);
+    expect(find.text('v${DatabaseConstants.schemaVersion}'), findsOneWidget);
   });
 
   testWidgets('debug mode toggle is persisted through settings', (
@@ -202,6 +203,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Drift'), findsWidgets);
-    expect(find.text('Schema version: v4'), findsOneWidget);
+    expect(
+      find.text('Schema version: v${DatabaseConstants.schemaVersion}'),
+      findsOneWidget,
+    );
   });
 }

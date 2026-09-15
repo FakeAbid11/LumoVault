@@ -20,7 +20,13 @@ class GeneralSettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Symbols.language),
             title: const Text('App Language'),
-            subtitle: Text(_languageName(settings.languageCode)),
+            // The choice is persisted, but no translations are wired up yet
+            // (no localization delegates in app.dart) — saying so is more
+            // honest than presenting a dead control as working.
+            subtitle: Text(
+              '${_languageName(settings.languageCode)} — translations '
+              'coming soon',
+            ),
             trailing: const Icon(Symbols.chevron_right),
             onTap: () => _showLanguagePicker(context, ref, settings),
           ),

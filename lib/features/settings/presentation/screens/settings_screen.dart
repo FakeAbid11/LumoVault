@@ -132,7 +132,10 @@ class SettingsScreen extends ConsumerWidget {
                 title: const Text('Albums'),
                 subtitle: const Text('Custom photo albums'),
                 trailing: const Icon(Symbols.chevron_right),
-                onTap: () => context.push('/albums'),
+                // go(), not push(): '/albums' is a shell-tab route, and
+                // pushing it from outside the shell mounted a SECOND
+                // AppShell (with its own bottom nav) on top of Settings.
+                onTap: () => context.go('/albums'),
               ),
               ListTile(
                 leading: const Icon(Symbols.delete),

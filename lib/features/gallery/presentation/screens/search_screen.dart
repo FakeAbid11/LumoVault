@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,10 +33,17 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   String _query = '';
+
+  /// Debounced copy of [_query] driving the CLIP semantic search. The
+  /// provider is a `family` keyed on the query string, so watching it with
+  /// the raw `_query` spawned a fresh text-tower embed run per keystroke.
+  String _semanticQuery = '';
+  Timer? _semanticDebounce;
   _SearchFilter _activeFilter = _SearchFilter.all;
 
   @override
   void dispose() {
+    _semanticDebounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -81,7 +90,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: TextField(
                     controller: _controller,
                     autofocus: true,
-                    onChanged: (value) => setState(() => _query = value.trim()),
+                    onChanged: (value) {
+                      setState(() => _query = value.trim());
+                      _semanticDebounce?.cancel();
+                      _semanticDebounce = Timer(
+                        const Duration(milliseconds: 300),
+                        () {
+                          if (mounted) {
+                            setState(() => _semanticQuery = _query);
+                          }
+                        },
+                      );
+                    },
                     decoration: InputDecoration(
                       hintText: semanticMode
                           ? 'Try "desi cat", "sunset beach", "birthday cake"…'
@@ -93,7 +113,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               icon: const Icon(Symbols.close),
                               onPressed: () {
                                 _controller.clear();
-                                setState(() => _query = '');
+                                _semanticDebounce?.cancel();
+                                setState(() {
+                                  _query = '';
+                                  _semanticQuery = '';
+                                });
                               },
                             ),
                       border: OutlineInputBorder(
@@ -179,9 +203,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     // Semantic mode ranks by CLIP text-embedding similarity instead of
-    // keyword matching.
+    // keyword matching. Driven by the debounced [_semanticQuery] so a burst
+    // of keystrokes re-embeds once, not per character; while the debounce is
+    // still pending we keep showing the last run's screen rather than
+    // restarting the embed with a query that will change in a few ms.
     if (ref.watch(semanticModeProvider) && _query.isNotEmpty) {
-      return _buildSemanticResults(_query);
+      if (_semanticQuery.isEmpty) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return _buildSemanticResults(_semanticQuery);
     }
 
     if (_query.isEmpty) {
@@ -332,10 +362,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return deviceAssets.when(
       data: (assets) => semanticAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => ErrorState(
-          error: e.toString(),
-          onRetry: () => ref.invalidate(semanticTextSearchProvider(query)),
-        ),
+        // The provider throws a StateError with a user-facing message when
+        // the text tower isn't ready / isn't in this build — show the
+        // polished empty state, not the raw "Bad state: …" string.
+        error: (e, s) => e is StateError
+            ? _buildSemanticEmptyState()
+            : ErrorState(error: e.toString()),
         data: (items) {
           final byId = {for (final a in assets) a.id: a};
           final resolved = <MediaItem>[];
@@ -452,10 +484,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     List<AssetEntity> allAssets, {
     List<AssetEntity> extraAssets = const [],
   }) {
-    if (items.isEmpty && extraAssets.isEmpty) {
-      return _buildHint();
-    }
-
+    // NOTE: no early `_buildHint()` return here. This grid only renders for
+    // a non-empty query (the dispatch in [_buildResults] handles the empty
+    // case), so a zero-match must fall through to the "No results" block
+    // below — the old `items.isEmpty` guard made that block unreachable and
+    // showed search hints instead of "no matches".
     final byId = {for (final a in allAssets) a.id: a};
     final resolved = <MediaItem>[];
     final assets = <AssetEntity>[];

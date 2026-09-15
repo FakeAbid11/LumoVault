@@ -40,10 +40,221 @@ class ImageClassifierService implements AiLabeler {
   static const int _inputSize = 224;
 
   /// Minimum confidence to include a label.
-  static const double _threshold = 0.10;
+  ///
+  /// 0.10 made `_maxLabels` dead in practice — only the argmax of a
+  /// confident prediction clears an absolute 0.10, so every photo got exactly
+  /// one tag. 0.08 lets sibling classes (e.g. the five cat classes) co-tag.
+  static const double _threshold = 0.08;
 
   /// Maximum labels to return per image.
-  static const int _maxLabels = 5;
+  static const int _maxLabels = 4;
+
+  /// Generic search categories expanded from specific class names.
+  ///
+  /// Search matches keywords as substrings of the stored labels, so an
+  /// expansion is only needed when the category word is NOT a substring of
+  /// the class name already — a 'tabby' photo must answer to 'cat' (no
+  /// substring relation), while searching 'shark' already matches
+  /// 'great white shark' without help. Matched with word boundaries against
+  /// the lowercased class name, so 'catamaran'/'caterpillar' never match
+  /// 'cat' while 'Egyptian cat' matches 'cat'.
+  static const Map<String, List<String>> _hypernyms = {
+    'cat': [
+      'cat',
+      'tabby',
+      'lynx',
+      'cougar',
+      'panther',
+      'jaguar',
+      'leopard',
+      'cheetah',
+      'siamese',
+      'persian',
+    ],
+    'dog': [
+      'dog',
+      'retriever',
+      'spaniel',
+      'terrier',
+      'hound',
+      'shepherd',
+      'poodle',
+      'bulldog',
+      'schnauzer',
+      'corgi',
+      'husky',
+      'malamute',
+      'dalmatian',
+      'boxer',
+      'beagle',
+      'collie',
+      'pointer',
+      'chow',
+      'pekingese',
+      'pekinese',
+      'pinscher',
+      'schipperke',
+      'malinois',
+      'borzoi',
+      'whippet',
+      'vizsla',
+      'weimaraner',
+      'basenji',
+      'basset',
+      'komondor',
+      'keeshond',
+      'pug',
+    ],
+    'bird': [
+      'bird',
+      'finch',
+      'sparrow',
+      'robin',
+      'eagle',
+      'owl',
+      'parrot',
+      'cockatoo',
+      'macaw',
+      'gull',
+      'loon',
+      'swan',
+      'goose',
+      'duck',
+      'chicken',
+      'cock',
+      'hen',
+      'turkey',
+      'peacock',
+      'hummingbird',
+      'woodpecker',
+      'kingfisher',
+      'jay',
+      'magpie',
+      'crow',
+      'raven',
+      'falcon',
+      'hawk',
+      'ostrich',
+      'penguin',
+      'flamingo',
+      'heron',
+      'stork',
+      'quail',
+      'partridge',
+      'pheasant',
+      'kiwi',
+    ],
+    'fish': [
+      'fish',
+      'shark',
+      'ray',
+      'stingray',
+      'skate',
+      'trout',
+      'salmon',
+      'carp',
+      'perch',
+      'bass',
+      'eel',
+      'herring',
+      'barracouta',
+      'gar',
+      'coho',
+    ],
+    'car': [
+      'car',
+      'convertible',
+      'jeep',
+      'sedan',
+      'limousine',
+      'taxi',
+      'minivan',
+      'racer',
+    ],
+    'truck': ['truck', 'pickup', 'tractor', 'trailer'],
+    'bus': ['bus', 'minibus', 'trolleybus'],
+    'train': ['train', 'locomotive', 'streetcar', 'tram'],
+    'boat': [
+      'boat',
+      'canoe',
+      'kayak',
+      'catamaran',
+      'gondola',
+      'ferry',
+      'speedboat',
+      'house boat',
+    ],
+    'plane': ['plane', 'airliner', 'jet'],
+    'horse': ['horse', 'pony', 'mustang', 'stallion', 'clydesdale'],
+    'cow': ['cow', 'cattle', 'bull', 'ox', 'heifer', 'steer'],
+    'sheep': ['sheep', 'lamb', 'ewe', 'ram'],
+    'goat': ['goat', 'ibex', 'kid'],
+    'pig': ['pig', 'hog', 'boar', 'swine', 'piglet'],
+    'deer': ['deer', 'elk', 'moose', 'antelope', 'gazelle', 'caribou'],
+    'monkey': [
+      'monkey',
+      'chimpanzee',
+      'gorilla',
+      'orangutan',
+      'ape',
+      'baboon',
+      'macaque',
+      'lemur',
+      'marmoset',
+    ],
+    'bear': ['bear', 'panda'],
+    'snake': ['snake', 'cobra', 'viper', 'python', 'boa', 'mamba', 'asp'],
+    'rabbit': ['rabbit', 'hare', 'bunny'],
+    'fruit': [
+      'banana',
+      'apple',
+      'orange',
+      'lemon',
+      'lime',
+      'peach',
+      'pear',
+      'plum',
+      'cherry',
+      'strawberry',
+      'pineapple',
+      'grape',
+      'watermelon',
+      'cantaloupe',
+      'mango',
+      'kiwi',
+      'apricot',
+      'pomegranate',
+    ],
+    'vegetable': [
+      'broccoli',
+      'carrot',
+      'cucumber',
+      'eggplant',
+      'mushroom',
+      'onion',
+      'garlic',
+      'tomato',
+      'potato',
+      'zucchini',
+      'spaghetti squash',
+      'artichoke',
+      'bell pepper',
+    ],
+    'flower': [
+      'rose',
+      'tulip',
+      'daisy',
+      'dandelion',
+      'orchid',
+      'daffodil',
+      'lily',
+      'lilac',
+      'hibiscus',
+      'petunia',
+      'peony',
+      'poppy',
+    ],
+  };
 
   @override
   bool get isReady => _initialized;
@@ -98,7 +309,7 @@ class ImageClassifierService implements AiLabeler {
       );
 
       // Build input tensor: Float32List of shape [1, 3, 224, 224].
-      // EfficientNet-Lite0 expects pixels normalized to [0, 1].
+      // MobileOne-S2 expects [0,1] pixels normalized by ImageNet mean/std.
       final inputTensor = _preprocess(resized);
 
       ortValue = await OrtValue.fromList(inputTensor, [
@@ -119,7 +330,7 @@ class ImageClassifierService implements AiLabeler {
       final logitsFlat = await output.asFlattenedList();
       final floats = logitsFlat.map((e) => (e as num).toDouble()).toList();
 
-      return _decodeTopLabels(floats);
+      return decodeTopLabels(floats);
     } catch (e) {
       debugPrint('[ImageClassifier] classify failed: $e');
       return const [];
@@ -160,32 +371,60 @@ class ImageClassifierService implements AiLabeler {
     return buffer;
   }
 
-  /// Applies softmax and returns the top-N human-readable labels.
-  List<String> _decodeTopLabels(List<double> logits) {
+  /// Applies softmax and returns the top-N human-readable labels, followed
+  /// by the generic search categories they expand to (see [_hypernyms]).
+  ///
+  /// Static and exposed for tests: the label DECODE path — thresholds,
+  /// the canonical-index mapping and the expansion — is pure math over the
+  /// logits and must be testable without ONNX or a platform.
+  @visibleForTesting
+  static List<String> decodeTopLabels(
+    List<double> logits, {
+    double threshold = _threshold,
+    int maxLabels = _maxLabels,
+  }) {
+    if (logits.isEmpty) return const [];
+
     // Softmax with numerical stability.
     final maxLogit = logits.reduce((a, b) => a > b ? a : b);
     final exps = logits.map((l) => exp(l - maxLogit)).toList();
     final sumExp = exps.reduce((a, b) => a + b);
     final probs = exps.map((e) => e / sumExp).toList();
 
-    // Sort by probability descending.
+    // Collect candidates above the confidence floor.
     final indexed = <(int, double)>[];
     for (var i = 0; i < probs.length; i++) {
-      if (probs[i] >= _threshold) {
+      if (probs[i] >= threshold) {
         indexed.add((i, probs[i]));
       }
     }
     indexed.sort((a, b) => b.$2.compareTo(a.$2));
 
-    // Map to labels.
+    // Map to labels + generic categories.
     final labels = <String>[];
-    for (final entry in indexed.take(_maxLabels)) {
+    for (final entry in indexed.take(maxLabels)) {
       final label = imageNetLabels[entry.$1];
-      if (label != null) {
-        labels.add('ai_${label.toLowerCase().replaceAll(' ', '_')}');
+      if (label == null) continue;
+      labels.add('ai_${label.toLowerCase().replaceAll(' ', '_')}');
+      for (final hypernym in _hypernymsFor(label.toLowerCase())) {
+        final tag = 'ai_$hypernym';
+        if (!labels.contains(tag)) labels.add(tag);
       }
     }
     return labels;
+  }
+
+  /// Generic categories a class name belongs to (word-boundary matched, so
+  /// 'tabby' → 'cat' but 'catamaran' does not).
+  static Iterable<String> _hypernymsFor(String lowerCasedName) {
+    return _hypernyms.entries
+        .where(
+          (rule) => rule.value.any(
+            (word) =>
+                RegExp('\\b${RegExp.escape(word)}\\b').hasMatch(lowerCasedName),
+          ),
+        )
+        .map((rule) => rule.key);
   }
 
   Future<void> dispose() async {

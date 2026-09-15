@@ -10,6 +10,7 @@ import '../../../../core/di/backup_providers.dart';
 import '../../../../core/di/tdlib_providers.dart';
 import '../../../restore/presentation/providers/restore_providers.dart';
 import '../../../settings/presentation/providers/settings_providers.dart';
+import '../../../../shared/utils/snackbars.dart';
 import '../providers/onboarding_provider.dart';
 import '../widgets/country_code.dart';
 import '../widgets/country_code_picker.dart';
@@ -269,7 +270,24 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
     context.go('/local');
   }
 
+  /// Wraps [_completeOnboarding] so a throw inside the post-auth setup can't
+  /// strand the user on the "Setting up…" spinner. The callers use
+  /// `unawaited(_onAuthSuccess())`, so an escaping exception would surface only
+  /// as an unhandled async error with the loading state never cleared.
   Future<void> _onAuthSuccess() async {
+    try {
+      await _completeOnboarding();
+    } catch (e) {
+      debugPrint('[TelegramConnectScreen] post-auth setup failed: $e');
+      if (!mounted) return;
+      // The Telegram session is already authenticated, so drop into the app
+      // (the auto-started backup may still run) instead of freezing here.
+      showLumoSnackBar(context, 'Setup hit a problem: $e');
+      context.go('/local');
+    }
+  }
+
+  Future<void> _completeOnboarding() async {
     ref.read(onboardingProvider.notifier).completeOnboarding();
     ref.read(onboardingCompletedProvider.notifier).state = true;
 
@@ -531,7 +549,6 @@ class _TelegramConnectScreenState extends ConsumerState<TelegramConnectScreen> {
                       TextField(
                         controller: _codeController,
                         keyboardType: TextInputType.number,
-                        maxLength: 5,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 24, letterSpacing: 8),
                         decoration: InputDecoration(

@@ -22,7 +22,10 @@ class AccountScreen extends ConsumerWidget {
         error: (error, stackTrace) =>
             _AccountError(onRetry: () => ref.invalidate(accountInfoProvider)),
         data: (account) => account == null
-            ? _SignedOut(onSignIn: () => context.push('/onboarding/telegram'))
+            // The /onboarding/* routes are redirected to /local once
+            // onboarding is complete — from this screen that made 'Sign In'
+            // do nothing at all. /connect-telegram is the standalone twin.
+            ? _SignedOut(onSignIn: () => context.push('/connect-telegram'))
             : _SignedIn(account: account),
       ),
     );

@@ -61,7 +61,11 @@ class _BackgroundPermissionsScreenState
       case DeviceBrand.realme:
         return _stepsOppo;
       case DeviceBrand.other:
-        return [];
+        // Previously [] — and build() treats an empty list as "still
+        // loading", so any device reaching this screen (e.g. via a direct
+        // route) was stuck on an eternal spinner. Stock Android still has a
+        // battery-optimization exemption worth granting.
+        return _stepsGeneric;
     }
   }
 
@@ -359,6 +363,34 @@ class _InstructionCard extends StatelessWidget {
 }
 
 // ── Brand-specific step definitions ────────────────────────────────
+
+// not const: the battery-exemption step wraps a closure around
+// openBatteryOptimizationSettings (its signature takes no package name).
+final List<_Step> _stepsGeneric = [
+  _Step(
+    icon: Symbols.battery_alert,
+    title: 'Ignore Battery Optimization',
+    description:
+        'Android may suspend LumoVault while it is in the background to '
+        'save power, pausing backups until the app is opened again.',
+    instruction:
+        'Select LumoVault in the list and choose "Ignore battery '
+        'optimization" / "Unrestricted".',
+    onOpenSettings: (_) => BrandSettings.openBatteryOptimizationSettings(),
+  ),
+  const _Step(
+    icon: Symbols.apps,
+    title: 'Keep Background Activity On',
+    description:
+        'If your device adds its own app-sleep or background limits, allow '
+        'LumoVault there too so photos keep backing up while closed.',
+    instruction:
+        'Open your system Settings → Apps → LumoVault and allow '
+        'unrestricted background activity.',
+    onOpenSettings: BrandSettings.openAppSettings,
+    isManual: true,
+  ),
+];
 
 const _stepsXiaomi = [
   _Step(

@@ -221,7 +221,37 @@ class _FolderSelectionScreenState extends ConsumerState<FolderSelectionScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      // Zero folders used to pass with no warning anywhere:
+                      // the user finished onboarding assuming auto-backup was
+                      // on while the scheduler silently rejected every photo.
+                      if (onboarding.selectedFolders.isEmpty) {
+                        final proceed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('No folders selected'),
+                            content: const Text(
+                              'Auto-backup stays off until at least one '
+                              'folder is selected. You can choose folders '
+                              'later in Backup settings — until then only '
+                              'manual backups will upload anything.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('Go back'),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text('Continue anyway'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (proceed != true || !context.mounted) return;
+                      }
                       notifier.nextStep();
                       context.push('/onboarding/telegram');
                     },

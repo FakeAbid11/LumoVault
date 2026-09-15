@@ -538,4 +538,30 @@ void main() {
       expect((await db.faceDao.facesForPerson(a)).length, 9);
     });
   });
+
+  group('clearForRescan', () {
+    test(
+      'removes faces + scan log + unnamed people, keeps named people',
+      () async {
+        final named = await addPerson(name: 'Alice', centroid: reference);
+        final anon = await addPerson(centroid: reference);
+        await addFace(reference, personId: named);
+        await addFace(vec(0.20), personId: anon);
+        await db.faceDao.markMediaItemScanned('keep_me', 1);
+
+        expect(await db.faceDao.faceCount(), 2);
+
+        await db.faceDao.clearForRescan();
+
+        // Faces and the scan bookkeeping are gone, so the re-detection starts
+        // from zero instead of appending a second copy of every face.
+        expect(await db.faceDao.faceCount(), 0);
+        expect(await db.faceDao.scannedMediaItemIds(), isEmpty);
+        // Named people survive as re-merge anchors; the unnamed one is gone.
+        final survivors = await db.faceDao.allPeopleRows();
+        expect(survivors.map((p) => p.name), ['Alice']);
+        expect(survivors.first.centroidEmbedding, reference);
+      },
+    );
+  });
 }

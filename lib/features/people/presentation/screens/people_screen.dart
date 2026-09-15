@@ -160,7 +160,11 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Scanning for faces (${scanProgress.current} / ${scanProgress.total})...',
+                        scanProgress.isPaused
+                            ? 'Face scan paused '
+                                  '(${scanProgress.current} / ${scanProgress.total})'
+                            : 'Scanning for faces '
+                                  '(${scanProgress.current} / ${scanProgress.total})...',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(
                             context,
@@ -168,6 +172,64 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                    ),
+                    // Pause/resume applies from the next batch boundary; an
+                    // in-flight ONNX photo always finishes.
+                    IconButton(
+                      icon: Icon(
+                        scanProgress.isPaused
+                            ? Symbols.play_arrow
+                            : Symbols.pause,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                      tooltip: scanProgress.isPaused ? 'Resume' : 'Pause',
+                      onPressed: () {
+                        final controller = ref.read(faceScanControllerProvider);
+                        if (scanProgress.isPaused) {
+                          controller.resume();
+                        } else {
+                          controller.pause();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        // A failed scan used to be indistinguishable from a completed
+        // faceless one — now the abort is surfaced with a retry that resumes
+        // where it stopped (nothing on the failed path was marked scanned).
+        if (scanProgress.error != null && !scanProgress.isScanning)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Symbols.error,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Face scan failed — no photos were marked as scanned.',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          ref.read(faceScanControllerProvider).start(),
+                      child: const Text('Try Again'),
                     ),
                   ],
                 ),
@@ -184,7 +246,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
               if (people.isEmpty) {
                 return _buildScanningState(scanProgress);
               }
-              return _buildPeopleGrid(context, ref, people, unscannedAsync);
+              return _buildPeopleGrid(
+                context,
+                ref,
+                people,
+                unscannedAsync,
+                scanProgress,
+              );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) =>
@@ -250,11 +318,14 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     WidgetRef ref,
     List<dynamic> people,
     AsyncValue<bool> unscannedAsync,
+    FaceScanProgress scanProgress,
   ) {
     final hasUnscanned = unscannedAsync.valueOrNull ?? false;
     return Column(
       children: [
-        if (hasUnscanned && !ref.read(faceScanControllerProvider).isScanning)
+        // Reactive on the watched progress: a `ref.read` here never rebuilt
+        // the card when a scan started or finished.
+        if (hasUnscanned && !scanProgress.isScanning)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Card(
@@ -362,9 +433,10 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Rescan all photos?'),
         content: const Text(
-          'This will re-scan every photo for faces, including ones previously '
-          'skipped. Useful if faces in screenshots or low-quality images were '
-          'missed. This may take a while.',
+          'Every photo will be re-detected for faces from scratch. People you '
+          'have named are kept and re-matched to the new detections; unnamed '
+          'groups are removed. Useful if faces in screenshots or low-quality '
+          'images were missed. This may take a while.',
         ),
         actions: [
           TextButton(

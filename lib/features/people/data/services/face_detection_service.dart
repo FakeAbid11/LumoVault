@@ -625,6 +625,22 @@ String selectDetectorAsset({required int processorCount}) {
       : FaceDetectionConfig.defaultDetectorAsset;
 }
 
+/// The face detector's ONNX sessions or worker isolate could not be brought
+/// up, so no detection result — not even an empty one — is trustworthy.
+///
+/// Previously an unavailable detector returned `empty()`, which the
+/// repository recorded as "scanned, 0 faces" for EVERY photo: a broken
+/// pipeline silently poisoned the scan log and the People tab then showed
+/// "No people found" with no retry until a manual rescan.
+class FaceDetectorUnavailable implements Exception {
+  const FaceDetectorUnavailable([this.message = 'Face detector unavailable']);
+
+  final String message;
+
+  @override
+  String toString() => 'FaceDetectorUnavailable: $message';
+}
+
 class FaceDetectionService {
   FaceDetectionService({this.config = const FaceDetectionConfig()}) {
     _init();
@@ -816,7 +832,11 @@ class FaceDetectionService {
     Uint8List imageBytes,
   ) async {
     if (!_initialized) await _init();
-    if (!_workerReady) return const FaceDetectionResult.empty();
+    if (!_workerReady) {
+      throw const FaceDetectorUnavailable(
+        'Detector session or worker isolate is not running',
+      );
+    }
     try {
       // Step 1: decode + detector preprocessing, both in the worker isolate.
       final firstResult = await _askWorker(
@@ -899,6 +919,8 @@ class FaceDetectionService {
         imageWidth: firstResult.imgWidth,
         imageHeight: firstResult.imgHeight,
       );
+    } on FaceDetectorUnavailable {
+      rethrow;
     } catch (e) {
       debugPrint('[FaceDetectionService] Detection failed: $e');
       return const FaceDetectionResult.empty();

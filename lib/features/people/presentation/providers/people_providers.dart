@@ -53,14 +53,32 @@ class FaceScanProgress {
     required this.total,
     required this.isScanning,
     this.facesFound = 0,
+    this.isPaused = false,
+    this.error,
   });
 
   final int current;
   final int total;
   final bool isScanning;
   final int facesFound;
+  final bool isPaused;
+
+  /// Set when a scan aborted (e.g. the detector could not be loaded) so the
+  /// People screen can show a retry instead of a silent "No people found".
+  final String? error;
 
   double get progress => total > 0 ? current / total : 0.0;
+
+  FaceScanProgress copyWith({bool? isPaused}) {
+    return FaceScanProgress(
+      current: current,
+      total: total,
+      isScanning: isScanning,
+      facesFound: facesFound,
+      isPaused: isPaused ?? this.isPaused,
+      error: error,
+    );
+  }
 }
 
 final faceScanProgressProvider = StateProvider<FaceScanProgress>((ref) {
@@ -98,7 +116,14 @@ final hasUnscannedPhotosProvider = FutureProvider.autoDispose<bool>((
   ref,
 ) async {
   final repository = ref.watch(faceRepositoryProvider);
-  final assets = await ref.watch(deviceAssetsProvider.future);
+  final gallery = ref.watch(galleryRepositoryProvider);
+  final assets = (await ref.watch(deviceAssetsProvider.future)).where((a) {
+    // Hidden/trashed photos are never scanned — including them here would
+    // show the "new photos to scan" card forever, since they never enter
+    // the scan log.
+    final item = gallery.getItemById(a.id);
+    return item?.isHidden != true && item?.isTrashed != true;
+  }).toList();
   if (assets.isEmpty) return false;
   final scannedIds = await repository.faceDao.scannedMediaItemIds();
   return assets.any((a) => !scannedIds.contains(a.id));
@@ -132,13 +157,28 @@ class FaceScanController {
 
   final Ref _ref;
   bool _isScanning = false;
+  bool _pauseRequested = false;
+  FaceScanProgress _lastProgress = const FaceScanProgress(
+    current: 0,
+    total: 0,
+    isScanning: false,
+  );
 
   bool get isScanning => _isScanning;
+  bool get isPaused => _pauseRequested;
 
   Future<void> start() async {
     if (_isScanning) return;
 
-    final assets = await _ref.read(deviceAssetsProvider.future);
+    // Hidden and trashed photos must never be face-scanned: without this
+    // filter the detector crops of private-vault photos were written to the
+    // cache and their embeddings stored, even though backup correctly
+    // skipped them.
+    final gallery = _ref.read(galleryRepositoryProvider);
+    final assets = (await _ref.read(deviceAssetsProvider.future)).where((a) {
+      final item = gallery.getItemById(a.id);
+      return item?.isHidden != true && item?.isTrashed != true;
+    }).toList();
     if (assets.isEmpty) return;
 
     // Enable auto-scan for future photos.
@@ -147,18 +187,30 @@ class FaceScanController {
         .updateField((s) => s.copyWith(faceScanEnabled: true));
 
     _isScanning = true;
+    _pauseRequested = false;
     _setProgress(
       const FaceScanProgress(current: 0, total: 0, isScanning: true),
     );
 
     final repository = _ref.read(faceRepositoryProvider);
+    String? error;
     try {
       await repository.scanMediaItems(
         assets,
         onProgress: (current, total) {
-          _setProgress(
-            FaceScanProgress(current: current, total: total, isScanning: true),
-          );
+          // Per-photo state writes rebuild the entire People grid thousands
+          // of times over a scan; report on the first photo and at each
+          // batch boundary instead.
+          if (current == 1 || current % FaceRepository.scanBatchSize == 0) {
+            _setProgress(
+              FaceScanProgress(
+                current: current,
+                total: total,
+                isScanning: true,
+                isPaused: _pauseRequested,
+              ),
+            );
+          }
         },
         // Runs every FaceRepository.scanBatchSize (50) photos: cluster what
         // has been found so far and refresh the grid, then scanning resumes.
@@ -167,35 +219,67 @@ class FaceScanController {
           _ref.invalidate(peopleProvider);
           _ref.invalidate(faceCountProvider);
         },
+        pauseGate: _awaitUnpaused,
       );
 
       // Final pass for the trailing photos of the last, partial batch.
       await repository.clusterFaces();
+    } on FaceDetectorUnavailable catch (e) {
+      // A dead detector used to look like "no faces" — surface it instead.
+      debugPrint('[FaceScanController] Detector unavailable: $e');
+      error = e.toString();
     } catch (e) {
       debugPrint('[FaceScanController] Scan failed: $e');
+      error = e.toString();
     } finally {
       _isScanning = false;
+      _pauseRequested = false;
       _setProgress(
-        const FaceScanProgress(current: 0, total: 0, isScanning: false),
+        FaceScanProgress(current: 0, total: 0, isScanning: false, error: error),
       );
       _ref.invalidate(peopleProvider);
       _ref.invalidate(faceCountProvider);
+      _ref.invalidate(hasUnscannedPhotosProvider);
     }
   }
 
-  /// Clear the scan log and re-scan every photo from scratch.
+  /// Holds the scan at a batch boundary while the user has it paused.
+  Future<void> _awaitUnpaused() async {
+    while (_pauseRequested && _isScanning) {
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// Pause at the next batch boundary (a scan batch takes ~10-30 s of ONNX
+  /// inference, so the stop is quick without mid-photo interruption).
+  void pause() {
+    if (!_isScanning || _pauseRequested) return;
+    _pauseRequested = true;
+    _setProgress(_lastProgress.copyWith(isPaused: true));
+  }
+
+  void resume() {
+    if (!_pauseRequested) return;
+    _pauseRequested = false;
+    _setProgress(_lastProgress.copyWith(isPaused: false));
+  }
+
+  /// Wipe all face data and re-scan every photo from scratch.
   ///
   /// Useful for picking up faces that were previously missed (e.g. video call
-  /// screenshots where the detector confidence was borderline).
+  /// screenshots where the detector confidence was borderline). Named people
+  /// are kept as merge anchors; unnamed groups are removed. Clearing only the
+  /// scan log used to duplicate every face row on each full rescan.
   Future<void> rescanAll() async {
     if (_isScanning) return;
 
     final repository = _ref.read(faceRepositoryProvider);
-    await repository.faceDao.clearScanLog();
+    await repository.faceDao.clearForRescan();
     await start();
   }
 
   void _setProgress(FaceScanProgress progress) {
+    _lastProgress = progress;
     _ref.read(faceScanProgressProvider.notifier).state = progress;
   }
 }

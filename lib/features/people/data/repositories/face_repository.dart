@@ -176,6 +176,12 @@ class FaceRepository {
         '(img ${imageWidth}x$imageHeight)',
       );
       return companions.length;
+    } on FaceDetectorUnavailable {
+      // A dead detector is NOT "this photo has no faces". Rethrow WITHOUT
+      // touching the scan log so the whole scan aborts visibly and every
+      // photo stays unscanned for a retry, instead of being marked done
+      // with zero faces.
+      rethrow;
     } catch (e) {
       debugPrint('[FaceRepository] Failed to scan: $e');
       return 0;
@@ -220,6 +226,9 @@ class FaceRepository {
     List<AssetEntity> assets, {
     void Function(int current, int total)? onProgress,
     Future<void> Function()? onBatchComplete,
+
+    /// Awaits at each batch boundary while the user has paused the scan.
+    Future<void> Function()? pauseGate,
   }) async {
     final results = <String, int>{};
     final scannedIds = await faceDao.scannedMediaItemIds();
@@ -233,8 +242,9 @@ class FaceRepository {
       await Future.delayed(const Duration(milliseconds: 50));
       // Every scanBatchSize photos, let the caller cluster + refresh the UI.
       // Awaited so clustering never overlaps itself or the next batch.
-      if (onBatchComplete != null && (i + 1) % scanBatchSize == 0) {
-        await onBatchComplete();
+      if ((i + 1) % scanBatchSize == 0) {
+        await pauseGate?.call();
+        if (onBatchComplete != null) await onBatchComplete();
       }
     }
     return results;

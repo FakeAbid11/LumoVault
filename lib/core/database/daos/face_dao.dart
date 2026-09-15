@@ -258,6 +258,25 @@ class FaceDao extends DatabaseAccessor<AppDatabase> with _$FaceDaoMixin {
   Future<void> clearScanLog() async {
     await delete(faceScans).go();
   }
+
+  /// Wipe all face data for a full re-scan while keeping named people.
+  ///
+  /// [clearScanLog] alone left the `faces` rows in place, so the next pass
+  /// re-detected every face ON TOP of the old rows — each "rescan all"
+  /// duplicated the entire face set and the grid counts.
+  ///
+  /// Named people survive as clustering anchors: their centroid is stored on
+  /// the row itself, so fresh detections can re-merge into the person the
+  /// user named instead of forcing a full relabel. Unnamed people are
+  /// meaningless once their faces are gone, so they go.
+  Future<void> clearForRescan() async {
+    await delete(faces).go();
+    await delete(facePersons).go();
+    await (delete(
+      people,
+    )..where((p) => p.name.isNull() | p.name.equals(''))).go();
+    await delete(faceScans).go();
+  }
 }
 
 /// Mutable accumulator used internally by [FaceDao.allPeople].

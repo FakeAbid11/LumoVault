@@ -28,7 +28,13 @@ abstract final class DatabaseConstants {
   /// v18: cleared face data — capable devices now detect with SCRFD-2.5G
   ///      (500M elsewhere); detections from two different detectors cannot
   ///      be mixed, so People rebuilds from scratch under the tier's model.
-  static const int schemaVersion = 18;
+  /// v19: cleared AI labels and CLIP embeddings — the hand-written label map
+  ///      mapped most classes to the WRONG ImageNet indices (cats became
+  ///      'shed'/'garage'), and CLIP vectors computed from raw 0-255 pixels
+  ///      instead of [0,1] are not comparable to the fixed pipeline. Both
+  ///      are pure derivations of device data, so re-scanning regenerates
+  ///      them correctly.
+  static const int schemaVersion = 19;
 
   /// Maximum database size in bytes (1GB).
   static const int maxDatabaseSizeBytes = 1024 * 1024 * 1024;

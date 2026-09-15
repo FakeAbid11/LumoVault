@@ -74,7 +74,7 @@ void main() {
     final db18 = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db18.close);
 
-    expect(DatabaseConstants.schemaVersion, 18);
+    expect(DatabaseConstants.schemaVersion, greaterThanOrEqualTo(18));
     expect(await db18.faceDao.allPeopleRows(), isEmpty);
     expect(await db18.faceDao.allFaces(), isEmpty);
     expect(await db18.faceDao.scannedMediaItemIds(), isEmpty);

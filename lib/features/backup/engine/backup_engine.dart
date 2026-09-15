@@ -323,6 +323,10 @@ class BackupEngine {
       final newItems = filteredItems.where((item) {
         if (item.status == MediaStatus.uploaded) return false;
         if (item.status == MediaStatus.excluded) return false;
+        // Label-only rows (labelAnyMediaItem inserts minimal records with
+        // an empty path) have no file to upload — enqueuing them produced
+        // permanent fileNotFound failures on the dashboard.
+        if (item.filePath.isEmpty) return false;
         if (_queue.hasTaskForMediaItem(item.localId)) return false;
         if (_queue.isAlreadyBackedUp(item.fileHash)) return false;
         return true;
@@ -439,6 +443,7 @@ class BackupEngine {
   void addToQueue(MediaItem item) {
     if (item.isExcluded || item.isTrashed || item.isHidden) return;
     if (item.status == MediaStatus.uploaded) return;
+    if (item.filePath.isEmpty) return; // label-only row: nothing to upload
     _queue.enqueue(item: item, isUserInitiated: true);
     _updateStats();
   }
@@ -451,6 +456,7 @@ class BackupEngine {
   void enqueueSelectedItem(MediaItem item) {
     if (item.isExcluded || item.isTrashed || item.isHidden) return;
     if (item.status == MediaStatus.uploaded) return;
+    if (item.filePath.isEmpty) return; // label-only row: nothing to upload
     _queue.enqueue(item: item, isUserInitiated: true);
     _updateStats();
   }
@@ -527,6 +533,12 @@ class BackupEngine {
     // Reuse the queue entry if one exists so progress, retries and stats all
     // stay on a single task; otherwise create one. isUserInitiated gives it the
     // priority bonus, which matters for the `queued` path below.
+    if (item.filePath.isEmpty) {
+      return const SingleBackupResult(
+        SingleBackupOutcome.failed,
+        message: 'This record has no local file to back up.',
+      );
+    }
     final task =
         _queue.getTaskForMediaItem(item.localId) ??
         _queue.enqueue(item: item, isUserInitiated: true);

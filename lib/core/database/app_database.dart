@@ -360,6 +360,18 @@ class AppDatabase extends _$AppDatabase {
         await m.database.customStatement('DELETE FROM people');
         await m.database.customStatement('DELETE FROM face_scans');
       }
+      if (from < 19) {
+        // The AI label map was wrong (fabricated class indices — real cats
+        // stored as 'shed'/'garage') and CLIP embeddings were computed from
+        // raw 0-255 pixels instead of [0,1]. Both fields are pure
+        // derivations of on-device media: clearing them lets the hourly
+        // AI-scan and CLIP tasks regenerate correct values — scans skip
+        // already-labeled/embedded items, so nothing would self-heal
+        // otherwise.
+        await m.database.customStatement(
+          "UPDATE media_items SET ai_labels = '[]', clip_embedding = NULL",
+        );
+      }
     },
   );
 }

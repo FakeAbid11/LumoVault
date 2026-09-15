@@ -975,6 +975,16 @@ class GalleryRepository {
           '[GalleryRepository] Failed to persist labels for $localId: $e',
         );
       }
+      // Label writes on ALREADY-hydrated items must emit the metadata
+      // event too (the DB-only branches below do): without it, re-labels
+      // never reach the partition docs, so stale remote copies can
+      // resurrect old labels on the next pull — exactly what happens after
+      // the v19 wipe re-labels the library.
+      _notifyMetadataChange(
+        localId: localId,
+        operation: 'ai_label',
+        item: updated,
+      );
       return;
     }
 

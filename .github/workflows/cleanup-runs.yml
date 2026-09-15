@@ -1,0 +1,83 @@
+name: Cleanup Workflow Runs
+
+# Keeps only the newest N successful runs of a given workflow (default: the
+# 5 most recent successes of "CI") and deletes everything else for it —
+# older successful runs beyond that count, plus any failed/cancelled runs.
+# Runs on a schedule and can also be triggered manually with different
+# inputs from the Actions tab.
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: 'Workflow name to clean up'
+        required: false
+        default: 'CI'
+      keep:
+        description: 'Number of successful runs to keep'
+        required: false
+        default: '5'
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    name: Delete old workflow runs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete runs outside the last N successes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ inputs.workflow || 'CI' }}
+          KEEP: ${{ inputs.keep || '5' }}
+        run: |
+          set -euo pipefail
+
+          echo "Workflow: $WORKFLOW | Keep: $KEEP successful run(s)"
+
+          # The N most recent successful runs, newest first — these survive.
+          mapfile -t KEEP_IDS < <(
+            gh run list \
+              --repo "$REPO" \
+              --workflow "$WORKFLOW" \
+              --status success \
+              --limit "$KEEP" \
+              --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .[].databaseId'
+          )
+          echo "Keeping ${#KEEP_IDS[@]} run(s): ${KEEP_IDS[*]:-none}"
+
+          # Every completed run for the workflow (success, failure,
+          # cancelled, etc.) — in-progress/queued runs are excluded so a
+          # run that's still going never gets touched.
+          mapfile -t ALL_IDS < <(
+            gh run list \
+              --repo "$REPO" \
+              --workflow "$WORKFLOW" \
+              --limit 1000 \
+              --json databaseId,status,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .[] | select(.status == "completed") | .databaseId'
+          )
+          echo "Found ${#ALL_IDS[@]} completed run(s) total."
+
+          deleted=0
+          for id in "${ALL_IDS[@]}"; do
+            keep=false
+            for k in "${KEEP_IDS[@]:-}"; do
+              if [[ "$id" == "$k" ]]; then
+                keep=true
+                break
+              fi
+            done
+            if [[ "$keep" == false ]]; then
+              echo "Deleting run $id"
+              gh run delete --repo "$REPO" "$id" || echo "  could not delete $id, skipping"
+              deleted=$((deleted + 1))
+            fi
+          done
+
+          echo "Deleted $deleted run(s)."

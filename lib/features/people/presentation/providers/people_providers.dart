@@ -1,0 +1,205 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/di/database_providers.dart';
+import '../../../../core/di/gallery_providers.dart';
+import '../../../../core/database/daos/face_dao.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
+import '../../data/models/person.dart';
+import '../../data/repositories/face_repository.dart';
+import '../../data/services/face_detection_service.dart';
+import '../../data/services/face_clustering_service.dart';
+
+final faceDetectionServiceProvider = Provider<FaceDetectionService>((ref) {
+  // Adaptive detector tier: 8+ core SoCs get the higher-recall SCRFD-2.5G
+  // (better coverage of small/profile/occluded faces); everything else keeps
+  // the tiny 500M model with unchanged behavior. Core count is a pure
+  // synchronous signal; RAM isn't exposed by device_info_plus.
+  return FaceDetectionService(
+    config: FaceDetectionConfig(
+      detectorAsset: selectDetectorAsset(
+        processorCount: Platform.numberOfProcessors,
+      ),
+    ),
+  );
+});
+
+final faceClusteringServiceProvider = Provider<FaceClusteringService>((ref) {
+  return FaceClusteringService();
+});
+
+final faceRepositoryProvider = Provider<FaceRepository>((ref) {
+  final faceDao = ref.watch(appDatabaseProvider).faceDao;
+  final detectionService = ref.watch(faceDetectionServiceProvider);
+  final clusteringService = ref.watch(faceClusteringServiceProvider);
+  final repository = FaceRepository(
+    faceDao: faceDao,
+    faceDetectionService: detectionService,
+    faceClusteringService: clusteringService,
+  );
+  // Invalidate the gallery's person names search cache when face assignments
+  // change, so the next search reflects newly named people.
+  repository.onAssignmentsChanged = () {
+    ref.read(galleryRepositoryProvider).invalidatePersonNamesCache();
+  };
+  return repository;
+});
+
+class FaceScanProgress {
+  const FaceScanProgress({
+    required this.current,
+    required this.total,
+    required this.isScanning,
+    this.facesFound = 0,
+  });
+
+  final int current;
+  final int total;
+  final bool isScanning;
+  final int facesFound;
+
+  double get progress => total > 0 ? current / total : 0.0;
+}
+
+final faceScanProgressProvider = StateProvider<FaceScanProgress>((ref) {
+  return const FaceScanProgress(current: 0, total: 0, isScanning: false);
+});
+
+final peopleProvider = FutureProvider.autoDispose<List<PersonWithCount>>((
+  ref,
+) async {
+  final repository = ref.watch(faceRepositoryProvider);
+  return repository.getPeople();
+});
+
+final personProvider = FutureProvider.autoDispose.family<Person?, int>((
+  ref,
+  personId,
+) async {
+  final repository = ref.watch(faceRepositoryProvider);
+  return repository.getPerson(personId);
+});
+
+final personMediaIdsProvider = FutureProvider.autoDispose
+    .family<List<String>, int>((ref, personId) async {
+      final repository = ref.watch(faceRepositoryProvider);
+      return repository.getMediaItemIdsForPerson(personId);
+    });
+
+final faceCountProvider = FutureProvider.autoDispose<int>((ref) async {
+  final repository = ref.watch(faceRepositoryProvider);
+  return repository.getFaceCount();
+});
+
+/// Whether there are device photos that haven't been face-scanned yet.
+final hasUnscannedPhotosProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) async {
+  final repository = ref.watch(faceRepositoryProvider);
+  final assets = await ref.watch(deviceAssetsProvider.future);
+  if (assets.isEmpty) return false;
+  final scannedIds = await repository.faceDao.scannedMediaItemIds();
+  return assets.any((a) => !scannedIds.contains(a.id));
+});
+
+/// Provider to get the thumbnail path for a person's representative face.
+final personThumbnailProvider = FutureProvider.autoDispose.family<String?, int>(
+  (ref, personId) async {
+    final faceDao = ref.watch(appDatabaseProvider).faceDao;
+    final person = await faceDao.personById(personId);
+    if (person?.thumbnailFaceId == null) return null;
+
+    final faces = await faceDao.allFaces(personId: personId);
+    if (faces.isEmpty) return null;
+    final thumbnailFace = faces.firstWhere(
+      (f) => f.id == person?.thumbnailFaceId,
+      orElse: () => faces.first,
+    );
+
+    return thumbnailFace.thumbnailPath;
+  },
+);
+
+/// Drives face scanning and progressive clustering.
+///
+/// Held by a keep-alive [Provider] rather than driven from a widget, so a scan
+/// that outlives the People screen keeps running instead of blowing up on a
+/// disposed `WidgetRef`.
+class FaceScanController {
+  FaceScanController(this._ref);
+
+  final Ref _ref;
+  bool _isScanning = false;
+
+  bool get isScanning => _isScanning;
+
+  Future<void> start() async {
+    if (_isScanning) return;
+
+    final assets = await _ref.read(deviceAssetsProvider.future);
+    if (assets.isEmpty) return;
+
+    // Enable auto-scan for future photos.
+    _ref
+        .read(appSettingsProvider.notifier)
+        .updateField((s) => s.copyWith(faceScanEnabled: true));
+
+    _isScanning = true;
+    _setProgress(
+      const FaceScanProgress(current: 0, total: 0, isScanning: true),
+    );
+
+    final repository = _ref.read(faceRepositoryProvider);
+    try {
+      await repository.scanMediaItems(
+        assets,
+        onProgress: (current, total) {
+          _setProgress(
+            FaceScanProgress(current: current, total: total, isScanning: true),
+          );
+        },
+        // Runs every FaceRepository.scanBatchSize (50) photos: cluster what
+        // has been found so far and refresh the grid, then scanning resumes.
+        onBatchComplete: () async {
+          await repository.clusterFaces();
+          _ref.invalidate(peopleProvider);
+          _ref.invalidate(faceCountProvider);
+        },
+      );
+
+      // Final pass for the trailing photos of the last, partial batch.
+      await repository.clusterFaces();
+    } catch (e) {
+      debugPrint('[FaceScanController] Scan failed: $e');
+    } finally {
+      _isScanning = false;
+      _setProgress(
+        const FaceScanProgress(current: 0, total: 0, isScanning: false),
+      );
+      _ref.invalidate(peopleProvider);
+      _ref.invalidate(faceCountProvider);
+    }
+  }
+
+  /// Clear the scan log and re-scan every photo from scratch.
+  ///
+  /// Useful for picking up faces that were previously missed (e.g. video call
+  /// screenshots where the detector confidence was borderline).
+  Future<void> rescanAll() async {
+    if (_isScanning) return;
+
+    final repository = _ref.read(faceRepositoryProvider);
+    await repository.faceDao.clearScanLog();
+    await start();
+  }
+
+  void _setProgress(FaceScanProgress progress) {
+    _ref.read(faceScanProgressProvider.notifier).state = progress;
+  }
+}
+
+final faceScanControllerProvider = Provider<FaceScanController>((ref) {
+  return FaceScanController(ref);
+});

@@ -41,11 +41,13 @@ class ClipEmbeddingService implements AiTextEmbedder {
   String? _initError;
   Future<void>? _initInFlight;
 
-  /// Input size expected by MobileCLIP2-S0.
+  /// Input size expected by MobileCLIP2-S0 (its native resolution).
   static const int _inputSize = 256;
 
-  /// MobileCLIP2-S0 uses NO normalization (mean=[0,0,0], std=[1,1,1]).
-  /// Pixels are fed as raw [0, 255] values.
+  // MobileCLIP2-S0 expects pixels scaled to [0, 1] (mean=[0,0,0],
+  // std=[1,1,1] still means NO mean/std shift, but the /255 range is
+  // required). Feeding raw 0-255 produced garbage vectors — established by
+  // the canonical model verification that shipped upstream as f249790.
 
   /// Embedding dimension.
   static const int embeddingDimension = 512;
@@ -81,8 +83,8 @@ class ClipEmbeddingService implements AiTextEmbedder {
 
   /// Generates a 512-dim L2-normalized embedding for an image.
   ///
-  /// [asset] is the device asset to embed. A 336×336 thumbnail is decoded
-  /// on-device, CLIP-normalized, and fed through the model.
+  /// [asset] is the device asset to embed. The thumbnail is decoded, resized
+  /// to 256×256, scaled to [0, 1], and fed through the model.
   Future<List<double>?> embedImage(Uint8List imageBytes) async {
     if (!_initialized) return null;
 
@@ -129,8 +131,8 @@ class ClipEmbeddingService implements AiTextEmbedder {
 
   /// Preprocesses a 256×256 image into a Float32List for MobileCLIP2-S0.
   ///
-  /// MobileCLIP2-S0 uses NO normalization — pixels are fed as raw [0, 255]
-  /// values in CHW (channel-first) layout.
+  /// Pixels are scaled to [0, 1] (no mean/std shift — the model's own
+  /// normalization is identity) in CHW (channel-first) layout.
   Float32List _preprocess(img.Image image) {
     final buffer = Float32List(3 * _inputSize * _inputSize);
     var idx = 0;
@@ -141,11 +143,11 @@ class ClipEmbeddingService implements AiTextEmbedder {
           double value;
           switch (c) {
             case 0:
-              value = pixel.r.toDouble();
+              value = pixel.r / 255.0;
             case 1:
-              value = pixel.g.toDouble();
+              value = pixel.g / 255.0;
             case 2:
-              value = pixel.b.toDouble();
+              value = pixel.b / 255.0;
             default:
               value = 0;
           }

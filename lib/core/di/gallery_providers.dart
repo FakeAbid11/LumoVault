@@ -518,7 +518,7 @@ final generateEmbeddingsProvider = FutureProvider.autoDispose<void>((
         final asset = await AssetEntity.fromId(item.localId);
         if (asset == null) continue;
         final thumbBytes = await asset.thumbnailDataWithSize(
-          const ThumbnailSize(336, 336),
+          const ThumbnailSize(256, 256),
         );
         if (thumbBytes == null || thumbBytes.isEmpty) continue;
         final embedding = await clip.embedImage(thumbBytes);
@@ -588,7 +588,7 @@ final similarItemsProvider = FutureProvider.autoDispose
         }
         final asset = await AssetEntity.fromId(localId);
         final thumbBytes = await asset?.thumbnailDataWithSize(
-          const ThumbnailSize(336, 336),
+          const ThumbnailSize(256, 256),
         );
         if (thumbBytes == null || thumbBytes.isEmpty) return const [];
         embedding = await clip.embedImage(thumbBytes);

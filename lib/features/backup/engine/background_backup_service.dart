@@ -623,7 +623,10 @@ class BackgroundTaskRunner {
               final asset = await AssetEntity.fromId(item.localId);
               if (asset == null) continue;
               final thumbBytes = await asset.thumbnailDataWithSize(
-                const ThumbnailSize(336, 336),
+                // MobileCLIP2-S0's native input size — embedding then
+                // resizes internally, so asking for more pixels only burns
+                // decode bandwidth on the scan.
+                const ThumbnailSize(256, 256),
               );
               if (thumbBytes == null || thumbBytes.isEmpty) continue;
               final embedding = await clip.embedImage(thumbBytes);

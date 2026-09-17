@@ -1,0 +1,373 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:photo_manager/photo_manager.dart';
+
+import '../../../../core/storage/thumbnail_cache.dart';
+import '../../../../core/theme/status_color.dart';
+import '../../../../shared/widgets/shimmer_placeholder.dart';
+import '../../data/models/media_item.dart';
+import '../../data/services/thumbnail_load_limiter.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+/// Corner radius of gallery thumbnails — rounded enough to read as cards,
+/// tight enough not to eat density at 4-5 grid columns.
+const double _kTileRadius = 12;
+
+/// Corner radius of the small overlay chips (duration, backup status).
+const double _kBadgeRadius = 8;
+
+class MediaTile extends StatefulWidget {
+  const MediaTile({
+    super.key,
+    required this.mediaItem,
+    this.onTap,
+    this.onLongPress,
+    this.isSelected = false,
+    this.showStatus = false,
+    this.size,
+    this.thumbnailLoader,
+    this.telegramThumbnailFetcher,
+    this.reloadGeneration = 0,
+  });
+  final MediaItem mediaItem;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool isSelected;
+  final bool showStatus;
+  final double? size;
+
+  /// Optional thumbnail source override. Defaults to [defaultThumbnailLoader].
+  /// Injectable so tests can stub thumbnail bytes without photo_manager.
+  final Future<Uint8List?> Function(MediaItem item)? thumbnailLoader;
+
+  /// Optional on-demand thumbnail fetcher for Telegram-only items.
+  ///
+  /// Telegram items have no local file, so the default loader can never
+  /// produce their thumbnail. The timeline passes a fetcher that downloads
+  /// the thumbnail via TDLib and caches it; subsequent renders hit the
+  /// cache. When null, [defaultThumbnailLoader] is used, which returns null
+  /// for Telegram items (placeholder).
+  final Future<Uint8List?> Function(MediaItem item)? telegramThumbnailFetcher;
+
+  /// Version counter that forces the thumbnail to reload even when [mediaItem]
+  /// is unchanged. The timeline bumps this when a channel scan completes, a
+  /// new upload lands, or the thumbnail cache is cleared — tiles that
+  /// previously timed out (placeholder) re-run their loader instead of staying
+  /// blank for the rest of the session.
+  final int reloadGeneration;
+
+  /// Default thumbnail source: consult [ThumbnailCache] first (Telegram items
+  /// get their bytes written there by the channel scan/restore), then fall
+  /// back to generating a thumbnail from the device asset via photo_manager
+  /// for local items — mirroring [AssetTile]. If that fails or stalls, an
+  /// image item's on-disk file is read directly as a last resort. Generated
+  /// bytes are written back to the cache so re-renders and scroll-back hit
+  /// memory/disk instead of repeating the platform lookup.
+  ///
+  /// Static so it can be unit-tested directly (a widget test's FakeAsync zone
+  /// can't drive the real file I/O in the fallback).
+  static Future<Uint8List?> defaultThumbnailLoader(MediaItem item) async {
+    final cached = await ThumbnailCache.instance.get(item.localId);
+    if (cached != null) return cached;
+
+    if (item.isTelegram) return null;
+
+    Uint8List? bytes;
+    try {
+      // Same defensive pattern as the scanners: photo_manager platform calls
+      // can stall indefinitely (e.g. permission revoked, plugin deadlock), so
+      // bound them, run them through the shared load limiter (a whole
+      // viewport firing at once is what stalled them into invisible
+      // shimmer), and fall back instead of blocking the grid on a stuck tile.
+      final asset = await thumbnailLoadLimiter.run(
+        () => AssetEntity.fromId(
+          item.localId,
+        ).timeout(const Duration(seconds: 15)),
+      );
+      if (asset == null) return _readFileFallback(item);
+      bytes = await thumbnailLoadLimiter.run(
+        () => asset
+            .thumbnailDataWithSize(const ThumbnailSize(300, 300))
+            .timeout(const Duration(seconds: 15)),
+      );
+    } catch (e) {
+      // Timeout, photo permission revoked, platform error, etc. — fall
+      // through to the on-disk file rather than giving up.
+      debugPrint('[MediaTile] Thumbnail lookup failed for ${item.localId}: $e');
+    }
+    if (bytes != null) {
+      try {
+        await ThumbnailCache.instance.put(item.localId, bytes);
+      } catch (e) {
+        // Cache write failure is non-fatal — render the bytes anyway.
+        debugPrint('[MediaTile] Cache write failed for ${item.localId}: $e');
+      }
+      return bytes;
+    }
+    return _readFileFallback(item);
+  }
+
+  /// Last-resort source for local image items whose photo_manager lookup
+  /// failed or timed out: read the actual file on disk. photo_manager remains
+  /// the primary source (it keeps working under Android 13+ partial media
+  /// access), so this is only reached when that path is unavailable.
+  static Future<Uint8List?> _readFileFallback(MediaItem item) async {
+    if (item.mediaType != MediaType.image || item.filePath.isEmpty) {
+      return null;
+    }
+    try {
+      final bytes = await File(
+        item.filePath,
+      ).readAsBytes().timeout(const Duration(seconds: 5));
+      if (bytes.isEmpty) return null;
+      try {
+        await ThumbnailCache.instance.put(item.localId, bytes);
+      } catch (e) {
+        // Non-fatal — the tile still renders from [bytes].
+        debugPrint('[MediaTile] Cache write failed for ${item.localId}: $e');
+      }
+      return bytes;
+    } catch (e) {
+      // Unreadable or missing file — the placeholder is the correct fallback.
+      debugPrint('[MediaTile] File fallback failed for ${item.localId}: $e');
+      return null;
+    }
+  }
+
+  @override
+  State<MediaTile> createState() => _MediaTileState();
+}
+
+class _MediaTileState extends State<MediaTile> {
+  late Future<Uint8List?> _thumbnailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbnailFuture = _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant MediaTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload when the item changes or when the caller signals that thumbnail
+    // sources may have changed (scan completed, upload landed, cache cleared).
+    if (oldWidget.mediaItem.localId != widget.mediaItem.localId ||
+        oldWidget.reloadGeneration != widget.reloadGeneration) {
+      _thumbnailFuture = _loadThumbnail();
+    }
+  }
+
+  Future<Uint8List?> _loadThumbnail() {
+    final item = widget.mediaItem;
+    // Telegram items have no local file to derive a thumbnail from — route
+    // them to the on-demand fetcher when one is provided. The fetcher itself
+    // checks the cache first, so repeat renders never re-download.
+    if (item.isTelegram && widget.telegramThumbnailFetcher != null) {
+      return widget.telegramThumbnailFetcher!(item);
+    }
+    final loader = widget.thumbnailLoader ?? MediaTile.defaultThumbnailLoader;
+    return loader(item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.mediaItem;
+    return RepaintBoundary(
+      child: Semantics(
+        container: true,
+        // The tile is an image with overlays a screen reader can't interpret;
+        // give it one label describing what it is. button: true only when
+        // it's actually tappable.
+        button: widget.onTap != null,
+        label:
+            '${item.isVideo ? 'Video' : 'Photo'}'
+            '${item.fileName.isNotEmpty ? ', ${item.fileName}' : ''}',
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_kTileRadius),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_kTileRadius),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildThumbnail(context),
+                  if (item.isVideo)
+                    _buildVideoIndicator(context)
+                  else if (item.mimeType == 'image/gif')
+                    _buildGifIndicator(context),
+                  if (widget.showStatus) _buildStatusIndicator(context),
+                  if (widget.isSelected) ...[
+                    _buildDimOverlay(context),
+                    _buildSelectionOverlay(context),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _thumbnailFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const ShimmerPlaceholder();
+        }
+        final bytes = snapshot.data;
+        if (bytes != null) {
+          return Hero(
+            tag: 'media_${widget.mediaItem.localId}',
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildPlaceholder(context),
+            ),
+          );
+        }
+        return _buildPlaceholder(context);
+      },
+    );
+  }
+
+  Widget _buildPlaceholder(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Icon(
+        widget.mediaItem.isVideo ? Symbols.videocam : Symbols.image,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 32,
+      ),
+    );
+  }
+
+  Widget _buildVideoIndicator(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Symbols.play_arrow, color: Colors.white, size: 14),
+            const SizedBox(width: 2),
+            Text(
+              _formatDuration(widget.mediaItem.durationMs),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Corner badge for animated GIFs — mirrors the video duration badge so a
+  /// static first-frame tile is never mistaken for a plain photo.
+  Widget _buildGifIndicator(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
+        ),
+        child: const Text(
+          'GIF',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator(BuildContext context) {
+    IconData icon;
+
+    switch (widget.mediaItem.status) {
+      case MediaStatus.pending:
+        icon = Symbols.cloud_upload;
+      case MediaStatus.uploading:
+        icon = Symbols.cloud_sync;
+      case MediaStatus.uploaded:
+        icon = Symbols.cloud_done;
+      case MediaStatus.failed:
+        icon = Symbols.cloud_off;
+      case MediaStatus.excluded:
+        icon = Symbols.block;
+    }
+
+    final color = statusColor(context, widget.mediaItem.status);
+
+    return Positioned(
+      top: 4,
+      left: 4,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(_kBadgeRadius),
+        ),
+        child: Icon(icon, color: color, size: 16),
+      ),
+    );
+  }
+
+  Widget _buildDimOverlay(BuildContext context) {
+    return Positioned.fill(child: Container(color: Colors.black38));
+  }
+
+  Widget _buildSelectionOverlay(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      left: 4,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Symbols.check,
+          color: Theme.of(context).colorScheme.primary,
+          size: 16,
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int? durationMs) {
+    if (durationMs == null) return '0:00';
+    final seconds = (durationMs / 1000).floor();
+    final minutes = (seconds / 60).floor();
+    final remainingSeconds = seconds % 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+}

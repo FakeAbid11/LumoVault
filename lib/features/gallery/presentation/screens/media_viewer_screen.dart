@@ -159,6 +159,10 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                           setState(() => _isZoomed = zoomed);
                         }
                       },
+                      onFullscreenChanged: (fullscreen) {
+                        if (!mounted) return;
+                        setState(() => _isVideoFullscreen = fullscreen);
+                      },
                     ),
                   ),
                 ),
@@ -650,10 +654,11 @@ class _BottomAction extends StatelessWidget {
 }
 
 class _AssetPreview extends StatefulWidget {
-  const _AssetPreview({required this.asset, this.onZoomChanged});
+  const _AssetPreview({required this.asset, this.onZoomChanged, this.onFullscreenChanged});
 
   final AssetEntity asset;
   final ValueChanged<bool>? onZoomChanged;
+  final ValueChanged<bool>? onFullscreenChanged;
 
   @override
   State<_AssetPreview> createState() => _AssetPreviewState();
@@ -840,11 +845,8 @@ class _AssetPreviewState extends State<_AssetPreview>
         return InlineVideoPlayer(
           file: file,
           onFullscreenChanged: (isFullscreen) {
-            // Mirror the player's state into the PopScope guard: without this
-            // the flag stays false forever, canPop is always true, and a back
-            // press leaves the app instead of leaving fullscreen.
             if (!mounted) return;
-            setState(() => _isVideoFullscreen = isFullscreen);
+            widget.onFullscreenChanged?.call(isFullscreen);
           },
         );
       },

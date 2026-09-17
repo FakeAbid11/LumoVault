@@ -94,6 +94,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   integration_test:
     sdk: flutter
+  video_player_platform_interface: ^6.3.0
 
   # Drift code generation
   drift_dev: ^2.20.0

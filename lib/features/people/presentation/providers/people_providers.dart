@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/database/daos/face_dao.dart';
 import '../../../../core/di/database_providers.dart';
 import '../../../../core/di/gallery_providers.dart';
 import '../../../../core/storage/isolate_run_lock.dart';

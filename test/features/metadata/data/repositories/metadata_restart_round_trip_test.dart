@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumovault/features/gallery/data/models/media_item.dart';
-import 'package:lumovault/features/metadata/data/models/manifest.dart';
 import 'package:lumovault/features/metadata/data/models/metadata_models.dart';
 import 'package:lumovault/features/metadata/data/repositories/conflict_resolver.dart';
 import 'package:lumovault/features/metadata/data/repositories/manifest_persistence.dart';

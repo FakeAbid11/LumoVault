@@ -80,8 +80,7 @@ class GeocodingService {
   /// Testable constructor: inject an [GeocodingHttpClient] to exercise the
   /// cache and rate limiter without a network.
   @visibleForTesting
-  GeocodingService({required GeocodingHttpClient httpClient})
-    : _httpClient = httpClient;
+  GeocodingService({required this._httpClient});
 
   static final GeocodingService instance = GeocodingService._();
 

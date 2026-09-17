@@ -244,6 +244,10 @@ class _TelegramMediaViewerScreenState
                     setState(() => _isZoomed = zoomed);
                   }
                 },
+                onFullscreenChanged: (fullscreen) {
+                  if (!mounted) return;
+                  setState(() => _isVideoFullscreen = fullscreen);
+                },
               ),
             ),
           ),
@@ -263,10 +267,11 @@ class _TelegramMediaViewerScreenState
 }
 
 class _TelegramPreview extends ConsumerStatefulWidget {
-  const _TelegramPreview({required this.item, this.onZoomChanged});
+  const _TelegramPreview({required this.item, this.onZoomChanged, this.onFullscreenChanged});
 
   final MediaItem item;
   final ValueChanged<bool>? onZoomChanged;
+  final ValueChanged<bool>? onFullscreenChanged;
 
   @override
   ConsumerState<_TelegramPreview> createState() => _TelegramPreviewState();
@@ -542,7 +547,7 @@ class _TelegramPreviewState extends ConsumerState<_TelegramPreview>
               // this the flag stays false forever and a back press leaves the
               // app instead of leaving fullscreen.
               if (!mounted) return;
-              setState(() => _isVideoFullscreen = isFullscreen);
+              widget.onFullscreenChanged?.call(isFullscreen);
             },
           );
         },

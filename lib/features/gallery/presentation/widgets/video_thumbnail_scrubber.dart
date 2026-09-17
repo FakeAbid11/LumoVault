@@ -61,9 +61,8 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
       if (!mounted) return;
       setState(() {});
 
-      // Wait for the off-screen VideoPlayer widget to render the first frame.
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (!mounted) return;
+      // Wait for the first frame to be painted into the texture.
+      if (!await _waitForFrame()) return;
 
       final interval = duration.inMilliseconds ~/ (_thumbnailCount + 1);
 
@@ -72,14 +71,13 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
         final position = Duration(milliseconds: positionMs);
 
         await _thumbController!.seekTo(position);
-        // Allow the platform decoder to render the frame.
-        await Future.delayed(const Duration(milliseconds: 150));
-        if (!mounted) return;
-
-        // Force a repaint so the RepaintBoundary captures the new frame.
-        _thumbKey.currentContext?.findRenderObject()?.markNeedsPaint();
-        await Future.delayed(const Duration(milliseconds: 50));
-        if (!mounted) return;
+        // Poll until the decoder has reached the target position.
+        if (!await _waitForPosition(position)) {
+          _thumbnails.add(null);
+          continue;
+        }
+        // One more frame for the texture to paint the decoded frame.
+        if (!await _waitForFrame()) break;
 
         try {
           final boundary =
@@ -100,11 +98,37 @@ class _VideoThumbnailScrubberState extends State<VideoThumbnailScrubber> {
     } finally {
       _thumbController?.dispose();
       _thumbController = null;
-      // Reset so a later generation pass (e.g. a new file) can run — this used
-      // to stay true forever, making regeneration impossible.
       _generating = false;
       if (mounted) setState(() {});
     }
+  }
+
+  /// Waits for one animation frame to be painted.
+  /// Returns `false` if the widget was disposed during the wait.
+  Future<bool> _waitForFrame() async {
+    if (!mounted) return false;
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
+    await completer.future;
+    return mounted;
+  }
+
+  /// Polls until the controller's position reaches [target] or times out.
+  /// Returns `false` on timeout or disposal.
+  Future<bool> _waitForPosition(Duration target) async {
+    const timeout = Duration(seconds: 2);
+    const pollInterval = Duration(milliseconds: 16);
+    final deadline = DateTime.now().add(timeout);
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (!mounted || _thumbController == null) return false;
+      final current = _thumbController!.value.position;
+      if (current >= target) return true;
+      await Future.delayed(pollInterval);
+    }
+    return false;
   }
 
   String _format(Duration d) {

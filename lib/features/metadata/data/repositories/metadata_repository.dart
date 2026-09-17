@@ -199,10 +199,10 @@ class MetadataRepository {
       final effective = existing == null
           ? updatedItem
           : updatedItem.copyWith(
-              telegramMessageId: updatedItem.telegramMessageId ??
-                  existing.telegramMessageId,
-              telegramFileId: updatedItem.telegramFileId ??
-                  existing.telegramFileId,
+              telegramMessageId:
+                  updatedItem.telegramMessageId ?? existing.telegramMessageId,
+              telegramFileId:
+                  updatedItem.telegramFileId ?? existing.telegramFileId,
               backedUpAt: updatedItem.backedUpAt ?? existing.backedUpAt,
             );
 

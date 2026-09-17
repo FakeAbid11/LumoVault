@@ -309,10 +309,10 @@ class ImageClassifierService implements AiLabeler {
       // Decode + resize + normalize off the main isolate: this chain is the
       // expensive half of classification, and running it inline dropped
       // frames during a full-library scan.
-      final inputTensor = await compute(
-        decodeAndPreprocessForClassification,
-        (thumbBytes, _inputSize),
-      );
+      final inputTensor = await compute(decodeAndPreprocessForClassification, (
+        thumbBytes,
+        _inputSize,
+      ));
       if (inputTensor == null) return const [];
 
       ortValue = await OrtValue.fromList(inputTensor, [

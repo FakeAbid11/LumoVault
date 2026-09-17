@@ -124,7 +124,8 @@ class ClipTokenizer {
       // semantic search then returned zero results for any non-latin query
       // even though the vocab holds byte-encoded ids for every byte.
       final token = match.group(0)!;
-      final byteToken = utf8.encode(token)
+      final byteToken = utf8
+          .encode(token)
           .map((b) => _byteEncoder[b])
           .whereType<String>()
           .join();

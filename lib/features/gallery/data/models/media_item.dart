@@ -198,8 +198,9 @@ class MediaItem {
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       latitude: clearLocation ? null : (latitude ?? this.latitude),
       longitude: clearLocation ? null : (longitude ?? this.longitude),
-      isLocationUserSet:
-          clearLocation ? false : (isLocationUserSet ?? this.isLocationUserSet),
+      isLocationUserSet: clearLocation
+          ? false
+          : (isLocationUserSet ?? this.isLocationUserSet),
       isDateUserSet: isDateUserSet ?? this.isDateUserSet,
       locationName: clearLocation ? null : (locationName ?? this.locationName),
       clipEmbedding: clipEmbedding ?? this.clipEmbedding,

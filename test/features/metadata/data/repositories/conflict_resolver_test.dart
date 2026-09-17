@@ -83,12 +83,18 @@ void main() {
       final fromA = resolver.resolve(local: local, remote: remote)!;
       final fromB = resolver.resolve(local: remote, remote: local)!;
 
-      expect(fromA, equals(fromB), reason: 'resolution must be order-independent');
+      expect(
+        fromA,
+        equals(fromB),
+        reason: 'resolution must be order-independent',
+      );
       // The winner is one of the two versions, not a merge of both: the
       // resolved flags must match exactly one side's pair.
-      final matchesLocal = fromA.isFavorite == local.isFavorite &&
+      final matchesLocal =
+          fromA.isFavorite == local.isFavorite &&
           fromA.isHidden == local.isHidden;
-      final matchesRemote = fromA.isFavorite == remote.isFavorite &&
+      final matchesRemote =
+          fromA.isFavorite == remote.isFavorite &&
           fromA.isHidden == remote.isHidden;
       expect(
         matchesLocal || matchesRemote,

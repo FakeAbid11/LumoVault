@@ -113,7 +113,6 @@ class _AssetTileState extends State<AssetTile> {
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final title = widget.asset.title;
     return Semantics(
       container: true,
@@ -125,31 +124,32 @@ class _AssetTileState extends State<AssetTile> {
           '${widget.asset.type == AssetType.video ? 'Video' : 'Photo'}'
           '${title != null && title.isNotEmpty ? ', $title' : ''}',
       child: GestureDetector(
-      onTap: widget.onTap,
-      onLongPress: widget.onLongPress,
-      child: Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(_kTileRadius),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_kTileRadius),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildThumbnail(context),
-              if (widget.asset.type == AssetType.video)
-                _buildVideoIndicator(context)
-              else if (isGifFileName(widget.asset.title))
-                _buildGifIndicator(context),
-              if (widget.isSelectedForBackup) _buildStatusIndicator(context)!,
-              if (widget.isFavorite) _buildFavoriteIndicator(context),
-              if (widget.isSelected) ...[
-                _buildDimOverlay(context),
-                _buildSelectionOverlay(context),
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_kTileRadius),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_kTileRadius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildThumbnail(context),
+                if (widget.asset.type == AssetType.video)
+                  _buildVideoIndicator(context)
+                else if (isGifFileName(widget.asset.title))
+                  _buildGifIndicator(context),
+                if (widget.isSelectedForBackup) _buildStatusIndicator(context)!,
+                if (widget.isFavorite) _buildFavoriteIndicator(context),
+                if (widget.isSelected) ...[
+                  _buildDimOverlay(context),
+                  _buildSelectionOverlay(context),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

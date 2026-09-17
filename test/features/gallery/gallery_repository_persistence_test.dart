@@ -366,45 +366,40 @@ void main() {
       expect(repo2.getItemById('1'), isNull);
     });
 
-    test(
-      'incremental scan inserts new items in capture-date order',
-      () async {
-        final repo = GalleryRepository(
-          scannerService: _StubScanner([_item('20'), _item('5')], const []),
-          mediaDao: db.mediaDao,
-        );
-        await repo.scanDevice();
-        expect(
-          repo.mediaItems.map((i) => i.localId).toList(),
-          ['20', '5'],
-        );
+    test('incremental scan inserts new items in capture-date order', () async {
+      final repo = GalleryRepository(
+        scannerService: _StubScanner([_item('20'), _item('5')], const []),
+        mediaDao: db.mediaDao,
+      );
+      await repo.scanDevice();
+      expect(repo.mediaItems.map((i) => i.localId).toList(), ['20', '5']);
 
-        // A second repository over the same DB discovers a photo dated
-        // between the two already tracked. It must land at its sorted
-        // position, not at the end — the timeline is a date-sorted read
-        // model, and a plain append left it in the wrong place until the
-        // next full sort.
-        final repo2 = GalleryRepository(
-          scannerService: _StubScanner(const [], const []),
-          mediaDao: db.mediaDao,
-          incrementalScanner: _FakeIncrementalScanner(
-            IncrementalScanResult(
-              newItems: [_item('10')],
-              updatedItems: const [],
-              deletedIds: const [],
-              totalChecked: 3,
-              duration: const Duration(milliseconds: 1),
-            ),
+      // A second repository over the same DB discovers a photo dated
+      // between the two already tracked. It must land at its sorted
+      // position, not at the end — the timeline is a date-sorted read
+      // model, and a plain append left it in the wrong place until the
+      // next full sort.
+      final repo2 = GalleryRepository(
+        scannerService: _StubScanner(const [], const []),
+        mediaDao: db.mediaDao,
+        incrementalScanner: _FakeIncrementalScanner(
+          IncrementalScanResult(
+            newItems: [_item('10')],
+            updatedItems: const [],
+            deletedIds: const [],
+            totalChecked: 3,
+            duration: const Duration(milliseconds: 1),
           ),
-        );
-        await repo2.hydrate();
-        await repo2.scanDeviceIncremental();
+        ),
+      );
+      await repo2.hydrate();
+      await repo2.scanDeviceIncremental();
 
-        expect(
-          repo2.mediaItems.map((i) => i.localId).toList(),
-          ['20', '10', '5'],
-        );
-      },
-    );
+      expect(repo2.mediaItems.map((i) => i.localId).toList(), [
+        '20',
+        '10',
+        '5',
+      ]);
+    });
   });
 }

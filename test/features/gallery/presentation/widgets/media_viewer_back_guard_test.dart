@@ -144,7 +144,9 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 5));
   }
 
-  testWidgets('the fullscreen toggle reports state to the host', (tester) async {
+  testWidgets('the fullscreen toggle reports state to the host', (
+    tester,
+  ) async {
     final reported = <bool>[];
     await pumpPlayer(tester, reported.add);
 

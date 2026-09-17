@@ -71,10 +71,10 @@ void main() {
       // Exercises the real isolate path: the record argument must cross the
       // boundary and the Float32List must come back. (In an AOT build this is
       // also what breaks first if the vm:entry-point pragma is dropped.)
-      final tensor = await compute(
-        decodeAndPreprocessForEmbedding,
-        (_solidColorPng(48, 30, 60, 90), size),
-      );
+      final tensor = await compute(decodeAndPreprocessForEmbedding, (
+        _solidColorPng(48, 30, 60, 90),
+        size,
+      ));
       expect(tensor, isNotNull);
       expect(tensor!.length, 3 * plane);
     });

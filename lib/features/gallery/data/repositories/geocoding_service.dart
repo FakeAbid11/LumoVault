@@ -43,7 +43,10 @@ class GeoResult {
 /// A narrow HTTP seam so [GeocodingService]'s caching and rate-limiting can be
 /// tested without touching the network. Production code wraps [HttpClient].
 abstract class GeocodingHttpClient {
-  Future<({int statusCode, String body})> get(Uri uri, {required String userAgent});
+  Future<({int statusCode, String body})> get(
+    Uri uri, {
+    required String userAgent,
+  });
 }
 
 class _DartIoGeocodingHttpClient implements GeocodingHttpClient {
@@ -72,13 +75,13 @@ class _DartIoGeocodingHttpClient implements GeocodingHttpClient {
 /// per Nominatim's acceptable use policy.
 class GeocodingService {
   GeocodingService._({GeocodingHttpClient? httpClient})
-      : _httpClient = httpClient ?? _DartIoGeocodingHttpClient();
+    : _httpClient = httpClient ?? _DartIoGeocodingHttpClient();
 
   /// Testable constructor: inject an [GeocodingHttpClient] to exercise the
   /// cache and rate limiter without a network.
   @visibleForTesting
   GeocodingService({required GeocodingHttpClient httpClient})
-      : _httpClient = httpClient;
+    : _httpClient = httpClient;
 
   static final GeocodingService instance = GeocodingService._();
 
@@ -194,10 +197,7 @@ class GeocodingService {
         'https://nominatim.openstreetmap.org/reverse'
         '?lat=$lat&lon=$lng&format=json&zoom=10',
       );
-      final response = await _httpClient.get(
-        uri,
-        userAgent: _userAgent,
-      );
+      final response = await _httpClient.get(uri, userAgent: _userAgent);
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;

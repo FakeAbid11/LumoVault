@@ -260,32 +260,39 @@ void main() {
       expect(all[1].id, '2026/02');
     });
 
-    test('upsertItem moves an item to a new partition when its date changes', () {
-      final item = PartitionItem(
-        localId: '123',
-        fileHash: 'abc',
-        createdAt: DateTime(2026, 1, 15),
-        modifiedAt: DateTime(2026, 1, 15),
-      );
-      service.upsertItem(item);
-      expect(service.partitionCount, 1);
-      expect(service.getPartition('2026/01')!.items.length, 1);
+    test(
+      'upsertItem moves an item to a new partition when its date changes',
+      () {
+        final item = PartitionItem(
+          localId: '123',
+          fileHash: 'abc',
+          createdAt: DateTime(2026, 1, 15),
+          modifiedAt: DateTime(2026, 1, 15),
+        );
+        service.upsertItem(item);
+        expect(service.partitionCount, 1);
+        expect(service.getPartition('2026/01')!.items.length, 1);
 
-      // The capture date is edited: the item moves to February.
-      final moved = item.copyWith(createdAt: DateTime(2026, 2, 10));
-      service.upsertItem(moved);
+        // The capture date is edited: the item moves to February.
+        final moved = item.copyWith(createdAt: DateTime(2026, 2, 10));
+        service.upsertItem(moved);
 
-      // Exactly one membership, in the new partition — not a copy in both.
-      expect(service.partitionCount, 1, reason: 'item must not live in two partitions');
-      expect(service.getPartition('2026/01'), isNull);
-      final february = service.getPartition('2026/02');
-      expect(february, isNotNull);
-      expect(february!.items.length, 1);
-      expect(february.items.single.localId, '123');
+        // Exactly one membership, in the new partition — not a copy in both.
+        expect(
+          service.partitionCount,
+          1,
+          reason: 'item must not live in two partitions',
+        );
+        expect(service.getPartition('2026/01'), isNull);
+        final february = service.getPartition('2026/02');
+        expect(february, isNotNull);
+        expect(february!.items.length, 1);
+        expect(february.items.single.localId, '123');
 
-      // And a later removal targets the live copy, not a stale one.
-      service.removeItem('123');
-      expect(service.partitionCount, 0);
-    });
+        // And a later removal targets the live copy, not a stale one.
+        service.removeItem('123');
+        expect(service.partitionCount, 0);
+      },
+    );
   });
 }

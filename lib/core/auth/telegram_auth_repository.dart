@@ -276,7 +276,8 @@ class TelegramAuthRepository implements AuthService {
         // LumoVault can't create a Telegram account from here.
         _updateState(AuthState.error);
         return const AuthError(
-          message: 'This phone number needs a new Telegram account. Please '
+          message:
+              'This phone number needs a new Telegram account. Please '
               'register one in the official Telegram app first.',
           code: 'REGISTRATION_REQUIRED',
         );

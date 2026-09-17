@@ -107,10 +107,9 @@ class _VideoPlayerControlsState extends State<VideoPlayerControls>
                           size: 24,
                         ),
                         onPressed: widget.onFullscreenToggle,
-                        tooltip:
-                            widget.isFullscreen
-                                ? 'Exit fullscreen'
-                                : 'Enter fullscreen',
+                        tooltip: widget.isFullscreen
+                            ? 'Exit fullscreen'
+                            : 'Enter fullscreen',
                       ),
                   ],
                 ),

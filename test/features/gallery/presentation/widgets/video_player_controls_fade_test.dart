@@ -22,7 +22,10 @@ void main() {
     addTearDown(controller.dispose);
   });
 
-  Future<void> pumpControls(WidgetTester tester, {required bool visible}) async {
+  Future<void> pumpControls(
+    WidgetTester tester, {
+    required bool visible,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -49,11 +52,16 @@ void main() {
     final ignore = tester.widget<IgnorePointer>(
       find.descendant(of: scope, matching: find.byType(IgnorePointer)),
     );
-    expect(ignore.ignoring, isFalse, reason: 'visible controls must stay tappable');
+    expect(
+      ignore.ignoring,
+      isFalse,
+      reason: 'visible controls must stay tappable',
+    );
   });
 
-  testWidgets('invisible controls stay in the tree and fade to opacity 0',
-      (tester) async {
+  testWidgets('invisible controls stay in the tree and fade to opacity 0', (
+    tester,
+  ) async {
     await pumpControls(tester, visible: true);
 
     // Flip visible false: the widget must REMAIN in the tree with opacity 0

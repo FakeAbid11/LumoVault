@@ -51,7 +51,10 @@ void main() {
       for (final i in [0, plane ~/ 2, plane - 1]) {
         expect(tensor[i], closeTo((10 / 255 - 0.485) / 0.229, 1e-4));
         expect(tensor[plane + i], closeTo((200 / 255 - 0.456) / 0.224, 1e-4));
-        expect(tensor[2 * plane + i], closeTo((77 / 255 - 0.406) / 0.225, 1e-4));
+        expect(
+          tensor[2 * plane + i],
+          closeTo((77 / 255 - 0.406) / 0.225, 1e-4),
+        );
       }
     });
 
@@ -66,10 +69,10 @@ void main() {
       // Exercises the real isolate path: the record argument must cross the
       // boundary and the Float32List must come back. (In an AOT build this is
       // also what breaks first if the vm:entry-point pragma is dropped.)
-      final tensor = await compute(
-        decodeAndPreprocessForClassification,
-        (_solidColorPng(48, 30, 60, 90), 224),
-      );
+      final tensor = await compute(decodeAndPreprocessForClassification, (
+        _solidColorPng(48, 30, 60, 90),
+        224,
+      ));
       expect(tensor, isNotNull);
       expect(tensor!.length, 3 * 224 * 224);
     });

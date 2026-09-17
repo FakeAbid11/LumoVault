@@ -216,7 +216,10 @@ void main() {
         final service = _service(td);
 
         final done = Completer<void>();
-        final sub = service.progressStream.listen((_) {}, onDone: done.complete);
+        final sub = service.progressStream.listen(
+          (_) {},
+          onDone: done.complete,
+        );
         addTearDown(sub.cancel);
 
         // Start a download that never completes.

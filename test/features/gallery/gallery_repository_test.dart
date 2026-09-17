@@ -435,47 +435,56 @@ void main() {
       expect(await repository.requestPermission(), false);
     });
 
-    test('setLocation clears coordinates, name and the user-set flag', () async {
-      final items = [
-        createTestMediaItem(
-          localId: '1',
-          createdAt: DateTime(2026, 7, 10),
-        ).copyWith(
-          latitude: 48.85,
-          longitude: 2.35,
-          isLocationUserSet: true,
-          locationName: 'Paris, France',
-        ),
-      ];
+    test(
+      'setLocation clears coordinates, name and the user-set flag',
+      () async {
+        final items = [
+          createTestMediaItem(
+            localId: '1',
+            createdAt: DateTime(2026, 7, 10),
+          ).copyWith(
+            latitude: 48.85,
+            longitude: 2.35,
+            isLocationUserSet: true,
+            locationName: 'Paris, France',
+          ),
+        ];
 
-      mockScanner.setMediaItems(items);
-      await repository.scanDevice();
+        mockScanner.setMediaItems(items);
+        await repository.scanDevice();
 
-      final before = repository.getItemById('1');
-      expect(before?.hasLocation, isTrue);
-      expect(before?.isLocationUserSet, isTrue);
-      expect(before?.locationName, 'Paris, France');
+        final before = repository.getItemById('1');
+        expect(before?.hasLocation, isTrue);
+        expect(before?.isLocationUserSet, isTrue);
+        expect(before?.locationName, 'Paris, France');
 
-      await repository.setLocation('1', latitude: null, longitude: null);
+        await repository.setLocation('1', latitude: null, longitude: null);
 
-      final after = repository.getItemById('1');
-      // All three must go together: coordinates left in place while the
-      // flag flipped false meant a rescan could silently overwrite the pin.
-      expect(after?.latitude, isNull);
-      expect(after?.longitude, isNull);
-      expect(after?.isLocationUserSet, isFalse);
-      expect(after?.locationName, isNull);
-    });
+        final after = repository.getItemById('1');
+        // All three must go together: coordinates left in place while the
+        // flag flipped false meant a rescan could silently overwrite the pin.
+        expect(after?.latitude, isNull);
+        expect(after?.longitude, isNull);
+        expect(after?.isLocationUserSet, isFalse);
+        expect(after?.locationName, isNull);
+      },
+    );
 
     test('metadata edits bump modifiedAt for the sync layer', () async {
       final old = DateTime(2020, 1, 1);
       final items = [
-        createTestMediaItem(localId: '1', createdAt: DateTime(2026, 7, 10))
-            .copyWith(modifiedAt: old, isDateUserSet: false),
-        createTestMediaItem(localId: '2', createdAt: DateTime(2026, 7, 11))
-            .copyWith(modifiedAt: old),
-        createTestMediaItem(localId: '3', createdAt: DateTime(2026, 7, 12))
-            .copyWith(modifiedAt: old),
+        createTestMediaItem(
+          localId: '1',
+          createdAt: DateTime(2026, 7, 10),
+        ).copyWith(modifiedAt: old, isDateUserSet: false),
+        createTestMediaItem(
+          localId: '2',
+          createdAt: DateTime(2026, 7, 11),
+        ).copyWith(modifiedAt: old),
+        createTestMediaItem(
+          localId: '3',
+          createdAt: DateTime(2026, 7, 12),
+        ).copyWith(modifiedAt: old),
       ];
 
       mockScanner.setMediaItems(items);

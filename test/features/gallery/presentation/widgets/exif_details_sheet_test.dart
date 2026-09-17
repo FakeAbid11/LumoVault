@@ -161,9 +161,7 @@ void main() {
       ProviderScope(
         overrides: [galleryRepositoryProvider.overrideWithValue(repository)],
         child: MaterialApp(
-          home: Scaffold(
-            body: ExifDetailsSheet(item: testItemWithoutLocation),
-          ),
+          home: Scaffold(body: ExifDetailsSheet(item: testItemWithoutLocation)),
         ),
       ),
     );

@@ -84,25 +84,28 @@ void main() {
       return repository;
     }
 
-    test('a restart rehydrates layer 1 from the persisted partitions', () async {
-      // First "process": record an item and force the stores to disk.
-      final first = buildRepository();
-      await first.initialize();
-      first.recordNewItem(_item('100'));
-      await first.partitionService.saveNow();
-      await first.generateManifest(deviceHash: 'device-1');
-      await first.manifestService.saveNow();
-      first.dispose();
+    test(
+      'a restart rehydrates layer 1 from the persisted partitions',
+      () async {
+        // First "process": record an item and force the stores to disk.
+        final first = buildRepository();
+        await first.initialize();
+        first.recordNewItem(_item('100'));
+        await first.partitionService.saveNow();
+        await first.generateManifest(deviceHash: 'device-1');
+        await first.manifestService.saveNow();
+        first.dispose();
 
-      // Fresh repository on the same stores — a cold start.
-      final second = buildRepository();
-      await second.initialize();
+        // Fresh repository on the same stores — a cold start.
+        final second = buildRepository();
+        await second.initialize();
 
-      expect(second.totalItems, 1, reason: 'layer 1 must hydrate from disk');
-      expect(second.getItemMetadata('100'), isNotNull);
-      expect(second.partitionService.partitionCount, greaterThan(0));
-      second.dispose();
-    });
+        expect(second.totalItems, 1, reason: 'layer 1 must hydrate from disk');
+        expect(second.getItemMetadata('100'), isNotNull);
+        expect(second.partitionService.partitionCount, greaterThan(0));
+        second.dispose();
+      },
+    );
 
     test('a restart restores the sync baseline, so nothing is dirty', () async {
       final first = buildRepository();
@@ -138,39 +141,46 @@ void main() {
       second.dispose();
     });
 
-    test('a genuine change after a restart is still detected as dirty', () async {
-      // Establish a fully-synced baseline (nothing dirty).
-      final first = buildRepository();
-      await first.initialize();
-      first.recordNewItem(_item('102'));
-      await first.generateManifest(deviceHash: 'device-1');
-      first.manifestService.recordSyncedPartitions(
-        partitions: first.partitionService.getAllPartitions(),
-        syncTime: DateTime.utc(2026, 3, 15),
-      );
-      await first.partitionService.saveNow();
-      await first.manifestService.saveNow();
-      first.dispose();
+    test(
+      'a genuine change after a restart is still detected as dirty',
+      () async {
+        // Establish a fully-synced baseline (nothing dirty).
+        final first = buildRepository();
+        await first.initialize();
+        first.recordNewItem(_item('102'));
+        await first.generateManifest(deviceHash: 'device-1');
+        first.manifestService.recordSyncedPartitions(
+          partitions: first.partitionService.getAllPartitions(),
+          syncTime: DateTime.utc(2026, 3, 15),
+        );
+        await first.partitionService.saveNow();
+        await first.manifestService.saveNow();
+        first.dispose();
 
-      // Cold start with a restored baseline.
-      final second = buildRepository();
-      await second.initialize();
-      expect(second.getDirtyPartitions(), isEmpty, reason: 'baseline restored');
+        // Cold start with a restored baseline.
+        final second = buildRepository();
+        await second.initialize();
+        expect(
+          second.getDirtyPartitions(),
+          isEmpty,
+          reason: 'baseline restored',
+        );
 
-      // A real edit must still move the partition off the baseline — the whole
-      // point of loading the baseline is precision, not suppression.
-      final existing = second.getItemMetadata('102')!;
-      second.recordStateChange(
-        localId: '102',
-        operation: 'favorite_toggle',
-        updatedItem: existing.copyWith(isFavorite: true),
-      );
-      expect(
-        second.getDirtyPartitions(),
-        isNotEmpty,
-        reason: 'a post-restart edit must be detected as dirty',
-      );
-      second.dispose();
-    });
+        // A real edit must still move the partition off the baseline — the whole
+        // point of loading the baseline is precision, not suppression.
+        final existing = second.getItemMetadata('102')!;
+        second.recordStateChange(
+          localId: '102',
+          operation: 'favorite_toggle',
+          updatedItem: existing.copyWith(isFavorite: true),
+        );
+        expect(
+          second.getDirtyPartitions(),
+          isNotEmpty,
+          reason: 'a post-restart edit must be detected as dirty',
+        );
+        second.dispose();
+      },
+    );
   });
 }

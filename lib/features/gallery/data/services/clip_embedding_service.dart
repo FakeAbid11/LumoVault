@@ -94,10 +94,10 @@ class ClipEmbeddingService implements AiTextEmbedder {
       // Decode + resize + normalize off the main isolate: this chain is the
       // expensive half of embedding, and running it inline dropped frames
       // during a full-library scan.
-      final inputTensor = await compute(
-        decodeAndPreprocessForEmbedding,
-        (imageBytes, _inputSize),
-      );
+      final inputTensor = await compute(decodeAndPreprocessForEmbedding, (
+        imageBytes,
+        _inputSize,
+      ));
       if (inputTensor == null) return null;
 
       ortValue = await OrtValue.fromList(inputTensor, [

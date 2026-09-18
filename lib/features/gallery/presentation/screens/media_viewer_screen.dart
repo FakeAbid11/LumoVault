@@ -654,7 +654,11 @@ class _BottomAction extends StatelessWidget {
 }
 
 class _AssetPreview extends StatefulWidget {
-  const _AssetPreview({required this.asset, this.onZoomChanged, this.onFullscreenChanged});
+  const _AssetPreview({
+    required this.asset,
+    this.onZoomChanged,
+    this.onFullscreenChanged,
+  });
 
   final AssetEntity asset;
   final ValueChanged<bool>? onZoomChanged;

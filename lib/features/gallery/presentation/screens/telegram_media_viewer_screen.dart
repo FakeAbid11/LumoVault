@@ -267,7 +267,11 @@ class _TelegramMediaViewerScreenState
 }
 
 class _TelegramPreview extends ConsumerStatefulWidget {
-  const _TelegramPreview({required this.item, this.onZoomChanged, this.onFullscreenChanged});
+  const _TelegramPreview({
+    required this.item,
+    this.onZoomChanged,
+    this.onFullscreenChanged,
+  });
 
   final MediaItem item;
   final ValueChanged<bool>? onZoomChanged;

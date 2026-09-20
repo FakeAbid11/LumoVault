@@ -187,7 +187,7 @@ class TdLibClient {
     debugPrint('[TdLibClient] initialize: getting app documents directory');
     final appDir = await getApplicationDocumentsDirectory();
 
-    _databaseDir = Directory('${appDir.path}/tdlib_db');
+    _databaseDir = Directory('${appDir.path}/${TdLibConfig.databaseDirName}');
     _filesDir = Directory('${appDir.path}/tdlib_files');
 
     if (!await _databaseDir!.exists()) {

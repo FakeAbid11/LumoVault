@@ -7,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.concurrent.futures.CallbackToFutureAdapter
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
@@ -45,6 +46,7 @@ class BackgroundWorker(
         private const val FG_NOTIFICATION_ID_KEY = "payload_lumo_fg_notification_id"
         private const val FG_TITLE_KEY = "payload_lumo_fg_title"
         private const val FG_TEXT_KEY = "payload_lumo_fg_text"
+        private const val FG_LOG_TAG = "LumoForeground"
         private const val DEFAULT_FG_CHANNEL_ID = "backup_progress"
         private const val DEFAULT_FG_NOTIFICATION_ID = 1001
 
@@ -297,7 +299,38 @@ class BackgroundWorker(
                 } else {
                     ForegroundInfo(notificationId, notification)
                 }
-            setForegroundAsync(foregroundInfo)
+            // Observe the result rather than dropping it. setForegroundAsync is
+            // asynchronous, so a rejected promotion — a SecurityException on
+            // Android 14+, or the dataSync 6-hour-per-24-hour quota already
+            // being spent — never reached the catch below and logged nothing.
+            // The run then quietly fell back to ordinary background limits and
+            // WorkManager killed it at the ~10-minute mark, which is exactly
+            // what "long backups just stop" looks like from the outside.
+            val foregroundFuture = setForegroundAsync(foregroundInfo)
+            foregroundFuture.addListener(
+                {
+                    try {
+                        foregroundFuture.get()
+                        Log.i(FG_LOG_TAG, "Promoted to dataSync foreground service")
+                    } catch (failure: Exception) {
+                        Log.e(
+                            FG_LOG_TAG,
+                            "Foreground promotion FAILED - this run is subject " +
+                                "to the ~10 minute background limit and will be " +
+                                "killed if it needs longer",
+                            failure,
+                        )
+                        WorkmanagerDebug.onExceptionEncountered(
+                            applicationContext,
+                            null,
+                            failure,
+                        )
+                    }
+                },
+                java.util.concurrent.Executor { command ->
+                    Handler(Looper.getMainLooper()).post(command)
+                },
+            )
         } catch (e: Exception) {
             WorkmanagerDebug.onExceptionEncountered(applicationContext, null, e)
         }

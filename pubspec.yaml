@@ -45,12 +45,16 @@ dependencies:
 
   # Map (Immich-style photo map). flutter_map renders OpenStreetMap tiles with
   # no API key; latlong2 supplies its LatLng type; the marker-cluster plugin
-  # collapses nearby pins. geolocator is used ONLY to center the map on the
-  # device's current location — photo coordinates come from photo_manager EXIF.
+  # collapses nearby pins. Photo coordinates come from photo_manager EXIF.
+  #
+  # geolocator was removed: no Dart code ever imported it, and its Android
+  # plugin merges a foregroundServiceType="location" service into the manifest
+  # without the matching FOREGROUND_SERVICE_LOCATION permission — a hard
+  # problem for Play on targetSdk 34+. Re-add it together with that permission
+  # if a "center on my location" affordance is ever built.
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   flutter_map_marker_cluster: ^1.4.0
-  geolocator: ^13.0.1
 
   # Battery/Charging State
   battery_plus: ^6.2.0

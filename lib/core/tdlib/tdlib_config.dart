@@ -39,4 +39,11 @@ class TdLibConfig {
 
   /// Database encryption key length in bytes.
   static const int databaseKeyLength = 32;
+
+  /// Name of the on-disk TDLib database directory, relative to the app
+  /// documents directory.
+  ///
+  /// Shared because key provisioning has to inspect it: a non-empty directory
+  /// means a database already exists and was encrypted with some earlier key.
+  static const String databaseDirName = 'tdlib_db';
 }

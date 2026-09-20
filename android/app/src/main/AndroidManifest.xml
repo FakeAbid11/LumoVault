@@ -22,12 +22,12 @@
 
     <!-- Read un-redacted GPS EXIF from photos (Android 10+/API 29) so the Map
          tab can plot photos by location. Without this, photo_manager returns
-         stripped coordinates. -->
+         stripped coordinates. Note this is NOT a location permission: the app
+         never reads the device's own position, only coordinates stored inside
+         the user's own photos. ACCESS_FINE/COARSE_LOCATION were declared for a
+         geolocator "center on me" feature that was never built, and unused
+         high-risk permissions are a documented Play rejection reason. -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
-    <!-- Device current location, used only to center the Map on the user.
-         Optional — the map works without it. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:label="LumoVault"

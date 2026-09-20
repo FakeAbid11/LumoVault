@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../features/settings/presentation/providers/settings_providers.dart';
 import '../auth/auth_service.dart';
@@ -13,6 +15,7 @@ import '../storage/storage_channel_service.dart';
 import '../tdlib/tdlib_client.dart';
 import '../tdlib/tdlib_config.dart';
 import '../tdlib/tdlib_connection_manager.dart';
+import '../tdlib/tdlib_exception.dart';
 
 /// Secure storage key under which the TDLib database encryption key is stored.
 const String kTdLibDatabaseKeyName = 'lumovault_tdlib_db_key';
@@ -168,6 +171,22 @@ Future<String> _doReadOrCreateDatabaseKey(FlutterSecureStorage storage) async {
       return existing;
     }
 
+    // Nothing came back. That is either a genuine first run or a *lost* key,
+    // and the two must not be treated alike: provisioning a fresh key over an
+    // existing database leaves TDLib unable to open files encrypted with the
+    // old one, destroying the session while the app just looks logged out.
+    // The migration to Keystore-backed storage is precisely the moment that
+    // can happen, so look for a live database before writing anything.
+    if (await _tdLibDatabaseAlreadyExists()) {
+      throw const TdLibException(
+        message: 'TDLib database encryption key is missing',
+        code: 'DB_KEY_LOST',
+        userFacingMessage:
+            'LumoVault could not unlock its Telegram session. Please sign in '
+            'again — your backed-up photos are safe in your Telegram channel.',
+      );
+    }
+
     final key = _generateSecureKey();
     await storage.write(key: kTdLibDatabaseKeyName, value: key);
     return key;
@@ -176,6 +195,21 @@ Future<String> _doReadOrCreateDatabaseKey(FlutterSecureStorage storage) async {
     // process — let the next caller retry.
     _databaseKeyFuture = null;
     rethrow;
+  }
+}
+
+/// Whether TDLib has already written a database to disk.
+///
+/// An unreadable directory counts as existing: a spurious "sign in again"
+/// prompt is recoverable, overwriting the key of a live database is not.
+Future<bool> _tdLibDatabaseAlreadyExists() async {
+  try {
+    final appDir = await getApplicationDocumentsDirectory();
+    final dir = Directory('${appDir.path}/${TdLibConfig.databaseDirName}');
+    if (!await dir.exists()) return false;
+    return await dir.list().any((_) => true);
+  } catch (_) {
+    return true;
   }
 }
 

@@ -1,0 +1,403 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:photo_manager/photo_manager.dart';
+
+import '../../../../core/di/album_providers.dart';
+import '../../../../core/di/gallery_providers.dart';
+import '../../../../shared/widgets/empty_state.dart';
+import '../../../gallery/data/models/media_item.dart';
+import '../../../gallery/presentation/widgets/asset_tile.dart';
+import '../../../settings/data/models/app_settings.dart';
+import '../../../settings/presentation/providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+/// Trash screen — view, restore, or permanently delete trashed media.
+///
+/// Resolves each trashed item's [MediaItem.localId] to a device
+/// [AssetEntity] via [AssetEntity.fromId] directly, rather than requiring
+/// the asset to be in [deviceAssetsProvider]. This is necessary because
+/// items trashed from the media viewer are moved to Android's system trash
+/// and no longer appear in the normal device asset listing.
+class TrashScreen extends ConsumerStatefulWidget {
+  const TrashScreen({super.key});
+
+  @override
+  ConsumerState<TrashScreen> createState() => _TrashScreenState();
+}
+
+class _TrashScreenState extends ConsumerState<TrashScreen> {
+  final Set<String> _selected = {};
+  bool get _isMultiSelect => _selected.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final trashed = ref.watch(trashedItemsProvider);
+
+    return PopScope(
+      canPop: !_isMultiSelect,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(_selected.clear);
+      },
+      child: Scaffold(
+        appBar: _isMultiSelect
+            ? AppBar(
+                leading: IconButton(
+                  icon: const Icon(Symbols.close),
+                  onPressed: () => setState(_selected.clear),
+                  tooltip: 'Cancel selection',
+                ),
+                title: Text('${_selected.length} selected'),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Symbols.restore),
+                    tooltip: 'Restore',
+                    onPressed: () => _restoreSelected(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Symbols.delete_forever),
+                    tooltip: 'Delete permanently',
+                    onPressed: () => _confirmDelete(
+                      count: _selected.length,
+                      onConfirm: () => _deleteSelected(),
+                    ),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: const Text('Trash'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      final items = trashed.valueOrNull;
+                      if (items == null || items.isEmpty) return;
+                      _confirmDelete(
+                        count: items.length,
+                        emptyAll: true,
+                        onConfirm: () => _emptyTrash(items),
+                      );
+                    },
+                    child: const Text('Empty'),
+                  ),
+                ],
+              ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(trashedItemsProvider);
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+          },
+          child: trashed.when(
+            data: (items) => _buildBody(items),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('$e')),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(List<MediaItem> items) {
+    if (items.isEmpty) return _buildEmptyState();
+
+    // Show the user's actual Trash-duration setting, not the hardcoded
+    // default — "Never delete" must not claim a 30-day purge.
+    final retentionDays = ref.watch(appSettingsProvider).trashDurationDays;
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Text(
+            retentionDays <= 0
+                ? 'Items stay in Trash until you delete them. '
+                      'Long-press to select.'
+                : 'Items are permanently deleted after $retentionDays days. '
+                      'Long-press to select.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(2),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: galleryCrossAxisCount(
+                ref.watch(settingsGridSizeProvider),
+                ref.watch(settingsCompactModeProvider),
+              ),
+              crossAxisSpacing: 2,
+              mainAxisSpacing: 2,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _TrashedTile(
+                item: item,
+                isSelected: _selected.contains(item.localId),
+                onTap: () {
+                  if (_isMultiSelect) {
+                    setState(() {
+                      if (!_selected.remove(item.localId)) {
+                        _selected.add(item.localId);
+                      }
+                    });
+                    return;
+                  }
+                  _openPreview(item);
+                },
+                onLongPress: () {
+                  setState(() => _selected.add(item.localId));
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Full-screen preview before permanent delete. Outside multi-select the
+  /// tap used to be a no-op — users had to delete forever without ever
+  /// seeing the photo clearly at tile size.
+  void _openPreview(MediaItem item) {
+    if (item.isTelegram) {
+      context.push(
+        '/gallery/telegram-media/${item.localId}',
+        extra: (items: [item], initialIndex: 0),
+      );
+      return;
+    }
+    AssetEntity.fromId(item.localId)
+        .then((asset) {
+          if (!mounted || asset == null) return;
+          context.push(
+            '/gallery/media/${asset.id}',
+            extra: (assets: [asset], initialIndex: 0, allowDeviceDelete: false),
+          );
+        })
+        .catchError((Object e) {
+          debugPrint('[TrashScreen] Preview failed for ${item.localId}: $e');
+        });
+  }
+
+  Future<void> _restoreSelected() async {
+    final repository = ref.read(galleryRepositoryProvider);
+    final ids = List<String>.from(_selected);
+    setState(_selected.clear);
+    for (final id in ids) {
+      await repository.restoreFromTrash(id);
+    }
+    // Bring the files out of Android's SYSTEM trash too: trashing used
+    // moveToTrash(), and without this a 'restored' photo was still pending
+    // the OS's 30-day purge while the app showed it as active. One batched
+    // call = one system prompt. Best-effort — pre-API-30 devices and a
+    // declined prompt still keep the app-side restore valid.
+    try {
+      final assets = (await Future.wait(
+        ids.map(AssetEntity.fromId),
+      )).nonNulls.toList();
+      if (assets.isNotEmpty) {
+        await PhotoManager.editor.android.restoreFromTrash(assets);
+      }
+    } catch (e) {
+      debugPrint('[TrashScreen] System-trash restore failed: $e');
+    }
+    ref.invalidate(trashedItemsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${ids.length} restored')));
+  }
+
+  Future<void> _deleteSelected() async {
+    final repository = ref.read(galleryRepositoryProvider);
+    final ids = List<String>.from(_selected);
+    setState(_selected.clear);
+    await repository.deletePermanentlyBatch(ids);
+    ref.invalidate(trashedItemsProvider);
+    ref.invalidate(duplicateGroupsProvider);
+    ref.invalidate(albumCountsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${ids.length} permanently deleted')),
+    );
+  }
+
+  Future<void> _emptyTrash(List<MediaItem> items) async {
+    final repository = ref.read(galleryRepositoryProvider);
+    await repository.deletePermanentlyBatch(
+      items.map((i) => i.localId).toList(),
+    );
+    ref.invalidate(trashedItemsProvider);
+    ref.invalidate(duplicateGroupsProvider);
+    ref.invalidate(albumCountsProvider);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Trash emptied')));
+  }
+
+  void _confirmDelete({
+    required int count,
+    required VoidCallback onConfirm,
+    bool emptyAll = false,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Symbols.delete_forever,
+          color: Theme.of(context).colorScheme.error,
+          size: 48,
+        ),
+        title: Text(emptyAll ? 'Empty trash?' : 'Delete permanently?'),
+        content: Text(
+          emptyAll
+              ? 'All $count items will be permanently deleted. '
+                    'This can\'t be undone.'
+              : '$count ${count == 1 ? 'item' : 'items'} will be permanently '
+                    'deleted. This can\'t be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              onConfirm();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final retentionDays = ref.watch(appSettingsProvider).trashDurationDays;
+    return EmptyState(
+      icon: Symbols.delete,
+      title: 'Trash is empty',
+      message: retentionDays <= 0
+          ? 'Items moved to trash will\nstay until you delete them.'
+          : 'Items moved to trash will be\npermanently deleted after '
+                '$retentionDays days.',
+    );
+  }
+}
+
+/// A grid tile for a trashed item that resolves its [AssetEntity] via
+/// [AssetEntity.fromId] instead of relying on [deviceAssetsProvider].
+///
+/// Items trashed from the media viewer are in Android's system trash and
+/// won't appear in the normal device asset listing, so we resolve them
+/// individually. If resolution fails (e.g. the file was purged from system
+/// trash), a placeholder icon is shown.
+class _TrashedTile extends StatefulWidget {
+  const _TrashedTile({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final MediaItem item;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  State<_TrashedTile> createState() => _TrashedTileState();
+}
+
+class _TrashedTileState extends State<_TrashedTile> {
+  /// Created once per item rather than in build(). Building the Future inline
+  /// re-issued a MediaStore lookup for every visible tile on every parent
+  /// repaint — a single selection tap flashed the whole grid back to its
+  /// spinner.
+  late final Future<AssetEntity?> _assetFuture;
+
+  // Keeps the existing unqualified references valid after the move into State.
+  MediaItem get item => widget.item;
+  bool get isSelected => widget.isSelected;
+  VoidCallback get onTap => widget.onTap;
+  VoidCallback get onLongPress => widget.onLongPress;
+
+  @override
+  void initState() {
+    super.initState();
+    _assetFuture = AssetEntity.fromId(item.localId);
+  }
+
+  @override
+  void didUpdateWidget(_TrashedTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A lazy grid can hand the same Element a different item on scroll.
+    if (oldWidget.item.localId != widget.item.localId) {
+      _assetFuture = AssetEntity.fromId(widget.item.localId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AssetEntity?>(
+      future: _assetFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+        final asset = snapshot.data;
+        if (asset == null) {
+          return _buildPlaceholder(context);
+        }
+        return AssetTile(
+          asset: asset,
+          isSelected: isSelected,
+          onTap: onTap,
+          onLongPress: onLongPress,
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaceholder(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Symbols.image_not_supported,
+              size: 32,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              item.fileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

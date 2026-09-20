@@ -1,0 +1,159 @@
+name: CI
+
+# Was workflow_dispatch-only, so the analyze -> test -> build chain never ran
+# on a push or a pull request and nothing gated a merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.44.6'
+  # Floor, not a target: measured at 40.5% line coverage on the commit this gate
+  # was added (8316/20540 lines, generated *.g.dart included in the denominator).
+  # Raise it as coverage grows; never lower it to go green.
+  MIN_LINE_COVERAGE: '40'
+
+jobs:
+  analyze:
+    name: Analyze & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze project source
+        run: dart analyze --fatal-infos
+
+      - name: Verify generated code is committed and current
+        # drift's *.g.dart is analyzer-excluded (analysis_options.yaml) and was
+        # never regenerated in CI, so a schema or DAO change could merge with
+        # stale generated companions in the tree and the build would still pass.
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- '*.g.dart' || {
+            echo "::error::Generated *.g.dart is out of date. Run 'dart run build_runner build --delete-conflicting-outputs' and commit."
+            git diff --stat -- '*.g.dart'
+            exit 1
+          }
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: analyze
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test --coverage
+
+      - name: Enforce coverage floor
+        # The Codecov upload below is deliberately tolerant (it needs a repo
+        # token and can fail on forks), which meant coverage was decorative —
+        # it could fall to nothing and CI stayed green. This gate has no
+        # external dependency.
+        run: |
+          awk -F: -v min="$MIN_LINE_COVERAGE" '
+            /^LF:/ { found += $2 }
+            /^LH:/ { hit   += $2 }
+            END {
+              if (found == 0) { print "no lcov data found"; exit 1 }
+              pct = hit * 100 / found
+              printf "Line coverage %.1f%% (%d/%d), floor %s%%\n",
+                pct, hit, found, min
+              exit (pct < min ? 1 : 0)
+            }
+          ' coverage/lcov.info
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info
+          flags: unittests
+        continue-on-error: true
+
+  build-apk:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK (debug)
+        env:
+          LUMOVAULT_TELEGRAM_API_ID: ${{ secrets.LUMOVAULT_TELEGRAM_API_ID }}
+          LUMOVAULT_TELEGRAM_API_HASH: ${{ secrets.LUMOVAULT_TELEGRAM_API_HASH }}
+        run: |
+          API_ID=$(printf '%s' "$LUMOVAULT_TELEGRAM_API_ID" | tr -d '[:space:]')
+          API_HASH=$(printf '%s' "$LUMOVAULT_TELEGRAM_API_HASH" | tr -d '[:space:]')
+
+          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
+            echo "::error::LUMOVAULT_TELEGRAM_API_ID or LUMOVAULT_TELEGRAM_API_HASH is missing/empty."
+            exit 1
+          fi
+
+          flutter build apk --debug --verbose \
+            --dart-define=LUMOVAULT_TELEGRAM_API_ID="$API_ID" \
+            --dart-define=LUMOVAULT_TELEGRAM_API_HASH="$API_HASH" \
+            > build.log 2>&1 || {
+            echo "## Build Failed - Full build.log (last 120 lines):"
+            echo '```'
+            tail -n 120 build.log
+            echo '```'
+            echo "## Build Failed - Key Errors:"
+            echo '```'
+            grep -iE "what went wrong|FAILURE:|could not|error:|Exception|Execution failed|problem occurred|unresolved|incompatible|requires|minimum" build.log | head -n 60
+            echo '```'
+            exit 1
+          }
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-log-${{ github.sha }}
+          path: build.log
+          retention-days: 7
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: apk-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 14

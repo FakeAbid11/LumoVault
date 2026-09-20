@@ -1,0 +1,172 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../onboarding/presentation/providers/onboarding_provider.dart';
+import '../providers/settings_providers.dart';
+import 'package:material_symbols_icons/symbols.dart';
+
+/// General settings screen — language and basic options.
+class GeneralSettingsScreen extends ConsumerWidget {
+  const GeneralSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('General')),
+      body: ListView(
+        children: [
+          const _SectionHeader(title: 'Language'),
+          ListTile(
+            leading: const Icon(Symbols.language),
+            title: const Text('App Language'),
+            // The choice is persisted, but no translations are wired up yet
+            // (no localization delegates in app.dart) — saying so is more
+            // honest than presenting a dead control as working.
+            subtitle: Text(
+              '${_languageName(settings.languageCode)} — translations '
+              'coming soon',
+            ),
+            trailing: const Icon(Symbols.chevron_right),
+            onTap: () => _showLanguagePicker(context, ref, settings),
+          ),
+
+          const Divider(),
+
+          const _SectionHeader(title: 'Data'),
+          ListTile(
+            leading: const Icon(Symbols.restore),
+            title: const Text('Reset Onboarding'),
+            subtitle: const Text('Show the onboarding flow again'),
+            onTap: () => _confirmResetOnboarding(context, ref),
+          ),
+          ListTile(
+            leading: const Icon(Symbols.restart_alt),
+            title: const Text('Reset All Settings'),
+            subtitle: const Text('Restore all settings to defaults'),
+            onTap: () => _confirmResetAll(context, ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _languageName(String code) {
+    const names = {'en': 'English', 'es': 'Spanish', 'fr': 'French'};
+    return names[code] ?? code;
+  }
+
+  void _showLanguagePicker(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic settings,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Select Language'),
+        children: [
+          _languageOption(context, ref, 'en', 'English'),
+          _languageOption(context, ref, 'es', 'Spanish'),
+          _languageOption(context, ref, 'fr', 'French'),
+        ],
+      ),
+    );
+  }
+
+  SimpleDialogOption _languageOption(
+    BuildContext context,
+    WidgetRef ref,
+    String code,
+    String name,
+  ) {
+    return SimpleDialogOption(
+      onPressed: () {
+        ref
+            .read(appSettingsProvider.notifier)
+            .updateField((s) => s.copyWith(languageCode: code));
+        Navigator.of(context).pop();
+      },
+      child: Text(name),
+    );
+  }
+
+  void _confirmResetOnboarding(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Onboarding?'),
+        content: const Text(
+          'This will show the onboarding flow on next app launch.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .updateField((s) => s.copyWith(onboardingCompleted: false));
+              // The router's redirect reads the in-memory provider, not the
+              // persisted flag — main.dart hydrates that into the provider once
+              // at boot. Writing only the setting made this tile a no-op until
+              // an app kill, contradicting its own "Show the onboarding flow
+              // again" promise.
+              ref.read(onboardingCompletedProvider.notifier).state = false;
+              Navigator.of(context).pop();
+            },
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetAll(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset All Settings?'),
+        content: const Text(
+          'This will restore all settings to their default values. '
+          'Your data will not be affected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(appSettingsProvider.notifier).resetToDefaults();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+}
